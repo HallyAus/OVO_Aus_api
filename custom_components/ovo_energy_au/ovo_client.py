@@ -573,6 +573,151 @@ class OVOEnergyAU:
         result = self._make_graphql_request(query, variables)
         return result.get("GetHourlyData", {})
 
+    def get_interval_data(self) -> Dict[str, Any]:
+        """Get daily/monthly/yearly interval data
+
+        Returns aggregated data for daily, monthly, and yearly periods.
+        Useful for getting month-to-date and historical monthly totals.
+        """
+        if not self.account_id:
+            raise ValueError("account_id must be set")
+
+        query = """
+        query GetIntervalData($input: GetIntervalDataInput!) {
+          GetIntervalData(input: $input) {
+            daily {
+              solar {
+                periodFrom
+                periodTo
+                consumption
+                readType
+                charge {
+                  value
+                  type
+                }
+              }
+              export {
+                periodFrom
+                periodTo
+                consumption
+                readType
+                charge {
+                  value
+                  type
+                }
+                rates {
+                  type
+                  charge {
+                    value
+                    type
+                  }
+                  consumption
+                  percentOfTotal
+                }
+              }
+              savings {
+                periodFrom
+                periodTo
+                amount {
+                  value
+                  type
+                }
+                description
+              }
+            }
+            monthly {
+              solar {
+                periodFrom
+                periodTo
+                consumption
+                readType
+                charge {
+                  value
+                  type
+                }
+              }
+              export {
+                periodFrom
+                periodTo
+                consumption
+                readType
+                charge {
+                  value
+                  type
+                }
+                rates {
+                  type
+                  charge {
+                    value
+                    type
+                  }
+                  consumption
+                  percentOfTotal
+                }
+              }
+              savings {
+                periodFrom
+                periodTo
+                amount {
+                  value
+                  type
+                }
+                description
+              }
+            }
+            yearly {
+              solar {
+                periodFrom
+                periodTo
+                consumption
+                readType
+                charge {
+                  value
+                  type
+                }
+              }
+              export {
+                periodFrom
+                periodTo
+                consumption
+                readType
+                charge {
+                  value
+                  type
+                }
+                rates {
+                  type
+                  charge {
+                    value
+                    type
+                  }
+                  consumption
+                  percentOfTotal
+                }
+              }
+              savings {
+                periodFrom
+                periodTo
+                amount {
+                  value
+                  type
+                }
+                description
+              }
+            }
+          }
+        }
+        """
+
+        variables = {
+            "input": {
+                "accountId": self.account_id
+            }
+        }
+
+        result = self._make_graphql_request(query, variables)
+        return result.get("GetIntervalData", {})
+
     def close(self):
         """Clean up resources"""
         self.session.close()

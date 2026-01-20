@@ -18,6 +18,12 @@ SENSOR_EXPORT_CURRENT = "export_current"
 SENSOR_SOLAR_TODAY = "solar_today"
 SENSOR_EXPORT_TODAY = "export_today"
 SENSOR_SAVINGS_TODAY = "savings_today"
+SENSOR_SOLAR_THIS_MONTH = "solar_this_month"
+SENSOR_SOLAR_LAST_MONTH = "solar_last_month"
+SENSOR_EXPORT_THIS_MONTH = "export_this_month"
+SENSOR_EXPORT_LAST_MONTH = "export_last_month"
+SENSOR_SAVINGS_THIS_MONTH = "savings_this_month"
+SENSOR_SAVINGS_LAST_MONTH = "savings_last_month"
 
 # Units
 UNIT_KWH = "kWh"

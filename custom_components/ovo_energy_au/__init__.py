@@ -113,15 +113,19 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         try:
             _LOGGER.info("Fetching data from OVO Energy API...")
 
-            # Run sync client in executor
-            data = await self.hass.async_add_executor_job(
+            # Run sync client in executor - fetch both today's and interval data
+            today_data = await self.hass.async_add_executor_job(
                 self.client.get_today_data
             )
+            interval_data = await self.hass.async_add_executor_job(
+                self.client.get_interval_data
+            )
 
-            _LOGGER.info("Received raw data from API: %s", data)
+            _LOGGER.info("Received today's data from API: %s", today_data)
+            _LOGGER.info("Received interval data from API: %s", interval_data)
 
             # Process and structure the data
-            processed_data = self._process_data(data)
+            processed_data = self._process_data(today_data, interval_data)
 
             _LOGGER.info("Processed data for sensors: %s", processed_data)
             return processed_data
@@ -141,11 +145,12 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.exception("Unexpected error fetching OVO Energy data")
             raise UpdateFailed(f"Unexpected error: {err}") from err
 
-    def _process_data(self, raw_data: dict) -> dict:
+    def _process_data(self, today_data: dict, interval_data: dict) -> dict:
         """Process raw API data into structured format for sensors."""
-        solar_data = raw_data.get("solar", [])
-        export_data = raw_data.get("export", [])
-        savings_data = raw_data.get("savings", [])
+        # Process today's hourly data
+        solar_data = today_data.get("solar", [])
+        export_data = today_data.get("export", [])
+        savings_data = today_data.get("savings", [])
 
         # Calculate totals for today
         solar_today = sum(point.get("consumption", 0) for point in solar_data)
@@ -160,11 +165,33 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         solar_current = solar_data[-1].get("consumption", 0) if solar_data else 0
         export_current = export_data[-1].get("consumption", 0) if export_data else 0
 
+        # Process monthly interval data
+        monthly_data = interval_data.get("monthly", {})
+        monthly_solar = monthly_data.get("solar", [])
+        monthly_export = monthly_data.get("export", [])
+        monthly_savings = monthly_data.get("savings", [])
+
+        # Get this month (last element) and last month (second-to-last)
+        solar_this_month = monthly_solar[-1].get("consumption", 0) if monthly_solar else 0
+        solar_last_month = monthly_solar[-2].get("consumption", 0) if len(monthly_solar) >= 2 else 0
+
+        export_this_month = monthly_export[-1].get("consumption", 0) if monthly_export else 0
+        export_last_month = monthly_export[-2].get("consumption", 0) if len(monthly_export) >= 2 else 0
+
+        savings_this_month = monthly_savings[-1].get("amount", {}).get("value", 0) if monthly_savings else 0
+        savings_last_month = monthly_savings[-2].get("amount", {}).get("value", 0) if len(monthly_savings) >= 2 else 0
+
         return {
             "solar_current": solar_current,
             "export_current": export_current,
             "solar_today": solar_today,
             "export_today": export_today,
             "savings_today": savings_today,
+            "solar_this_month": solar_this_month,
+            "solar_last_month": solar_last_month,
+            "export_this_month": export_this_month,
+            "export_last_month": export_last_month,
+            "savings_this_month": savings_this_month,
+            "savings_last_month": savings_last_month,
             "last_updated": solar_data[-1].get("periodTo") if solar_data else None,
         }
