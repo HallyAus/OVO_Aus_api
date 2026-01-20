@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="256" fill="#00A859"/>
+  
+  <!-- OVO Text -->
+  <text x="256" y="320" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-weight="bold" 
+        font-size="180" 
+        fill="white" 
+        text-anchor="middle">OVO</text>
+  
+  <!-- Lightning Bolt Icon (representing energy) -->
+  <path d="M 256 100 L 220 200 L 260 200 L 230 280 L 300 180 L 260 180 Z" 
+        fill="#FFF" 
+        opacity="0.9"/>
+</svg>
