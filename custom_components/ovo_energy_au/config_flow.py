@@ -7,7 +7,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
@@ -233,6 +233,7 @@ Your credentials are only used to access your OVO Energy data through their offi
 
 
     @staticmethod
+    @callback
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
         return OptionsFlowHandler(config_entry)
@@ -291,7 +292,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             # Reload the integration to apply changes
             await self.hass.config_entries.async_reload(self.config_entry.entry_id)
 
-            return self.async_create_entry(title="", data={})
+            return self.async_create_entry(title="", data=user_input)
 
         # Get current plan settings or use defaults
         current_plan = self.config_entry.data.get(CONF_PLAN_TYPE, PLAN_BASIC)
