@@ -248,9 +248,9 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             try:
                 product_info = await self.client.get_product_agreements(self.account_id)
                 processed_data["product_agreements"] = product_info
-                _LOGGER.debug("Successfully fetched product agreements")
+                _LOGGER.debug("Successfully fetched product agreements: %s", product_info.get("id") if product_info else "None")
             except Exception as err:
-                _LOGGER.warning("Failed to fetch product agreements: %s", err)
+                _LOGGER.error("Failed to fetch product agreements: %s", err, exc_info=True)
                 processed_data["product_agreements"] = None
 
             # Fetch hourly data for the last 7 days
