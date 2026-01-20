@@ -125,7 +125,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_SCHEMA,
             errors=errors,
             description_placeholders={
-                "info": "Enter your OVO Energy Australia account credentials. Account ID will be retrieved automatically."
+                "info": """Enter your OVO Energy Australia account credentials.
+
+**What we do with your credentials:**
+• Stored securely in Home Assistant's encrypted storage
+• Used to authenticate with OVO Energy's API every 5 minutes
+• Never shared with third parties
+• Account ID is automatically retrieved after login
+
+**Why we need your password:**
+• OVO's API tokens expire quickly (5 minutes)
+• We re-authenticate using your credentials before each data fetch
+• This ensures your sensors stay online 24/7
+
+Your credentials are only used to access your OVO Energy data through their official API."""
             }
         )
 
