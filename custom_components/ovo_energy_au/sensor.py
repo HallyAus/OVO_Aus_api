@@ -213,7 +213,181 @@ async def async_setup_entry(
             "mdi:transmission-tower-export",
             lambda data: data.get("hourly", {}).get("return_to_grid_total"),
         ),
+        # Last 7 Days Total
+        OVOEnergyAUSensor(
+            coordinator,
+            "last_7_days_solar_consumption",
+            "Last 7 Days Solar Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:solar-power",
+            lambda data: data.get("last_7_days", {}).get("solar_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "last_7_days_grid_consumption",
+            "Last 7 Days Grid Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower",
+            lambda data: data.get("last_7_days", {}).get("grid_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "last_7_days_solar_charge",
+            "Last 7 Days Solar Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("last_7_days", {}).get("solar_charge"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "last_7_days_grid_charge",
+            "Last 7 Days Grid Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("last_7_days", {}).get("grid_charge"),
+        ),
+        # Last Month Total
+        OVOEnergyAUSensor(
+            coordinator,
+            "last_month_solar_consumption",
+            "Last Month Solar Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:solar-power",
+            lambda data: data.get("last_month", {}).get("solar_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "last_month_grid_consumption",
+            "Last Month Grid Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower",
+            lambda data: data.get("last_month", {}).get("grid_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "last_month_solar_charge",
+            "Last Month Solar Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("last_month", {}).get("solar_charge"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "last_month_grid_charge",
+            "Last Month Grid Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("last_month", {}).get("grid_charge"),
+        ),
+        # Month to Date
+        OVOEnergyAUSensor(
+            coordinator,
+            "month_to_date_solar_consumption",
+            "Month to Date Solar Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:solar-power",
+            lambda data: data.get("month_to_date", {}).get("solar_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "month_to_date_grid_consumption",
+            "Month to Date Grid Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower",
+            lambda data: data.get("month_to_date", {}).get("grid_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "month_to_date_solar_charge",
+            "Month to Date Solar Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("month_to_date", {}).get("solar_charge"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "month_to_date_grid_charge",
+            "Month to Date Grid Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("month_to_date", {}).get("grid_charge"),
+        ),
     ]
+
+    # Add dynamic sensors for last 3 days
+    last_3_days_data = coordinator.data.get("last_3_days", []) if coordinator.data else []
+    for idx, day_data in enumerate(last_3_days_data):
+        day_num = idx + 1
+        sensors.extend([
+            OVOEnergyAUDaySensor(
+                coordinator,
+                f"day_{day_num}_solar_consumption",
+                f"Day {day_num} Solar Consumption",
+                UnitOfEnergy.KILO_WATT_HOUR,
+                SensorDeviceClass.ENERGY,
+                SensorStateClass.TOTAL,
+                "mdi:solar-power",
+                idx,
+                "solar_consumption",
+            ),
+            OVOEnergyAUDaySensor(
+                coordinator,
+                f"day_{day_num}_solar_charge",
+                f"Day {day_num} Solar Charge",
+                "AUD",
+                SensorDeviceClass.MONETARY,
+                SensorStateClass.TOTAL,
+                "mdi:currency-usd",
+                idx,
+                "solar_charge",
+            ),
+            OVOEnergyAUDaySensor(
+                coordinator,
+                f"day_{day_num}_grid_consumption",
+                f"Day {day_num} Grid Consumption",
+                UnitOfEnergy.KILO_WATT_HOUR,
+                SensorDeviceClass.ENERGY,
+                SensorStateClass.TOTAL,
+                "mdi:transmission-tower",
+                idx,
+                "grid_consumption",
+            ),
+            OVOEnergyAUDaySensor(
+                coordinator,
+                f"day_{day_num}_grid_charge",
+                f"Day {day_num} Grid Charge",
+                "AUD",
+                SensorDeviceClass.MONETARY,
+                SensorStateClass.TOTAL,
+                "mdi:currency-usd",
+                idx,
+                "grid_charge",
+            ),
+        ])
 
     async_add_entities(sensors)
 
@@ -369,6 +543,126 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
                     attributes["days_in_month"] = len(breakdown)
 
         return attributes
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, self.coordinator.account_id)},
+            "name": f"OVO Energy AU {self.coordinator.account_id}",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+        }
+
+
+class OVOEnergyAUDaySensor(CoordinatorEntity, SensorEntity):
+    """Representation of a dynamic day sensor (last 3 days)."""
+
+    def __init__(
+        self,
+        coordinator,
+        sensor_key: str,
+        sensor_name: str,
+        unit: str,
+        device_class: SensorDeviceClass | None,
+        state_class: SensorStateClass | None,
+        icon: str,
+        day_index: int,
+        value_key: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._sensor_key = sensor_key
+        self._sensor_name = sensor_name
+        self._unit = unit
+        self._device_class = device_class
+        self._state_class = state_class
+        self._icon = icon
+        self._day_index = day_index
+        self._value_key = value_key
+
+        # Generate unique ID
+        self._attr_unique_id = f"{coordinator.account_id}_{sensor_key}"
+        self._attr_has_entity_name = True
+
+    @property
+    def name(self) -> str:
+        """Return the name with day and date."""
+        if not self.coordinator.data:
+            return self._sensor_name
+
+        last_3_days = self.coordinator.data.get("last_3_days", [])
+        if self._day_index < len(last_3_days):
+            day_data = last_3_days[self._day_index]
+            day_name = day_data.get("day_name", "")
+            date = day_data.get("date", "")
+            # Format: "Monday 20 Jan" for example
+            date_formatted = ""
+            if date:
+                try:
+                    from datetime import datetime
+                    dt = datetime.strptime(date, "%Y-%m-%d")
+                    date_formatted = dt.strftime("%d %b")
+                except:
+                    date_formatted = date
+
+            if day_name and date_formatted:
+                return f"{day_name} {date_formatted}"
+
+        return self._sensor_name
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+
+        last_3_days = self.coordinator.data.get("last_3_days", [])
+        if self._day_index < len(last_3_days):
+            day_data = last_3_days[self._day_index]
+            value = day_data.get(self._value_key, 0)
+            return round(float(value), 2) if value is not None else 0
+
+        return None
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return self._unit
+
+    @property
+    def device_class(self) -> SensorDeviceClass | None:
+        """Return the device class."""
+        return self._device_class
+
+    @property
+    def state_class(self) -> SensorStateClass | None:
+        """Return the state class."""
+        return self._state_class
+
+    @property
+    def icon(self) -> str:
+        """Return the icon."""
+        return self._icon
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra attributes."""
+        if not self.coordinator.data:
+            return {}
+
+        last_3_days = self.coordinator.data.get("last_3_days", [])
+        if self._day_index < len(last_3_days):
+            day_data = last_3_days[self._day_index]
+            return {
+                "date": day_data.get("date"),
+                "day_name": day_data.get("day_name"),
+                "day": day_data.get("day"),
+                "month": day_data.get("month"),
+                "year": day_data.get("year"),
+            }
+
+        return {}
 
     @property
     def device_info(self) -> dict[str, Any]:
