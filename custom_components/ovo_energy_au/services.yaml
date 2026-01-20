@@ -1,0 +1,6 @@
+# Services for OVO Energy Australia integration
+
+refresh_data:
+  name: Refresh energy data
+  description: Manually trigger a refresh of energy usage data from OVO Energy API
+  fields: {}

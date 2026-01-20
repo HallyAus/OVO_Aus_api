@@ -273,6 +273,9 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 )
 
                 # Check if we got data
+                if not hourly_data:
+                    hourly_data = {}
+
                 has_solar = len(hourly_data.get("solar", []) or []) > 0
                 has_export = len(hourly_data.get("export", []) or []) > 0
 

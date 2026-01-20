@@ -1381,11 +1381,11 @@ class OVOEnergyAUPlanSensor(CoordinatorEntity, SensorEntity):
             return None
 
         product_agreements = self.coordinator.data.get("product_agreements")
-        if not product_agreements:
-            _LOGGER.warning("Plan sensor: No product_agreements in coordinator data. Keys: %s", list(self.coordinator.data.keys()) if self.coordinator.data else "None")
+        if not product_agreements or not isinstance(product_agreements, dict):
+            _LOGGER.debug("Plan sensor: No valid product_agreements in coordinator data (got: %s)", type(product_agreements).__name__ if product_agreements else "None")
             return "Unknown"
 
-        _LOGGER.debug("Plan sensor: product_agreements keys: %s", list(product_agreements.keys()) if isinstance(product_agreements, dict) else type(product_agreements))
+        _LOGGER.debug("Plan sensor: product_agreements keys: %s", list(product_agreements.keys()))
 
         agreements = product_agreements.get("productAgreements", [])
         if not agreements:
