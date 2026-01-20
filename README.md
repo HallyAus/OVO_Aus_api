@@ -23,6 +23,20 @@ Unofficial Python client and Home Assistant integration for OVO Energy Australia
 
 ## Quick Start
 
+### Home Assistant (HACS - Recommended) ⭐
+
+```bash
+# Install via HACS:
+# 1. Add custom repository: https://github.com/HallyAus/OVO_Aus_api
+# 2. Search for "OVO Energy Australia"
+# 3. Click Download
+
+# Or use auto-install script:
+bash <(curl -s https://raw.githubusercontent.com/HallyAus/OVO_Aus_api/claude/create-github-project-rWeUP/install.sh)
+```
+
+For detailed instructions, see [HACS_INSTALLATION.md](HACS_INSTALLATION.md)
+
 ### Python Client
 
 ```bash
@@ -33,28 +47,11 @@ cd OVO_Aus_api
 # Install dependencies
 pip install -r requirements.txt
 
-# Run example
+# Run example (supports OAuth!)
 python3 ovo_australia_client.py
 ```
 
 For detailed instructions, see [QUICK_START.md](QUICK_START.md)
-
-### Home Assistant
-
-```bash
-# Copy custom component
-cp -r home_assistant_example/custom_components/ovo_energy_au ~/.homeassistant/custom_components/
-
-# Add to configuration.yaml
-ovo_energy_au:
-  access_token: "Bearer eyJ..."
-  id_token: "eyJ..."
-  account_id: "30264061"
-
-# Restart Home Assistant
-```
-
-For detailed instructions, see [home_assistant_example/README.md](home_assistant_example/README.md)
 
 ---
 
@@ -153,13 +150,46 @@ Pre-built custom component with 5 sensors:
 
 ## Installation
 
-### Requirements
+### Home Assistant Installation
 
-- **Python 3.11+**
-- **OVO Energy Australia account** with active service
-- **Solar panels** (recommended, but not required)
+**Choose one method:**
+
+#### Option 1: HACS (Recommended) ⭐
+
+Most users should use HACS for easy installation and updates:
+
+📖 **[Complete HACS Installation Guide →](HACS_INSTALLATION.md)**
+
+Quick steps:
+1. Add custom repository: `https://github.com/HallyAus/OVO_Aus_api`
+2. Search "OVO Energy Australia" in HACS
+3. Download and configure
+
+#### Option 2: Auto Install Script
+
+One-command installation:
+
+**Linux/macOS/Docker:**
+```bash
+bash <(curl -s https://raw.githubusercontent.com/HallyAus/OVO_Aus_api/claude/create-github-project-rWeUP/install.sh)
+```
+
+**Windows PowerShell:**
+```powershell
+iwr https://raw.githubusercontent.com/HallyAus/OVO_Aus_api/claude/create-github-project-rWeUP/install.ps1 -UseBasicParsing | iex
+```
+
+#### Option 3: Manual Installation
+
+See [HACS_INSTALLATION.md](HACS_INSTALLATION.md#method-3-manual-installation) for manual steps.
 
 ### Python Client Installation
+
+**Requirements:**
+- Python 3.11+
+- OVO Energy Australia account
+
+**Install:**
 
 ```bash
 # Clone repository
@@ -168,11 +198,10 @@ cd OVO_Aus_api
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Run with OAuth authentication
+python3 ovo_australia_client.py
 ```
-
-### Home Assistant Installation
-
-See [home_assistant_example/README.md](home_assistant_example/README.md) for detailed instructions.
 
 ---
 
