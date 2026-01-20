@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="200" height="80">
+  <defs>
+    <style>
+      .ovo-text {
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: 700;
+        font-size: 48px;
+        fill: #00A859;
+      }
+      .energy-text {
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: 400;
+        font-size: 14px;
+        fill: #333333;
+      }
+    </style>
+  </defs>
+
+  <!-- OVO Logo -->
+  <text x="100" y="50" class="ovo-text" text-anchor="middle">OVO</text>
+  <text x="100" y="68" class="energy-text" text-anchor="middle">ENERGY AU</text>
+</svg>
