@@ -15,7 +15,10 @@ Unofficial Python client and Home Assistant integration for OVO Energy Australia
 - ☀️ **Solar Generation Data** - Hourly solar production metrics
 - ⚡ **Grid Export Tracking** - Monitor energy exported to the grid
 - 💰 **Cost Savings** - Calculate savings from solar generation
-- 🏠 **Home Assistant Integration** - Custom component with sensors
+- 📊 **Daily Breakdown Graphs** - Day-by-day consumption and charges (like OVO dashboard)
+- 📈 **18 Sensors** - Daily, monthly, yearly, and hourly energy tracking
+- 🏠 **Home Assistant Integration** - Custom component with sensors and attributes
+- 🎨 **Dashboard Examples** - Pre-built dashboards with graphs and statistics
 - 📊 **GraphQL API Client** - Full Python client with error handling
 - 📝 **Comprehensive Documentation** - Complete API reference and guides
 
@@ -96,6 +99,45 @@ Pre-built custom component with 5 sensors:
 - **[OVO_AU_API_DOCUMENTATION.md](OVO_AU_API_DOCUMENTATION.md)** - Complete API reference
 - **[BROWSER_TESTING_GUIDE.md](BROWSER_TESTING_GUIDE.md)** - How we discovered the API
 - **[ovo_australia_conversion_guide.md](ovo_australia_conversion_guide.md)** - Migrate from OVO UK
+
+## 📊 Dashboards & Visualization
+
+Create beautiful dashboards with daily breakdown graphs similar to the OVO Energy dashboard:
+
+### Pre-Built Dashboard Options
+
+1. **Advanced Dashboard** (`dashboard_monthly_charges.yaml`)
+   - 📊 Daily bar charts for solar/grid consumption and charges
+   - 📈 Combined comparison graphs
+   - 📉 Monthly statistics summary
+   - Requires: [ApexCharts Card](https://github.com/RomRider/apexcharts-card)
+
+2. **Simple Dashboard** (`dashboard_simple.yaml`)
+   - Built-in Home Assistant cards only
+   - Monthly totals and statistics
+   - Daily averages
+   - No custom components needed
+
+### Available Sensor Data
+
+All monthly sensors include `daily_breakdown` attributes with:
+- Day-by-day consumption and charge data
+- Date, consumption, and cost for each day
+- Summary statistics (average, max, days tracked)
+
+**Example Daily Breakdown:**
+```json
+{
+  "daily_breakdown": [
+    {"date": "2026-01-01", "consumption": 35.24, "charge": 0.99},
+    {"date": "2026-01-02", "consumption": 32.15, "charge": 0.85}
+  ],
+  "daily_average": 34.5,
+  "daily_max": 45.2
+}
+```
+
+See **[DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md)** for complete documentation, examples, and customization tips.
 
 ---
 

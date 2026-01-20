@@ -340,6 +340,34 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
             elif ("grid" in self._sensor_key or "return" in self._sensor_key) and "grid_latest" in period_data:
                 attributes["latest_entry"] = period_data["grid_latest"]
 
+            # Add daily breakdown for monthly sensors
+            if period == "monthly":
+                # Solar consumption/charge daily breakdown
+                if "solar" in self._sensor_key and "solar_daily_breakdown" in period_data:
+                    breakdown = period_data["solar_daily_breakdown"]
+                    attributes["daily_breakdown"] = breakdown
+                    attributes["days_in_month"] = len(breakdown)
+
+                    # Add statistics if available
+                    if "solar_daily_avg" in period_data:
+                        attributes["daily_average"] = period_data["solar_daily_avg"]
+                    if "solar_daily_max" in period_data:
+                        attributes["daily_max"] = period_data["solar_daily_max"]
+                    if "solar_charge_daily_avg" in period_data:
+                        attributes["daily_charge_average"] = period_data["solar_charge_daily_avg"]
+
+                # Grid consumption/charge daily breakdown
+                elif "grid" in self._sensor_key and "grid_daily_breakdown" in period_data:
+                    breakdown = period_data["grid_daily_breakdown"]
+                    attributes["daily_breakdown"] = breakdown
+                    attributes["days_in_month"] = len(breakdown)
+
+                # Return to grid daily breakdown
+                elif "return" in self._sensor_key and "return_daily_breakdown" in period_data:
+                    breakdown = period_data["return_daily_breakdown"]
+                    attributes["daily_breakdown"] = breakdown
+                    attributes["days_in_month"] = len(breakdown)
+
         return attributes
 
     @property

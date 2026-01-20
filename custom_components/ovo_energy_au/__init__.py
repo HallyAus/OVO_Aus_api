@@ -230,6 +230,91 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
                 processed[period]["grid_latest"] = latest_export
 
+        # Add daily breakdown for monthly period (for graphing)
+        if "daily" in data and data["daily"]:
+            daily_data = data["daily"]
+
+            # Get current month for filtering
+            now = dt_util.now()
+            current_month = now.month
+            current_year = now.year
+
+            # Process solar daily breakdown
+            solar_daily_breakdown = []
+            if "solar" in daily_data and daily_data["solar"]:
+                for entry in daily_data["solar"]:
+                    period_from = entry.get("periodFrom", "")
+                    if period_from:
+                        try:
+                            # Parse the date
+                            from datetime import datetime
+                            entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+
+                            # Only include current month
+                            if entry_date.month == current_month and entry_date.year == current_year:
+                                solar_daily_breakdown.append({
+                                    "date": entry_date.strftime("%Y-%m-%d"),
+                                    "day": entry_date.day,
+                                    "consumption": entry.get("consumption", 0),
+                                    "charge": entry.get("charge", {}).get("value", 0),
+                                    "read_type": entry.get("readType", ""),
+                                })
+                        except Exception as err:
+                            _LOGGER.debug("Error parsing solar daily entry: %s", err)
+                            continue
+
+            # Process export daily breakdown
+            grid_daily_breakdown = []
+            return_daily_breakdown = []
+            if "export" in daily_data and daily_data["export"]:
+                for entry in daily_data["export"]:
+                    period_from = entry.get("periodFrom", "")
+                    if period_from:
+                        try:
+                            from datetime import datetime
+                            entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+
+                            # Only include current month
+                            if entry_date.month == current_month and entry_date.year == current_year:
+                                charge_type = entry.get("charge", {}).get("type", "DEBIT")
+                                consumption = entry.get("consumption", 0)
+                                charge_value = entry.get("charge", {}).get("value", 0)
+
+                                daily_entry = {
+                                    "date": entry_date.strftime("%Y-%m-%d"),
+                                    "day": entry_date.day,
+                                    "consumption": consumption,
+                                    "charge": charge_value,
+                                    "read_type": entry.get("readType", ""),
+                                    "charge_type": charge_type,
+                                }
+
+                                # Separate into grid consumption vs return to grid
+                                if charge_type == "CREDIT":
+                                    return_daily_breakdown.append(daily_entry)
+                                else:
+                                    grid_daily_breakdown.append(daily_entry)
+                        except Exception as err:
+                            _LOGGER.debug("Error parsing export daily entry: %s", err)
+                            continue
+
+            # Add to monthly data
+            processed["monthly"]["solar_daily_breakdown"] = sorted(solar_daily_breakdown, key=lambda x: x["date"])
+            processed["monthly"]["grid_daily_breakdown"] = sorted(grid_daily_breakdown, key=lambda x: x["date"])
+            processed["monthly"]["return_daily_breakdown"] = sorted(return_daily_breakdown, key=lambda x: x["date"])
+
+            # Add summary statistics
+            if solar_daily_breakdown:
+                processed["monthly"]["solar_daily_avg"] = round(
+                    sum(d["consumption"] for d in solar_daily_breakdown) / len(solar_daily_breakdown), 2
+                )
+                processed["monthly"]["solar_daily_max"] = round(
+                    max(d["consumption"] for d in solar_daily_breakdown), 2
+                )
+                processed["monthly"]["solar_charge_daily_avg"] = round(
+                    sum(d["charge"] for d in solar_daily_breakdown) / len(solar_daily_breakdown), 2
+                )
+
         return processed
 
     def _process_hourly_data(self, data: dict) -> dict:
