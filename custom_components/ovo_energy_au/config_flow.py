@@ -53,7 +53,7 @@ async def validate_input(hass: HomeAssistant, username: str, password: str) -> d
     """Validate the user input by authenticating and fetching account info.
 
     Returns:
-        dict with title, account_id
+        dict with title, account_id, client (authenticated client to reuse)
     """
     _LOGGER.info("Authenticating with OVO Energy using username/password")
 
@@ -75,6 +75,7 @@ async def validate_input(hass: HomeAssistant, username: str, password: str) -> d
         return {
             "title": f"OVO Energy AU ({account_id})",
             "account_id": account_id,
+            "client": client,  # Return authenticated client to reuse
         }
 
     except OVOEnergyAUApiClientAuthenticationError as err:
@@ -99,15 +100,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._detected_plan = None
         self._detected_rates = None
 
-    async def _detect_plan_from_api(self, username: str, password: str, account_id: str) -> None:
-        """Fetch product agreements and detect plan/rates from API."""
-        try:
-            # Create client and authenticate
-            session = async_get_clientsession(self.hass)
-            client = OVOEnergyAUApiClient(session, username=username, password=password)
-            await client.authenticate_with_password(username, password)
+    async def _detect_plan_from_api(self, client: OVOEnergyAUApiClient, account_id: str) -> None:
+        """Fetch product agreements and detect plan/rates from API.
 
+        Args:
+            client: Already authenticated API client (reuse to avoid double auth)
+            account_id: The account ID to fetch plan info for
+        """
+        try:
             # Fetch product agreements (plan information)
+            # Client is already authenticated, no need to auth again
             account_info = await client.get_product_agreements(account_id)
 
             # Extract product agreements
@@ -199,10 +201,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 # Try to detect plan and rates from API data
+                # Reuse the already-authenticated client to avoid double authentication
                 try:
                     await self._detect_plan_from_api(
-                        user_input[CONF_USERNAME],
-                        user_input[CONF_PASSWORD],
+                        info["client"],  # Reuse authenticated client
                         info["account_id"]
                     )
                 except Exception as err:

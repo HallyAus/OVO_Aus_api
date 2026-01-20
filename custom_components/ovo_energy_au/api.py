@@ -344,10 +344,28 @@ class OVOEnergyAUApiClient:
                 parsed = urlparse(final_url)
                 query_params = parse_qs(parsed.query)
 
+                _LOGGER.debug("Callback URL: %s", final_url)
+                _LOGGER.debug("Query params: %s", list(query_params.keys()))
+
+                # Check for Auth0 error responses
+                if 'error' in query_params:
+                    error_code = query_params.get('error', ['unknown'])[0]
+                    error_desc = query_params.get('error_description', ['No description'])[0]
+                    _LOGGER.error("Auth0 error: %s - %s", error_code, error_desc)
+                    raise OVOEnergyAUApiClientAuthenticationError(
+                        f"Authentication failed: {error_code} - {error_desc}"
+                    )
+
                 authorization_code = query_params.get('code', [None])[0]
                 if not authorization_code:
+                    _LOGGER.error(
+                        "No authorization code in callback. URL: %s, Params: %s",
+                        final_url,
+                        query_params
+                    )
                     raise OVOEnergyAUApiClientAuthenticationError(
-                        "Could not extract authorization code from callback"
+                        "Could not extract authorization code from callback. "
+                        "Check credentials or try again."
                     )
 
                 _LOGGER.debug("Got authorization code, exchanging for tokens")
