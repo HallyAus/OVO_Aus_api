@@ -429,6 +429,180 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                     sum(d["charge"] for d in solar_daily_breakdown) / len(solar_daily_breakdown), 2
                 )
 
+        # ====================
+        # ADVANCED ANALYTICS (10 new features)
+        # ====================
+
+        # Feature 2: Week-over-Week Comparison
+        if len(all_daily_entries) >= 14:
+            this_week = all_daily_entries[:7]
+            last_week = all_daily_entries[7:14]
+
+            this_week_solar = sum(d.get("solar_consumption", 0) for d in this_week)
+            last_week_solar = sum(d.get("solar_consumption", 0) for d in last_week)
+            this_week_grid = sum(d.get("grid_consumption", 0) for d in this_week)
+            last_week_grid = sum(d.get("grid_consumption", 0) for d in last_week)
+            this_week_cost = sum(d.get("solar_charge", 0) + d.get("grid_charge", 0) for d in this_week)
+            last_week_cost = sum(d.get("solar_charge", 0) + d.get("grid_charge", 0) for d in last_week)
+
+            processed["week_comparison"] = {
+                "this_week_solar": round(this_week_solar, 2),
+                "last_week_solar": round(last_week_solar, 2),
+                "solar_change": round(this_week_solar - last_week_solar, 2),
+                "solar_change_pct": round(((this_week_solar - last_week_solar) / last_week_solar * 100) if last_week_solar > 0 else 0, 2),
+                "this_week_grid": round(this_week_grid, 2),
+                "last_week_grid": round(last_week_grid, 2),
+                "grid_change": round(this_week_grid - last_week_grid, 2),
+                "grid_change_pct": round(((this_week_grid - last_week_grid) / last_week_grid * 100) if last_week_grid > 0 else 0, 2),
+                "this_week_cost": round(this_week_cost, 2),
+                "last_week_cost": round(last_week_cost, 2),
+                "cost_change": round(this_week_cost - last_week_cost, 2),
+                "cost_change_pct": round(((this_week_cost - last_week_cost) / last_week_cost * 100) if last_week_cost > 0 else 0, 2),
+            }
+
+        # Feature 3: Weekday vs Weekend Analysis
+        if all_daily_entries:
+            from datetime import datetime as dt
+            weekday_entries = []
+            weekend_entries = []
+
+            for entry in all_daily_entries:
+                try:
+                    date_str = entry.get("date", "")
+                    if date_str:
+                        date_obj = dt.strptime(date_str, "%Y-%m-%d")
+                        # Monday = 0, Sunday = 6
+                        if date_obj.weekday() < 5:  # Monday-Friday
+                            weekday_entries.append(entry)
+                        else:  # Saturday-Sunday
+                            weekend_entries.append(entry)
+                except:
+                    continue
+
+            if weekday_entries:
+                weekday_count = len(weekday_entries)
+                processed["weekday_analysis"] = {
+                    "avg_solar": round(sum(d.get("solar_consumption", 0) for d in weekday_entries) / weekday_count, 2),
+                    "avg_grid": round(sum(d.get("grid_consumption", 0) for d in weekday_entries) / weekday_count, 2),
+                    "avg_cost": round(sum(d.get("solar_charge", 0) + d.get("grid_charge", 0) for d in weekday_entries) / weekday_count, 2),
+                    "days": weekday_count,
+                }
+
+            if weekend_entries:
+                weekend_count = len(weekend_entries)
+                processed["weekend_analysis"] = {
+                    "avg_solar": round(sum(d.get("solar_consumption", 0) for d in weekend_entries) / weekend_count, 2),
+                    "avg_grid": round(sum(d.get("grid_consumption", 0) for d in weekend_entries) / weekend_count, 2),
+                    "avg_cost": round(sum(d.get("solar_charge", 0) + d.get("grid_charge", 0) for d in weekend_entries) / weekend_count, 2),
+                    "days": weekend_count,
+                }
+
+        # Feature 5: Solar Self-Sufficiency Score
+        if all_daily_entries:
+            # Calculate for last 7 days
+            last_7_for_score = all_daily_entries[:7]
+            total_solar = sum(d.get("solar_consumption", 0) for d in last_7_for_score)
+            total_grid = sum(d.get("grid_consumption", 0) for d in last_7_for_score)
+            total_consumption = total_solar + total_grid
+
+            processed["self_sufficiency"] = {
+                "score": round((total_solar / total_consumption * 100) if total_consumption > 0 else 0, 2),
+                "solar_kwh": round(total_solar, 2),
+                "grid_kwh": round(total_grid, 2),
+                "total_kwh": round(total_consumption, 2),
+                "period_days": len(last_7_for_score),
+            }
+
+        # Feature 6: High Usage Day Rankings (Top 5 in last 30 days)
+        if all_daily_entries:
+            last_30 = all_daily_entries[:30] if len(all_daily_entries) >= 30 else all_daily_entries
+            # Calculate total consumption per day
+            days_with_total = []
+            for day in last_30:
+                total_day_consumption = day.get("solar_consumption", 0) + day.get("grid_consumption", 0)
+                total_day_cost = day.get("solar_charge", 0) + day.get("grid_charge", 0)
+                days_with_total.append({
+                    "date": day.get("date"),
+                    "day_name": day.get("day_name"),
+                    "total_consumption": round(total_day_consumption, 2),
+                    "total_cost": round(total_day_cost, 2),
+                    "solar": round(day.get("solar_consumption", 0), 2),
+                    "grid": round(day.get("grid_consumption", 0), 2),
+                })
+
+            # Sort by total consumption descending
+            top_5 = sorted(days_with_total, key=lambda x: x["total_consumption"], reverse=True)[:5]
+            processed["high_usage_days"] = top_5
+
+        # Feature 8: Cost Per kWh Tracking
+        if all_daily_entries:
+            # Last 7 days
+            last_7_cost = all_daily_entries[:7]
+            total_cost_7d = sum(d.get("solar_charge", 0) + d.get("grid_charge", 0) for d in last_7_cost)
+            total_consumption_7d = sum(d.get("solar_consumption", 0) + d.get("grid_consumption", 0) for d in last_7_cost)
+
+            grid_cost_7d = sum(d.get("grid_charge", 0) for d in last_7_cost)
+            grid_consumption_7d = sum(d.get("grid_consumption", 0) for d in last_7_cost)
+
+            solar_cost_7d = sum(d.get("solar_charge", 0) for d in last_7_cost)
+            solar_consumption_7d = sum(d.get("solar_consumption", 0) for d in last_7_cost)
+
+            processed["cost_per_kwh"] = {
+                "overall": round(total_cost_7d / total_consumption_7d, 4) if total_consumption_7d > 0 else 0,
+                "grid": round(grid_cost_7d / grid_consumption_7d, 4) if grid_consumption_7d > 0 else 0,
+                "solar": round(solar_cost_7d / solar_consumption_7d, 4) if solar_consumption_7d > 0 else 0,
+                "total_cost": round(total_cost_7d, 2),
+                "total_consumption": round(total_consumption_7d, 2),
+            }
+
+        # Feature 9: Monthly Cost Projection
+        if mtd_entries:
+            mtd_days = len(mtd_entries)
+            mtd_cost = sum(d.get("solar_charge", 0) + d.get("grid_charge", 0) for d in mtd_entries)
+
+            # Get days in current month
+            import calendar
+            days_in_month = calendar.monthrange(current_year, current_month)[1]
+            days_remaining = days_in_month - mtd_days
+
+            daily_avg = mtd_cost / mtd_days if mtd_days > 0 else 0
+            projected_total = daily_avg * days_in_month
+            projected_remaining = daily_avg * days_remaining
+
+            processed["monthly_projection"] = {
+                "projected_total": round(projected_total, 2),
+                "current_mtd": round(mtd_cost, 2),
+                "projected_remaining": round(projected_remaining, 2),
+                "daily_average": round(daily_avg, 2),
+                "days_elapsed": mtd_days,
+                "days_remaining": days_remaining,
+                "days_in_month": days_in_month,
+            }
+
+        # Feature 10: Return-to-Grid Value Analysis
+        if all_daily_entries:
+            last_7_rtg = all_daily_entries[:7]
+            rtg_kwh = sum(d.get("return_to_grid", 0) for d in last_7_rtg)
+            rtg_credit = sum(d.get("return_to_grid_charge", 0) for d in last_7_rtg)
+
+            # Also get grid purchase rate for comparison
+            grid_kwh = sum(d.get("grid_consumption", 0) for d in last_7_rtg)
+            grid_cost = sum(d.get("grid_charge", 0) for d in last_7_rtg)
+
+            export_rate = abs(rtg_credit / rtg_kwh) if rtg_kwh > 0 else 0
+            purchase_rate = grid_cost / grid_kwh if grid_kwh > 0 else 0
+
+            processed["return_to_grid_analysis"] = {
+                "export_kwh": round(rtg_kwh, 2),
+                "export_credit": round(abs(rtg_credit), 2),  # Make positive for display
+                "export_rate_per_kwh": round(export_rate, 4),
+                "purchase_rate_per_kwh": round(purchase_rate, 4),
+                "rate_difference": round(purchase_rate - export_rate, 4),
+                "potential_savings": round(rtg_kwh * purchase_rate, 2),  # What you'd pay if you bought this power
+                "actual_credit": round(abs(rtg_credit), 2),
+                "opportunity_cost": round((rtg_kwh * purchase_rate) - abs(rtg_credit), 2),
+            }
+
         return processed
 
     def _process_hourly_data(self, data: dict) -> dict:
@@ -476,5 +650,146 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             len(processed["grid_entries"]),
             len(processed["return_to_grid_entries"])
         )
+
+        # ====================
+        # HOURLY ANALYTICS
+        # ====================
+
+        # Feature 1: Peak Usage Time Blocks (4-hour windows)
+        # Combine all consumption data with timestamps
+        from datetime import datetime as dt
+        hourly_timeline = []
+
+        for entry in processed["solar_entries"]:
+            period_from = entry.get("periodFrom", "")
+            if period_from:
+                try:
+                    timestamp = dt.fromisoformat(period_from.replace("Z", "+00:00"))
+                    hourly_timeline.append({
+                        "timestamp": timestamp,
+                        "hour": timestamp.hour,
+                        "consumption": entry.get("consumption", 0),
+                        "type": "solar",
+                    })
+                except:
+                    continue
+
+        for entry in processed["grid_entries"]:
+            period_from = entry.get("periodFrom", "")
+            if period_from:
+                try:
+                    timestamp = dt.fromisoformat(period_from.replace("Z", "+00:00"))
+                    hourly_timeline.append({
+                        "timestamp": timestamp,
+                        "hour": timestamp.hour,
+                        "consumption": entry.get("consumption", 0),
+                        "type": "grid",
+                    })
+                except:
+                    continue
+
+        # Sort by timestamp
+        hourly_timeline.sort(key=lambda x: x["timestamp"])
+
+        # Find peak 4-hour windows
+        if len(hourly_timeline) >= 4:
+            max_consumption = 0
+            peak_window = None
+
+            for i in range(len(hourly_timeline) - 3):
+                window = hourly_timeline[i:i+4]
+                window_consumption = sum(h["consumption"] for h in window)
+
+                if window_consumption > max_consumption:
+                    max_consumption = window_consumption
+                    peak_window = {
+                        "start_time": window[0]["timestamp"].strftime("%Y-%m-%d %H:%M"),
+                        "end_time": window[3]["timestamp"].strftime("%Y-%m-%d %H:%M"),
+                        "start_hour": window[0]["hour"],
+                        "total_consumption": round(window_consumption, 2),
+                        "hourly_breakdown": [
+                            {
+                                "hour": h["timestamp"].strftime("%H:%M"),
+                                "consumption": round(h["consumption"], 2),
+                                "type": h["type"],
+                            } for h in window
+                        ],
+                    }
+
+            processed["peak_4hour_window"] = peak_window
+
+        # Feature 4: Time-of-Use Cost Breakdown
+        # Australian typical TOU periods:
+        # Peak: 2pm-8pm weekdays
+        # Shoulder: 7am-2pm and 8pm-10pm weekdays, 7am-10pm weekends
+        # Off-peak: 10pm-7am all days
+        tou_breakdown = {
+            "peak": {"consumption": 0, "cost": 0, "hours": 0},
+            "shoulder": {"consumption": 0, "cost": 0, "hours": 0},
+            "off_peak": {"consumption": 0, "cost": 0, "hours": 0},
+        }
+
+        for entry in hourly_timeline:
+            timestamp = entry["timestamp"]
+            hour = timestamp.hour
+            weekday = timestamp.weekday()  # Monday = 0, Sunday = 6
+            consumption = entry["consumption"]
+
+            # Estimate cost based on type (this is approximate)
+            # We'll use the grid rate from grid entries
+            cost_estimate = 0
+            if entry["type"] == "grid":
+                # Find matching entry in grid_entries to get actual charge
+                for grid_entry in processed["grid_entries"]:
+                    if grid_entry.get("periodFrom") == timestamp.isoformat().replace("+00:00", "Z"):
+                        cost_estimate = grid_entry.get("charge", {}).get("value", 0)
+                        break
+
+            # Classify time period
+            is_weekday = weekday < 5
+
+            if is_weekday and 14 <= hour < 20:  # 2pm-8pm weekdays
+                period = "peak"
+            elif hour < 7 or hour >= 22:  # 10pm-7am
+                period = "off_peak"
+            else:  # Everything else
+                period = "shoulder"
+
+            tou_breakdown[period]["consumption"] += consumption
+            tou_breakdown[period]["cost"] += cost_estimate
+            tou_breakdown[period]["hours"] += 1
+
+        # Round values
+        for period in tou_breakdown:
+            tou_breakdown[period]["consumption"] = round(tou_breakdown[period]["consumption"], 2)
+            tou_breakdown[period]["cost"] = round(tou_breakdown[period]["cost"], 2)
+
+        processed["time_of_use"] = tou_breakdown
+
+        # Feature 7: Hourly Heatmap Data (day-of-week averages)
+        heatmap_data = {}  # Structure: {day_name: {hour: {consumption, count}}}
+
+        for entry in hourly_timeline:
+            timestamp = entry["timestamp"]
+            day_name = timestamp.strftime("%A")
+            hour = timestamp.hour
+
+            if day_name not in heatmap_data:
+                heatmap_data[day_name] = {}
+
+            if hour not in heatmap_data[day_name]:
+                heatmap_data[day_name][hour] = {"total": 0, "count": 0}
+
+            heatmap_data[day_name][hour]["total"] += entry["consumption"]
+            heatmap_data[day_name][hour]["count"] += 1
+
+        # Calculate averages
+        heatmap_averages = {}
+        for day_name, hours in heatmap_data.items():
+            heatmap_averages[day_name] = {}
+            for hour, data in hours.items():
+                heatmap_averages[day_name][hour] = round(data["total"] / data["count"], 2) if data["count"] > 0 else 0
+
+        processed["hourly_heatmap"] = heatmap_averages
 
         return processed

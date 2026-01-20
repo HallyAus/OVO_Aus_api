@@ -366,6 +366,327 @@ async def async_setup_entry(
             lambda data: data.get("month_to_date", {}).get("grid_charge"),
             "Month to Date",
         ),
+
+        # ====================
+        # ADVANCED ANALYTICS (10 New Features)
+        # ====================
+
+        # Feature 1: Peak Usage Time Blocks
+        OVOEnergyAUSensor(
+            coordinator,
+            "peak_4hour_consumption",
+            "Peak 4-Hour Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            None,
+            "mdi:chart-bell-curve",
+            lambda data: data.get("hourly", {}).get("peak_4hour_window", {}).get("total_consumption"),
+            "Peak Usage",
+        ),
+
+        # Feature 2: Week-over-Week Comparison
+        OVOEnergyAUSensor(
+            coordinator,
+            "week_comparison_solar",
+            "Solar Consumption (This Week)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:compare-horizontal",
+            lambda data: data.get("week_comparison", {}).get("this_week_solar"),
+            "Week Comparison",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "week_comparison_grid",
+            "Grid Consumption (This Week)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:compare-horizontal",
+            lambda data: data.get("week_comparison", {}).get("this_week_grid"),
+            "Week Comparison",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "week_comparison_cost",
+            "Cost (This Week)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:compare-horizontal",
+            lambda data: data.get("week_comparison", {}).get("this_week_cost"),
+            "Week Comparison",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "week_comparison_solar_change_pct",
+            "Solar Change %",
+            "%",
+            None,
+            None,
+            "mdi:percent",
+            lambda data: data.get("week_comparison", {}).get("solar_change_pct"),
+            "Week Comparison",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "week_comparison_grid_change_pct",
+            "Grid Change %",
+            "%",
+            None,
+            None,
+            "mdi:percent",
+            lambda data: data.get("week_comparison", {}).get("grid_change_pct"),
+            "Week Comparison",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "week_comparison_cost_change_pct",
+            "Cost Change %",
+            "%",
+            None,
+            None,
+            "mdi:percent",
+            lambda data: data.get("week_comparison", {}).get("cost_change_pct"),
+            "Week Comparison",
+        ),
+
+        # Feature 3: Weekday vs Weekend Analysis
+        OVOEnergyAUSensor(
+            coordinator,
+            "weekday_avg_consumption",
+            "Avg Daily Consumption (Weekday)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            None,
+            "mdi:calendar-week",
+            lambda data: data.get("weekday_analysis", {}).get("avg_solar", 0) + data.get("weekday_analysis", {}).get("avg_grid", 0),
+            "Weekday vs Weekend",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "weekend_avg_consumption",
+            "Avg Daily Consumption (Weekend)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            None,
+            "mdi:calendar-weekend",
+            lambda data: data.get("weekend_analysis", {}).get("avg_solar", 0) + data.get("weekend_analysis", {}).get("avg_grid", 0),
+            "Weekday vs Weekend",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "weekday_avg_cost",
+            "Avg Daily Cost (Weekday)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            None,
+            "mdi:calendar-week",
+            lambda data: data.get("weekday_analysis", {}).get("avg_cost"),
+            "Weekday vs Weekend",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "weekend_avg_cost",
+            "Avg Daily Cost (Weekend)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            None,
+            "mdi:calendar-weekend",
+            lambda data: data.get("weekend_analysis", {}).get("avg_cost"),
+            "Weekday vs Weekend",
+        ),
+
+        # Feature 4: Time-of-Use Cost Breakdown
+        OVOEnergyAUSensor(
+            coordinator,
+            "tou_peak_consumption",
+            "Peak Period Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:chart-timeline-variant",
+            lambda data: data.get("hourly", {}).get("time_of_use", {}).get("peak", {}).get("consumption"),
+            "Time of Use",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "tou_shoulder_consumption",
+            "Shoulder Period Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:chart-timeline-variant",
+            lambda data: data.get("hourly", {}).get("time_of_use", {}).get("shoulder", {}).get("consumption"),
+            "Time of Use",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "tou_off_peak_consumption",
+            "Off-Peak Period Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:chart-timeline-variant",
+            lambda data: data.get("hourly", {}).get("time_of_use", {}).get("off_peak", {}).get("consumption"),
+            "Time of Use",
+        ),
+
+        # Feature 5: Solar Self-Sufficiency Score
+        OVOEnergyAUSensor(
+            coordinator,
+            "self_sufficiency_score",
+            "Self-Sufficiency Score",
+            "%",
+            None,
+            None,
+            "mdi:battery-charging-100",
+            lambda data: data.get("self_sufficiency", {}).get("score"),
+            "Solar Insights",
+        ),
+
+        # Feature 6: High Usage Day Rankings (data in attributes)
+        OVOEnergyAUSensor(
+            coordinator,
+            "high_usage_days",
+            "High Usage Days Tracker",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            None,
+            "mdi:medal",
+            lambda data: data.get("high_usage_days", [{}])[0].get("total_consumption") if data.get("high_usage_days") else None,
+            "Usage Rankings",
+        ),
+
+        # Feature 7: Hourly Heatmap (data in attributes)
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_heatmap",
+            "Hourly Usage Heatmap",
+            None,
+            None,
+            None,
+            "mdi:grid",
+            lambda data: len(data.get("hourly", {}).get("hourly_heatmap", {})),
+            "Usage Patterns",
+        ),
+
+        # Feature 8: Cost Per kWh Tracking
+        OVOEnergyAUSensor(
+            coordinator,
+            "cost_per_kwh_overall",
+            "Overall Cost per kWh",
+            "AUD/kWh",
+            None,
+            None,
+            "mdi:currency-usd",
+            lambda data: data.get("cost_per_kwh", {}).get("overall"),
+            "Cost Analysis",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "cost_per_kwh_grid",
+            "Grid Cost per kWh",
+            "AUD/kWh",
+            None,
+            None,
+            "mdi:transmission-tower",
+            lambda data: data.get("cost_per_kwh", {}).get("grid"),
+            "Cost Analysis",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "cost_per_kwh_solar",
+            "Solar Cost per kWh",
+            "AUD/kWh",
+            None,
+            None,
+            "mdi:solar-power",
+            lambda data: data.get("cost_per_kwh", {}).get("solar"),
+            "Cost Analysis",
+        ),
+
+        # Feature 9: Monthly Cost Projection
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_projection_total",
+            "Projected Monthly Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            None,
+            "mdi:crystal-ball",
+            lambda data: data.get("monthly_projection", {}).get("projected_total"),
+            "Monthly Forecast",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_projection_remaining",
+            "Projected Remaining Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            None,
+            "mdi:calendar-clock",
+            lambda data: data.get("monthly_projection", {}).get("projected_remaining"),
+            "Monthly Forecast",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_daily_average",
+            "Daily Average Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            None,
+            "mdi:chart-line",
+            lambda data: data.get("monthly_projection", {}).get("daily_average"),
+            "Monthly Forecast",
+        ),
+
+        # Feature 10: Return-to-Grid Value Analysis
+        OVOEnergyAUSensor(
+            coordinator,
+            "rtg_export_credit",
+            "Export Credit Earned",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:cash-multiple",
+            lambda data: data.get("return_to_grid_analysis", {}).get("export_credit"),
+            "Solar Export",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "rtg_export_rate",
+            "Export Rate per kWh",
+            "AUD/kWh",
+            None,
+            None,
+            "mdi:cash-check",
+            lambda data: data.get("return_to_grid_analysis", {}).get("export_rate_per_kwh"),
+            "Solar Export",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "rtg_potential_savings",
+            "Potential Savings (vs Purchase)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            None,
+            "mdi:piggy-bank",
+            lambda data: data.get("return_to_grid_analysis", {}).get("potential_savings"),
+            "Solar Export",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "rtg_opportunity_cost",
+            "Opportunity Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            None,
+            "mdi:alert-circle",
+            lambda data: data.get("return_to_grid_analysis", {}).get("opportunity_cost"),
+            "Solar Export",
+        ),
     ]
 
     # Add dynamic sensors for last 3 days
@@ -573,6 +894,115 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
                     breakdown = period_data["return_daily_breakdown"]
                     attributes["daily_breakdown"] = breakdown
                     attributes["days_in_month"] = len(breakdown)
+
+        # ====================
+        # ADVANCED ANALYTICS ATTRIBUTES
+        # ====================
+
+        # Feature 1: Peak Usage Time Blocks
+        if self._sensor_key == "peak_4hour_consumption":
+            peak_data = self.coordinator.data.get("hourly", {}).get("peak_4hour_window", {})
+            if peak_data:
+                attributes.update({
+                    "start_time": peak_data.get("start_time"),
+                    "end_time": peak_data.get("end_time"),
+                    "start_hour": peak_data.get("start_hour"),
+                    "hourly_breakdown": peak_data.get("hourly_breakdown", []),
+                })
+
+        # Feature 2: Week-over-Week Comparison
+        if "week_comparison" in self._sensor_key:
+            week_data = self.coordinator.data.get("week_comparison", {})
+            if week_data:
+                attributes.update({
+                    "this_week": week_data.get(f"this_week_{self._sensor_key.split('_')[-1] if '_' in self._sensor_key else 'cost'}"),
+                    "last_week": week_data.get(f"last_week_{self._sensor_key.split('_')[-1] if '_' in self._sensor_key else 'cost'}"),
+                    "change": week_data.get(f"{self._sensor_key.split('_')[-1] if '_' in self._sensor_key else 'cost'}_change"),
+                    "change_pct": week_data.get(f"{self._sensor_key.split('_')[-1] if '_' in self._sensor_key else 'cost'}_change_pct"),
+                    "all_metrics": week_data,
+                })
+
+        # Feature 3: Weekday vs Weekend
+        if "weekday_avg" in self._sensor_key:
+            weekday_data = self.coordinator.data.get("weekday_analysis", {})
+            if weekday_data:
+                attributes.update(weekday_data)
+
+        if "weekend_avg" in self._sensor_key:
+            weekend_data = self.coordinator.data.get("weekend_analysis", {})
+            if weekend_data:
+                attributes.update(weekend_data)
+
+        # Feature 4: Time of Use
+        if "tou_" in self._sensor_key:
+            tou_data = self.coordinator.data.get("hourly", {}).get("time_of_use", {})
+            if tou_data:
+                attributes["all_periods"] = tou_data
+
+        # Feature 5: Solar Self-Sufficiency
+        if self._sensor_key == "self_sufficiency_score":
+            sufficiency_data = self.coordinator.data.get("self_sufficiency", {})
+            if sufficiency_data:
+                attributes.update({
+                    "solar_kwh": sufficiency_data.get("solar_kwh"),
+                    "grid_kwh": sufficiency_data.get("grid_kwh"),
+                    "total_kwh": sufficiency_data.get("total_kwh"),
+                    "period_days": sufficiency_data.get("period_days"),
+                })
+
+        # Feature 6: High Usage Days
+        if self._sensor_key == "high_usage_days":
+            high_usage = self.coordinator.data.get("high_usage_days", [])
+            if high_usage:
+                attributes["rankings"] = high_usage
+                attributes["rank_count"] = len(high_usage)
+
+        # Feature 7: Hourly Heatmap
+        if self._sensor_key == "hourly_heatmap":
+            heatmap = self.coordinator.data.get("hourly", {}).get("hourly_heatmap", {})
+            if heatmap:
+                attributes["heatmap_data"] = heatmap
+                attributes["days_available"] = list(heatmap.keys())
+
+        # Feature 8: Cost Per kWh
+        if "cost_per_kwh" in self._sensor_key:
+            cost_data = self.coordinator.data.get("cost_per_kwh", {})
+            if cost_data:
+                attributes.update({
+                    "overall_rate": cost_data.get("overall"),
+                    "grid_rate": cost_data.get("grid"),
+                    "solar_rate": cost_data.get("solar"),
+                    "total_cost": cost_data.get("total_cost"),
+                    "total_consumption": cost_data.get("total_consumption"),
+                })
+
+        # Feature 9: Monthly Projection
+        if "monthly_projection" in self._sensor_key or "monthly_daily_average" in self._sensor_key:
+            projection_data = self.coordinator.data.get("monthly_projection", {})
+            if projection_data:
+                attributes.update({
+                    "projected_total": projection_data.get("projected_total"),
+                    "current_mtd": projection_data.get("current_mtd"),
+                    "projected_remaining": projection_data.get("projected_remaining"),
+                    "daily_average": projection_data.get("daily_average"),
+                    "days_elapsed": projection_data.get("days_elapsed"),
+                    "days_remaining": projection_data.get("days_remaining"),
+                    "days_in_month": projection_data.get("days_in_month"),
+                })
+
+        # Feature 10: Return-to-Grid Value
+        if "rtg_" in self._sensor_key:
+            rtg_data = self.coordinator.data.get("return_to_grid_analysis", {})
+            if rtg_data:
+                attributes.update({
+                    "export_kwh": rtg_data.get("export_kwh"),
+                    "export_credit": rtg_data.get("export_credit"),
+                    "export_rate": rtg_data.get("export_rate_per_kwh"),
+                    "purchase_rate": rtg_data.get("purchase_rate_per_kwh"),
+                    "rate_difference": rtg_data.get("rate_difference"),
+                    "potential_savings": rtg_data.get("potential_savings"),
+                    "opportunity_cost": rtg_data.get("opportunity_cost"),
+                })
 
         return attributes
 

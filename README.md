@@ -1,653 +1,643 @@
-# OVO Energy Australia API Client
+# OVO Energy Australia - Home Assistant Integration
 
-Unofficial Python client and Home Assistant integration for OVO Energy Australia's GraphQL API.
+<div align="center">
 
-**Status:** ✅ Beta - OAuth authentication implemented with automatic token refresh
-
+[![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-green.svg)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/github/license/HallyAus/OVO_Aus_api)](LICENSE)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-green.svg)](https://www.home-assistant.io/)
+
+**Comprehensive Home Assistant integration for OVO Energy Australia**
+Track solar generation, grid consumption, costs, and get powerful analytics to optimize your energy usage.
+
+[Features](#-features) • [Installation](#-installation) • [Sensors](#-sensors) • [Analytics](#-advanced-analytics) • [Support](#-support)
+
+</div>
 
 ---
 
-## Features
+## ✨ Features
 
-- ☀️ **Solar Generation Data** - Hourly solar production metrics
-- ⚡ **Grid Export Tracking** - Monitor energy exported to the grid
-- 💰 **Cost Savings** - Calculate savings from solar generation
-- 📊 **Daily Breakdown Graphs** - Day-by-day consumption and charges (like OVO dashboard)
-- 📈 **18 Sensors** - Daily, monthly, yearly, and hourly energy tracking
-- 🏠 **Home Assistant Integration** - Custom component with sensors and attributes
-- 🎨 **Dashboard Examples** - Pre-built dashboards with graphs and statistics
-- 📊 **GraphQL API Client** - Full Python client with error handling
-- 📝 **Comprehensive Documentation** - Complete API reference and guides
+### 📊 **80+ Sensors** - Complete Energy Monitoring
+- **Yesterday's Data** - Daily consumption and cost (updated at 6am)
+- **This Month** - Current billing period totals
+- **This Year** - Year-to-date tracking
+- **Hourly Data** - Last 7 days breakdown
+- **Last Week** - 7-day rolling totals
+- **Last Month** - Previous month complete data
+- **Month to Date** - Current calendar month
+- **3 Day Snapshot** - Last 3 days with dynamic day names and dates
 
----
+### 🧠 **10 Advanced Analytics Features** (New in v2.4.0)
+1. **Peak Usage Time Blocks** - Find your highest consumption 4-hour window
+2. **Week-over-Week Comparison** - Track weekly trends with % changes
+3. **Weekday vs Weekend Analysis** - Compare usage patterns
+4. **Time-of-Use Breakdown** - Peak/Shoulder/Off-Peak period tracking
+5. **Solar Self-Sufficiency Score** - % of energy from solar
+6. **High Usage Day Rankings** - Top 5 consumption days
+7. **Hourly Heatmap Data** - Visual usage patterns by day/hour
+8. **Cost Per kWh Tracking** - Effective rates for grid, solar, overall
+9. **Monthly Cost Projection** - Budget forecasting
+10. **Return-to-Grid Value Analysis** - Solar export ROI tracking
 
-## Quick Start
+### 🎨 **Organized Device Categories**
+All sensors grouped logically in Home Assistant:
+- Yesterday, This Month, This Year
+- Hourly Data, Last Week, Last Month, Month to Date
+- 3 Day Snapshot
+- Peak Usage, Week Comparison, Weekday vs Weekend
+- Time of Use, Solar Insights, Usage Rankings
+- Usage Patterns, Cost Analysis, Monthly Forecast, Solar Export
 
-### Home Assistant (HACS - Recommended) ⭐
-
-```bash
-# Install via HACS:
-# 1. Add custom repository: https://github.com/HallyAus/OVO_Aus_api
-# 2. Search for "OVO Energy Australia"
-# 3. Click Download
-
-# Or use auto-install script:
-bash <(curl -s https://raw.githubusercontent.com/HallyAus/OVO_Aus_api/claude/create-github-project-rWeUP/install.sh)
-```
-
-For detailed instructions, see [HACS_INSTALLATION.md](HACS_INSTALLATION.md)
-
-### Python Client
-
-```bash
-# Clone repository
-git clone https://github.com/HallyAus/OVO_Aus_api.git
-cd OVO_Aus_api
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run example (supports OAuth!)
-python3 ovo_australia_client.py
-```
-
-For detailed instructions, see [QUICK_START.md](QUICK_START.md)
+### 🔄 **Automatic Updates**
+- OAuth 2.0 authentication with automatic token refresh
+- Data updates every 5 minutes
+- No manual intervention required
+- Seamless integration with Home Assistant
 
 ---
 
-## What This Project Provides
+## 🚀 Installation
 
-### 1. Python GraphQL Client
+### HACS (Recommended)
 
-A complete Python client for interacting with OVO Energy Australia's API:
+1. Open HACS in Home Assistant
+2. Click on "Integrations"
+3. Click the 3 dots in the top right corner
+4. Select "Custom repositories"
+5. Add repository URL: `https://github.com/HallyAus/OVO_Aus_api`
+6. Select category: "Integration"
+7. Click "Download"
+8. Restart Home Assistant
+9. Go to Settings → Devices & Services → Add Integration
+10. Search for "OVO Energy Australia"
+11. Follow the setup wizard
 
-```python
-from ovo_australia_client import OVOEnergyAU
+### Manual Installation
 
-# Create client
-client = OVOEnergyAU(account_id="30264061")
-client.set_tokens(access_token="Bearer ...", id_token="...")
-
-# Get today's solar data
-data = client.get_today_data()
-print(f"Solar: {sum(p['consumption'] for p in data['solar'])} kWh")
-```
-
-**Features:**
-- GraphQL query builder
-- Automatic error handling
-- Token management (basic)
-- Convenience methods for common queries
-- Context manager support
-
-### 2. Home Assistant Custom Component
-
-Pre-built custom component with 5 sensors:
-
-- 🌞 Solar Generation (Current Hour)
-- ⚡ Grid Export (Current Hour)
-- 📊 Solar Generation (Today)
-- 📈 Grid Export (Today)
-- 💵 Cost Savings (Today)
-
-### 3. Complete Documentation
-
-- **[QUICK_START.md](QUICK_START.md)** - Get started in 5 minutes
-- **[OVO_AU_API_DOCUMENTATION.md](OVO_AU_API_DOCUMENTATION.md)** - Complete API reference
-- **[BROWSER_TESTING_GUIDE.md](BROWSER_TESTING_GUIDE.md)** - How we discovered the API
-- **[ovo_australia_conversion_guide.md](ovo_australia_conversion_guide.md)** - Migrate from OVO UK
-
-## 📊 Dashboards & Visualization
-
-Create beautiful dashboards with daily breakdown graphs similar to the OVO Energy dashboard:
-
-### Pre-Built Dashboard Options
-
-1. **Advanced Dashboard** (`dashboard_monthly_charges.yaml`)
-   - 📊 Daily bar charts for solar/grid consumption and charges
-   - 📈 Combined comparison graphs
-   - 📉 Monthly statistics summary
-   - Requires: [ApexCharts Card](https://github.com/RomRider/apexcharts-card)
-
-2. **Simple Dashboard** (`dashboard_simple.yaml`)
-   - Built-in Home Assistant cards only
-   - Monthly totals and statistics
-   - Daily averages
-   - No custom components needed
-
-### Available Sensor Data
-
-All monthly sensors include `daily_breakdown` attributes with:
-- Day-by-day consumption and charge data
-- Date, consumption, and cost for each day
-- Summary statistics (average, max, days tracked)
-
-**Example Daily Breakdown:**
-```json
-{
-  "daily_breakdown": [
-    {"date": "2026-01-01", "consumption": 35.24, "charge": 0.99},
-    {"date": "2026-01-02", "consumption": 32.15, "charge": 0.85}
-  ],
-  "daily_average": 34.5,
-  "daily_max": 45.2
-}
-```
-
-See **[DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md)** for complete documentation, examples, and customization tips.
+1. Download the latest release
+2. Copy `custom_components/ovo_energy_au` to your Home Assistant `config/custom_components/` directory
+3. Restart Home Assistant
+4. Go to Settings → Devices & Services → Add Integration
+5. Search for "OVO Energy Australia"
 
 ---
 
-## Project Status
+## 📈 Sensors
 
-### ✅ What Works
+### Core Energy Tracking (Yesterday - Available at 6am)
 
-- ✅ **OAuth 2.0 Authentication** - Full username/password login with PKCE
-- ✅ **Automatic Token Refresh** - Tokens refresh automatically every 4 minutes
-- ✅ GraphQL API client with authentication
-- ✅ Hourly energy data retrieval
-- ✅ Solar generation tracking
-- ✅ Grid export tracking
-- ✅ Cost savings calculation
-- ✅ Home Assistant custom component
-- ✅ Error handling and logging
-- ✅ Comprehensive documentation
+| Sensor | Description | Unit |
+|--------|-------------|------|
+| Solar Consumption | Energy from solar panels | kWh |
+| Grid Consumption | Energy from grid | kWh |
+| Return to Grid | Energy exported | kWh |
+| Solar Charge | Cost of solar energy | AUD |
+| Grid Charge | Cost of grid energy | AUD |
+| Return to Grid Charge | Credit from exports | AUD |
 
-### 🚧 Known Limitations
+### Historical Periods
 
-- ⚠️ **OAuth Success Rate** - May not work for all Auth0 configurations (fallback to manual tokens available)
-- ⚠️ **Account ID** - May need to be entered manually after OAuth login
-- ⚠️ **Only Tested with Solar Accounts** - Non-solar accounts untested
+**This Month** - Current billing period totals
+**This Year** - Year-to-date consumption and costs
+**Last Week** - 7-day rolling totals with all metrics
+**Last Month** - Previous month complete breakdown
+**Month to Date** - Current calendar month progress
 
-### 🎯 Roadmap
+**3 Day Snapshot** - Last 3 days with dynamic names:
+- Each day labeled with actual day name and date (e.g., "Monday 20 Jan")
+- 4 sensors per day (solar consumption, solar charge, grid consumption, grid charge)
+- Automatically updates with new data
 
-**Recently Completed:** ✅
-- [x] Implement OAuth 2.0 authentication flow with PKCE
-- [x] Automatic token refresh mechanism (Python client)
-- [x] Home Assistant config flow (UI setup)
-- [x] Automatic token refresh in Home Assistant
+### Hourly Data
 
-**High Priority:**
-- [ ] Improve OAuth compatibility (test with more account types)
-- [ ] Auto-detect account ID after OAuth login
-
-**Medium Priority:**
-- [ ] Additional GraphQL queries (billing, account details)
-- [ ] Daily/monthly data aggregation
-- [ ] Rate limiting and request throttling
-- [ ] Comprehensive error recovery
-- [ ] Unit tests for OAuth flow
-
-**Low Priority:**
-- [ ] HACS integration
-- [ ] Documentation improvements
-- [ ] Support for non-solar accounts
+- Solar Consumption (Last 7 Days)
+- Grid Consumption (Last 7 Days)
+- Return to Grid (Last 7 Days)
+- Full hourly breakdown in sensor attributes
 
 ---
 
-## Installation
+## 🧠 Advanced Analytics
 
-### Home Assistant Installation
+### 1. Peak Usage Time Blocks
 
-**Choose one method:**
+Identifies your highest consumption 4-hour window.
 
-#### Option 1: HACS (Recommended) ⭐
+**Sensors:**
+- `sensor.ovo_energy_au_peak_4hour_consumption` - Total consumption in peak window
 
-Most users should use HACS for easy installation and updates:
+**Attributes:**
+- Start time and end time
+- Hourly breakdown of the peak period
+- Consumption by type (solar/grid)
 
-📖 **[Complete HACS Installation Guide →](HACS_INSTALLATION.md)**
-
-Quick steps:
-1. Add custom repository: `https://github.com/HallyAus/OVO_Aus_api`
-2. Search "OVO Energy Australia" in HACS
-3. Download and configure
-
-#### Option 2: Auto Install Script
-
-One-command installation:
-
-**Linux/macOS/Docker:**
-```bash
-bash <(curl -s https://raw.githubusercontent.com/HallyAus/OVO_Aus_api/claude/create-github-project-rWeUP/install.sh)
-```
-
-**Windows PowerShell:**
-```powershell
-iwr https://raw.githubusercontent.com/HallyAus/OVO_Aus_api/claude/create-github-project-rWeUP/install.ps1 -UseBasicParsing | iex
-```
-
-#### Option 3: Manual Installation
-
-See [HACS_INSTALLATION.md](HACS_INSTALLATION.md#method-3-manual-installation) for manual steps.
-
-### Python Client Installation
-
-**Requirements:**
-- Python 3.11+
-- OVO Energy Australia account
-
-**Install:**
-
-```bash
-# Clone repository
-git clone https://github.com/HallyAus/OVO_Aus_api.git
-cd OVO_Aus_api
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run with OAuth authentication
-python3 ovo_australia_client.py
-```
+**Use Case:** Identify when to reduce usage or shift heavy appliances to off-peak times.
 
 ---
 
-## Usage Examples
+### 2. Week-over-Week Comparison
 
-### Basic Usage with OAuth
+Compare current week vs previous week to track trends.
 
-```python
-from ovo_australia_client import OVOEnergyAU
+**Sensors:**
+- `sensor.ovo_energy_au_week_comparison_solar` - This week's solar consumption
+- `sensor.ovo_energy_au_week_comparison_grid` - This week's grid consumption
+- `sensor.ovo_energy_au_week_comparison_cost` - This week's total cost
+- `sensor.ovo_energy_au_week_comparison_solar_change_pct` - Solar % change
+- `sensor.ovo_energy_au_week_comparison_grid_change_pct` - Grid % change
+- `sensor.ovo_energy_au_week_comparison_cost_change_pct` - Cost % change
 
-# Initialize client
-client = OVOEnergyAU()
+**Attributes:**
+- Last week's values
+- Absolute change
+- Percentage change
+- Complete metrics for both weeks
 
-# Authenticate with username and password
-client.authenticate("your.email@example.com", "your_password")
-
-# Set account ID (if not auto-detected)
-client.account_id = "30264061"
-
-# Get today's data
-data = client.get_today_data()
-
-# Calculate totals
-total_solar = sum(p['consumption'] for p in data['solar'])
-total_export = sum(p['consumption'] for p in data['export'])
-
-print(f"Solar generated: {total_solar:.2f} kWh")
-print(f"Exported to grid: {total_export:.2f} kWh")
-
-# Token refresh happens automatically!
-# Clean up
-client.close()
-```
-
-### Basic Usage with Manual Tokens (Fallback)
-
-```python
-from ovo_australia_client import OVOEnergyAU
-
-# Initialize client
-client = OVOEnergyAU(account_id="30264061")
-client.set_tokens(
-    access_token="Bearer eyJ...",
-    id_token="eyJ..."
-)
-
-# Get today's data
-data = client.get_today_data()
-
-# Clean up
-client.close()
-```
-
-### Context Manager
-
-```python
-from ovo_australia_client import OVOEnergyAU
-
-with OVOEnergyAU(account_id="30264061") as client:
-    client.set_tokens(access_token="Bearer ...", id_token="...")
-
-    # Get last 7 days
-    data = client.get_last_7_days()
-
-    # Process data
-    for point in data['solar']:
-        print(f"{point['periodFrom']}: {point['consumption']} kWh")
-```
-
-### Error Handling
-
-```python
-from ovo_australia_client import (
-    OVOEnergyAU,
-    OVOAuthenticationError,
-    OVOAPIError,
-    OVOTokenExpiredError
-)
-
-try:
-    client = OVOEnergyAU(account_id="30264061")
-    client.set_tokens(access_token="...", id_token="...")
-    data = client.get_today_data()
-
-except OVOTokenExpiredError:
-    print("Tokens expired - get fresh tokens from browser")
-
-except OVOAPIError as e:
-    print(f"API error: {e}")
-
-finally:
-    client.close()
-```
+**Use Case:** Track if behavior changes are reducing your bills.
 
 ---
 
-## Documentation
+### 3. Weekday vs Weekend Analysis
 
-| Document | Description |
-|----------|-------------|
-| [QUICK_START.md](QUICK_START.md) | Get started in 5 minutes |
-| [OVO_AU_API_DOCUMENTATION.md](OVO_AU_API_DOCUMENTATION.md) | Complete API reference |
-| [BROWSER_TESTING_GUIDE.md](BROWSER_TESTING_GUIDE.md) | How to extract tokens and discover API endpoints |
-| [ovo_australia_conversion_guide.md](ovo_australia_conversion_guide.md) | Migrate from OVO UK to OVO Australia |
-| [home_assistant_example/README.md](home_assistant_example/README.md) | Home Assistant integration guide |
+Understand different usage patterns between work and home days.
 
----
+**Sensors:**
+- `sensor.ovo_energy_au_weekday_avg_consumption` - Average weekday consumption
+- `sensor.ovo_energy_au_weekend_avg_consumption` - Average weekend consumption
+- `sensor.ovo_energy_au_weekday_avg_cost` - Average weekday cost
+- `sensor.ovo_energy_au_weekend_avg_cost` - Average weekend cost
 
-## API Overview
+**Attributes:**
+- Solar and grid breakdown
+- Number of days included
+- Average consumption per day type
 
-### Authentication
-
-OVO Australia uses **Auth0 OAuth 2.0** with dual JWT tokens:
-
-| Token | Header | Lifespan |
-|-------|--------|----------|
-| Access Token | `authorization` | 5 minutes |
-| ID Token | `myovo-id-token` | 5 minutes |
-
-**Current Limitation:** Tokens must be manually extracted from browser. See [QUICK_START.md](QUICK_START.md) for instructions.
-
-### Endpoints
-
-**GraphQL API:**
-```
-POST https://my.ovoenergy.com.au/graphql
-```
-
-**Auth0:**
-```
-https://login.ovoenergy.com.au
-```
-
-### Available Queries
-
-| Query | Status | Description |
-|-------|--------|-------------|
-| `GetHourlyData` | ✅ Documented | Hourly energy data (solar/export/savings) |
-| `getAccountDetails` | ⚠️ Discovered | Account information (not documented) |
-| `getBillingHistory` | ⚠️ Discovered | Billing statements (not documented) |
-| `getDailyData` | ⚠️ Discovered | Daily aggregated data (not documented) |
+**Use Case:** Identify differences in work-from-home vs weekend energy patterns.
 
 ---
 
-## Home Assistant Integration
+### 4. Time-of-Use Cost Breakdown
 
-### Features
+Split usage into peak/shoulder/off-peak periods (Australian TOU tariffs).
 
-- 🔄 Automatic data updates every 5 minutes
-- 📊 5 sensors for solar and export tracking
-- ⚡ Energy dashboard compatible
-- 📈 Historical data support
-- 🎨 Customizable Lovelace cards
+**Time Periods:**
+- **Peak:** 2pm-8pm weekdays (highest rates)
+- **Shoulder:** 7am-2pm and 8pm-10pm weekdays, 7am-10pm weekends
+- **Off-Peak:** 10pm-7am all days (lowest rates)
 
-### Sensors
+**Sensors:**
+- `sensor.ovo_energy_au_tou_peak_consumption` - Peak period usage
+- `sensor.ovo_energy_au_tou_shoulder_consumption` - Shoulder period usage
+- `sensor.ovo_energy_au_tou_off_peak_consumption` - Off-peak period usage
 
-| Sensor | Entity ID | Unit |
-|--------|-----------|------|
-| Solar Generation (Current) | `sensor.ovo_energy_solar_generation_current_hour` | kWh |
-| Grid Export (Current) | `sensor.ovo_energy_grid_export_current_hour` | kWh |
-| Solar Generation (Today) | `sensor.ovo_energy_solar_generation_today` | kWh |
-| Grid Export (Today) | `sensor.ovo_energy_grid_export_today` | kWh |
-| Cost Savings (Today) | `sensor.ovo_energy_cost_savings_today` | AUD |
+**Attributes:**
+- Consumption and cost per period
+- Hours in each period
 
-### Example Dashboard
+**Use Case:** Optimize usage timing to reduce bills by shifting consumption to off-peak.
+
+---
+
+### 5. Solar Self-Sufficiency Score
+
+Measure how well your solar panels meet your energy needs.
+
+**Sensor:**
+- `sensor.ovo_energy_au_self_sufficiency_score` - Percentage (0-100%)
+
+**Calculation:** `(Solar Consumption / Total Consumption) × 100`
+
+**Attributes:**
+- Solar kWh consumed
+- Grid kWh consumed
+- Total consumption
+- Period days
+
+**Use Case:** Track solar independence and identify opportunities to increase self-sufficiency.
+
+---
+
+### 6. High Usage Day Rankings
+
+Identify your top consumption days to understand usage spikes.
+
+**Sensor:**
+- `sensor.ovo_energy_au_high_usage_days` - Highest consumption day value
+
+**Attributes:**
+- Top 5 highest consumption days (last 30 days)
+- Date, day name, total consumption, total cost
+- Solar and grid breakdown for each day
+
+**Use Case:** Spot unusual usage patterns and correlate with activities or weather.
+
+---
+
+### 7. Hourly Heatmap Data
+
+Visual representation of usage patterns by day of week and hour.
+
+**Sensor:**
+- `sensor.ovo_energy_au_hourly_heatmap` - Number of days available
+
+**Attributes:**
+- Complete heatmap data structure
+- Average consumption for each day/hour combination
+- Day names with hourly averages
+
+**Use Case:** Create visual heatmap dashboards showing weekly energy patterns.
+
+---
+
+### 8. Cost Per kWh Tracking
+
+Understand your effective energy rates.
+
+**Sensors:**
+- `sensor.ovo_energy_au_cost_per_kwh_overall` - Overall effective rate
+- `sensor.ovo_energy_au_cost_per_kwh_grid` - Grid purchase rate
+- `sensor.ovo_energy_au_cost_per_kwh_solar` - Solar consumption rate
+
+**Calculation:** `Total Cost / Total Consumption` (based on last 7 days)
+
+**Attributes:**
+- All three rates
+- Total cost and consumption
+
+**Use Case:** Validate billing and understand true energy costs.
+
+---
+
+### 9. Monthly Cost Projection
+
+Budget forecasting based on current usage patterns.
+
+**Sensors:**
+- `sensor.ovo_energy_au_monthly_projection_total` - Projected month-end cost
+- `sensor.ovo_energy_au_monthly_projection_remaining` - Projected remaining cost
+- `sensor.ovo_energy_au_monthly_daily_average` - Daily average cost
+
+**Attributes:**
+- Current month-to-date cost
+- Days elapsed and remaining
+- Daily average used for projection
+
+**Use Case:** Stay on budget throughout the month with early warnings.
+
+---
+
+### 10. Return-to-Grid Value Analysis
+
+Understand your solar export economics and ROI.
+
+**Sensors:**
+- `sensor.ovo_energy_au_rtg_export_credit` - Credit earned from exports
+- `sensor.ovo_energy_au_rtg_export_rate` - Export rate per kWh
+- `sensor.ovo_energy_au_rtg_potential_savings` - What you'd pay if you bought this power
+- `sensor.ovo_energy_au_rtg_opportunity_cost` - Difference between purchase and export rates
+
+**Attributes:**
+- Export kWh
+- Export credit earned
+- Purchase rate per kWh
+- Rate difference
+- Complete value analysis
+
+**Use Case:** Maximize solar ROI by understanding export value vs self-consumption.
+
+---
+
+## 🎨 Dashboard Examples
+
+### Energy Overview Card
+
+```yaml
+type: vertical-stack
+cards:
+  - type: sensor
+    entity: sensor.ovo_energy_au_self_sufficiency_score
+    name: Solar Self-Sufficiency
+    graph: line
+
+  - type: entities
+    title: Yesterday's Energy
+    entities:
+      - sensor.ovo_energy_au_daily_solar_consumption
+      - sensor.ovo_energy_au_daily_grid_consumption
+      - sensor.ovo_energy_au_daily_return_to_grid
+
+  - type: entities
+    title: Yesterday's Costs
+    entities:
+      - sensor.ovo_energy_au_daily_solar_charge
+      - sensor.ovo_energy_au_daily_grid_charge
+      - sensor.ovo_energy_au_daily_return_to_grid_charge
+```
+
+### Week Comparison Card
 
 ```yaml
 type: entities
-title: OVO Energy - Solar Today
+title: Week over Week
 entities:
-  - entity: sensor.ovo_energy_solar_generation_today
-  - entity: sensor.ovo_energy_grid_export_today
-  - entity: sensor.ovo_energy_cost_savings_today
+  - entity: sensor.ovo_energy_au_week_comparison_solar_change_pct
+    name: Solar Change
+  - entity: sensor.ovo_energy_au_week_comparison_grid_change_pct
+    name: Grid Change
+  - entity: sensor.ovo_energy_au_week_comparison_cost_change_pct
+    name: Cost Change
 ```
 
-See [home_assistant_example/README.md](home_assistant_example/README.md) for more examples.
+### Budget Forecast Card
+
+```yaml
+type: entities
+title: Monthly Forecast
+entities:
+  - sensor.ovo_energy_au_monthly_projection_total
+  - sensor.ovo_energy_au_monthly_projection_remaining
+  - sensor.ovo_energy_au_monthly_daily_average
+```
+
+### Time of Use Card
+
+```yaml
+type: horizontal-stack
+cards:
+  - type: sensor
+    entity: sensor.ovo_energy_au_tou_peak_consumption
+    name: Peak
+
+  - type: sensor
+    entity: sensor.ovo_energy_au_tou_shoulder_consumption
+    name: Shoulder
+
+  - type: sensor
+    entity: sensor.ovo_energy_au_tou_off_peak_consumption
+    name: Off-Peak
+```
 
 ---
 
-## Contributing
+## 🔧 Configuration
 
-Contributions are welcome! This project needs help with:
+### OAuth Authentication Setup
 
-1. **OAuth Implementation** (High Priority)
-   - Implement Auth0 PKCE flow
-   - Automatic token refresh
-   - See handover document for details
+The integration uses OAuth 2.0 for secure authentication:
 
-2. **API Discovery**
-   - Document additional GraphQL queries
-   - Test with non-solar accounts
-   - Find rate limits
+1. Add the integration via Settings → Devices & Services
+2. Enter your OVO Energy Australia email and password
+3. The integration automatically:
+   - Authenticates via OAuth
+   - Extracts tokens
+   - Sets up automatic token refresh
+   - Fetches your account ID
 
-3. **Home Assistant**
-   - Implement config flow
-   - Convert to async/await
-   - Add more sensors
+### Manual Configuration (Advanced)
 
-4. **Testing**
-   - Write unit tests
-   - Integration tests
-   - Test edge cases
+If OAuth fails, you can manually provide tokens:
 
-### How to Contribute
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Test thoroughly
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+1. Log in to https://my.ovoenergy.com.au
+2. Open browser DevTools (F12) → Network tab
+3. Refresh the page
+4. Find a GraphQL request
+5. Copy the authorization tokens
+6. Enter them in the integration setup
 
 ---
 
-## Troubleshooting
+## 📊 Data Update Intervals
 
-### OAuth Authentication Fails
+- **API Polling:** Every 5 minutes
+- **Token Refresh:** Automatic when needed
+- **Yesterday's Data:** Available at 6:00 AM daily
+- **Hourly Data:** Last 7 days rolling window
+- **Historical Data:** Updated with each refresh
 
-**Problem:** `authenticate()` method fails
+---
+
+## ❓ FAQ
+
+**Q: How many sensors does this create?**
+A: 80+ sensors organized into 17 device categories for easy navigation.
+
+**Q: Will this work without solar panels?**
+A: Yes! Grid consumption tracking works for all accounts. Solar sensors will show zero if you don't have panels.
+
+**Q: Why does "Yesterday" data appear instead of "Today"?**
+A: OVO's API provides daily data at 6am for the PREVIOUS day. This is accurately labeled as "Yesterday" to avoid confusion.
+
+**Q: Do I need to update tokens manually?**
+A: No! OAuth tokens refresh automatically. No manual intervention needed.
+
+**Q: Can I see hourly data?**
+A: Yes! Hourly sensors include the last 7 days of data in their attributes, plus the heatmap provides hourly breakdowns by day of week.
+
+**Q: What's the difference between "This Month" and "Month to Date"?**
+A: "This Month" is your billing period (varies by account). "Month to Date" is the current calendar month.
+
+**Q: How accurate are the projections?**
+A: Monthly projections are based on your current daily average. Accuracy improves as the month progresses.
+
+**Q: Can I track multiple OVO accounts?**
+A: Yes! Add the integration multiple times with different credentials.
+
+---
+
+## 🐛 Troubleshooting
+
+### Authentication Fails
+
+**Problem:** OAuth authentication doesn't work
 
 **Solutions:**
-1. Verify your email and password are correct
-2. Check if your account uses MFA/2FA (not yet supported)
-3. Fall back to manual token extraction
-4. Check logs with `logging.basicConfig(level=logging.DEBUG)`
-
-### Tokens Expire After Login
-
-**Problem:** Tokens expire and aren't refreshing
-
-**Solutions:**
-- This shouldn't happen anymore with OAuth! Token refresh is automatic
-- If using manual tokens, you need to provide a `refresh_token`
-- Check logs to see if refresh is failing
-
-### "Authentication failed" Error
-
-**Problem:** Invalid or missing tokens
-
-**Solutions:**
-1. Verify tokens are copied correctly (no extra spaces)
-2. Ensure `access_token` includes "Bearer " prefix
-3. Check `id_token` doesn't include "Bearer "
-4. Get fresh tokens if older than 5 minutes
+1. Verify email and password are correct
+2. Try the manual token method
+3. Check Home Assistant logs for error details
+4. Ensure you're using OVO Energy Australia (not UK)
 
 ### No Data Showing
 
-**Problem:** Empty arrays returned
-
-**Possible Causes:**
-1. Wrong account ID
-2. No solar panels on account
-3. Data not yet available for today
+**Problem:** Sensors show "Unknown" or zero values
 
 **Solutions:**
-1. Verify account ID from browser
-2. Try yesterday's data instead
-3. Check OVO web app shows data
+1. Wait until 6am for yesterday's data to appear
+2. Check that your account has active services
+3. Verify in the OVO web app that data is available
+4. Check Home Assistant logs for API errors
 
-See [QUICK_START.md](QUICK_START.md) for more troubleshooting.
+### Sensors Not Appearing
 
----
+**Problem:** Integration loads but sensors missing
 
-## Security
-
-### Token Security
-
-⚠️ **Never commit tokens to git!**
-
-Tokens are sensitive credentials:
-- Can access your account data
-- Could be used to view billing information
-- Expire after 5 minutes (limited risk)
-
-**Best Practices:**
-```bash
-# Add to .gitignore
-*.env
-tokens.txt
-config.yaml
-```
-
-### Reporting Security Issues
-
-Please report security issues privately to the maintainers.
+**Solutions:**
+1. Restart Home Assistant after installation
+2. Check Developer Tools → States to see all entities
+3. Clear browser cache
+4. Check if entities are disabled (Settings → Devices & Services → OVO Energy AU)
 
 ---
 
-## FAQ
+## 🔐 Security & Privacy
 
-**Q: Is this official?**
-A: No. This is an unofficial, reverse-engineered client. Not endorsed by OVO Energy.
+- All authentication uses OAuth 2.0 with automatic token refresh
+- Tokens are stored securely in Home Assistant's config entries
+- No data is sent to third parties
+- All communication is directly between Home Assistant and OVO's API
+- Tokens expire and refresh automatically for security
 
-**Q: Will it break?**
-A: Possibly. OVO can change their API anytime without notice.
-
-**Q: Do I need solar panels?**
-A: Recommended but not required. The client is optimized for solar accounts.
-
-**Q: Why can't I just use username/password?**
-A: OAuth flow not yet implemented. Contributions welcome!
-
-**Q: Can I use this commercially?**
-A: Check OVO's Terms of Service. This is for personal use.
-
-**Q: Does this work with OVO UK?**
-A: No. OVO UK uses a different API. See [ovo_australia_conversion_guide.md](ovo_australia_conversion_guide.md)
+**Never share your tokens or credentials publicly!**
 
 ---
 
-## Credits
+## 📝 Changelog
 
-**Reverse-Engineered By:** Claude (Sonnet 4.5) + Daniel
-**Date:** January 2026
-**Method:** Browser DevTools network analysis
-**Status:** Prototype with working API calls
+### [2.4.0] - 2026-01-20
 
-### Acknowledgments
+**Major Analytics Release** 🎉
 
-- OVO Energy Australia for providing excellent solar tracking
-- Home Assistant community for integration patterns
-- Auth0 for OAuth documentation
+**Added:**
+- ✨ 10 comprehensive energy analytics features
+- 📊 32 new sensors for advanced insights
+- 🧠 Peak usage time block identification
+- 📈 Week-over-week comparison tracking
+- 📅 Weekday vs weekend analysis
+- ⏰ Time-of-use cost breakdown
+- ☀️ Solar self-sufficiency score
+- 🏆 High usage day rankings
+- 🗺️ Hourly heatmap data
+- 💰 Cost per kWh tracking
+- 🔮 Monthly cost projection
+- 💸 Return-to-grid value analysis
+- 🎨 10 new device categories for organization
+- 📋 Comprehensive sensor attributes for dashboards
+
+**Total Sensors:** 80+ (48 existing + 32 new)
+
+### [2.3.0] - 2026-01-20
+
+**Sensor Organization Release**
+
+**Added:**
+- 🎯 Device categories for logical sensor grouping
+- 📁 8 main device groups (Yesterday, This Month, etc.)
+- 🎨 Cleaner sensor names
+- ✨ Better Home Assistant UI organization
+
+### [2.2.0] - 2026-01-20
+
+**Historical Period Sensors Release**
+
+**Added:**
+- 📅 Last 7 Days sensors (4 total)
+- 📆 Last Month sensors (4 total)
+- 📊 Month to Date sensors (4 total)
+- 🗓️ Dynamic 3-day sensors with actual day names and dates
+- 🎯 12 sensors for last 3 days (4 per day)
+- ✨ Automatic day name updates (e.g., "Monday 20 Jan")
+
+### [2.1.0] - 2026-01-20
+
+**Monthly Breakdown Release**
+
+**Added:**
+- 📊 Monthly charge graphs with daily breakdown
+- 📈 Daily statistics (average, max)
+- 🎨 Dashboard examples with ApexCharts
+- 📋 Complete daily breakdown attributes
+
+### [2.0.0] - 2026-01-20
+
+**Config Flow & Auto-Refresh Release**
+
+**Added:**
+- ✅ Home Assistant UI configuration flow
+- 🔄 Automatic token refresh
+- 🎯 OAuth 2.0 authentication
+- ✨ No more YAML configuration needed
 
 ---
 
-## License
+## 💖 Support This Project
 
-This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
+If you find this integration useful, consider supporting its development!
 
-**Disclaimer:** This is an unofficial project. Not affiliated with, endorsed by, or supported by OVO Energy Australia.
+<a href="https://buymeacoffee.com/printforge" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" >
+</a>
+
+Your support helps:
+- 🚀 Develop new features
+- 🐛 Fix bugs faster
+- 📚 Improve documentation
+- ⚡ Keep the integration updated with OVO API changes
+
+**Other ways to support:**
+- ⭐ Star this repository on GitHub
+- 🐛 Report bugs and suggest features
+- 📝 Improve documentation
+- 💬 Share with other OVO Energy users
 
 ---
 
-## Links
+## 🤝 Contributing
+
+Contributions are welcome! Here's how you can help:
+
+### Development
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+### Areas That Need Help
+
+- 🔧 Additional analytics features
+- 🎨 Dashboard templates and examples
+- 📚 Documentation improvements
+- 🧪 Testing with different account types
+- 🌍 Support for different tariff structures
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+
+**Disclaimer:** This is an unofficial integration. Not affiliated with, endorsed by, or supported by OVO Energy Australia.
+
+---
+
+## 🔗 Links
 
 - **GitHub Repository:** https://github.com/HallyAus/OVO_Aus_api
-- **Issues:** https://github.com/HallyAus/OVO_Aus_api/issues
+- **Issues & Support:** https://github.com/HallyAus/OVO_Aus_api/issues
 - **OVO Energy Australia:** https://www.ovoenergy.com.au
 - **Home Assistant:** https://www.home-assistant.io
 
 ---
 
-## Support
+## 🙏 Credits
 
-- 📖 **Documentation:** See docs in this repository
-- 🐛 **Bug Reports:** Open an issue on GitHub
-- 💡 **Feature Requests:** Open an issue with enhancement tag
-- ❓ **Questions:** Open a discussion on GitHub
+**Developed by:** HallyAus with Claude (Sonnet 4.5)
+**License:** MIT
+**Status:** Active Development
 
----
+### Acknowledgments
 
-## Changelog
-
-### [0.2.4] - 2026-01-20
-
-**Easy Setup Release** 🚀
-- ✅ **NEW:** Multi-step configuration flow with 3 auth methods
-- ✅ **NEW:** OAuth JSON Paste - Just copy/paste one JSON response!
-- ✅ **NEW:** No more extracting 4 separate tokens manually
-- ✅ **NEW:** Clear step-by-step instructions in UI
-- ✅ Automatically parses JSON and extracts all tokens
-- ✅ Auto-adds "Bearer " prefix to access_token
-- ✅ Updated installation documentation with JSON paste method
-
-### [0.2.3] - 2026-01-20
-
-**Automatic Token Refresh Release** 🎉
-- ✅ **NEW:** Automatic token refresh using refresh_token
-- ✅ **NEW:** No more manual token updates needed!
-- ✅ **NEW:** Tokens refresh automatically when they expire
-- ✅ **NEW:** Refreshed tokens saved to config entry automatically
-- ✅ Config flow now collects refresh_token
-- ✅ Auto-retry API requests with token refresh on 401 errors
-- ✅ Token update callback persists new tokens
-
-### [0.2.2] - 2026-01-20
-
-**Home Assistant Config Flow Release**
-- ✅ **NEW:** Home Assistant config flow for UI-based setup
-- ✅ **NEW:** No more YAML configuration required
-- ✅ **NEW:** Add integration directly from Settings > Devices & Services
-- ✅ **FIXED:** Sensors now appear in Developer Tools
-- ✅ Added strings.json for proper UI labels
-- ✅ Improved integration validation
-
-### [0.2.0] - 2026-01-20
-
-**OAuth Authentication Release**
-- ✅ **NEW:** OAuth 2.0 authentication with PKCE flow
-- ✅ **NEW:** Automatic token refresh every 4 minutes
-- ✅ **NEW:** Multiple authentication strategies (ROPC, password realm, database connection)
-- ✅ **NEW:** Account ID extraction from JWT tokens
-- ✅ Improved error handling and logging
-- ✅ Updated documentation and examples
-- ✅ Fallback to manual tokens if OAuth fails
-
-### [0.1.0] - 2026-01-20
-
-**Initial Release**
-- ✅ GraphQL API client
-- ✅ Basic authentication (manual tokens)
-- ✅ GetHourlyData query implementation
-- ✅ Home Assistant custom component
-- ✅ Complete documentation
+- OVO Energy Australia for their excellent solar tracking platform
+- Home Assistant community for integration patterns and support
+- All contributors and users who provide feedback
 
 ---
+
+<div align="center">
 
 **Made with ☀️ for the Australian solar community**
+
+⭐ If you find this useful, please star the repository! ⭐
+
+</div>
