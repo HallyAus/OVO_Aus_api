@@ -12,13 +12,47 @@ Date: January 2026
 import requests
 import json
 import logging
+import hashlib
+import secrets
+import base64
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from threading import Timer
+from urllib.parse import urlparse, parse_qs, urlencode
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# PKCE Helper Functions
+def _generate_code_verifier() -> str:
+    """
+    Generate a code verifier for PKCE flow
+
+    Returns a URL-safe base64-encoded random string (43-128 characters)
+    """
+    code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8')
+    # Remove padding
+    return code_verifier.rstrip('=')
+
+
+def _generate_code_challenge(code_verifier: str) -> str:
+    """
+    Generate a code challenge from the code verifier for PKCE flow
+
+    Uses SHA256 hashing method
+
+    Args:
+        code_verifier: The code verifier string
+
+    Returns:
+        URL-safe base64-encoded SHA256 hash of the verifier
+    """
+    code_challenge = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+    code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8')
+    # Remove padding
+    return code_challenge.rstrip('=')
 
 
 class OVOAuthenticationError(Exception):
@@ -96,16 +130,12 @@ class OVOEnergyAU:
 
     def authenticate(self, username: str, password: str) -> bool:
         """
-        Authenticate with OVO Energy Australia
+        Authenticate with OVO Energy Australia using OAuth 2.0
 
-        CRITICAL: This method is NOT yet implemented!
-
-        TODO: Implement full OAuth 2.0 PKCE flow:
-        1. POST to /usernamepassword/login
-        2. GET /authorize/resume?state=...
-        3. POST /oauth/token
-        4. Extract access_token and id_token
-        5. Schedule token refresh
+        This method attempts multiple authentication strategies:
+        1. Resource Owner Password Credentials (ROPC) grant
+        2. Password realm grant (Auth0 specific)
+        3. Database connection authentication
 
         Args:
             username: OVO account email
@@ -116,13 +146,357 @@ class OVOEnergyAU:
 
         Raises:
             OVOAuthenticationError: If authentication fails
-            NotImplementedError: Currently not implemented
         """
-        raise NotImplementedError(
-            "OAuth 2.0 authentication not yet implemented. "
-            "Please use set_tokens() method with manually obtained tokens. "
-            "See QUICK_START.md for instructions on extracting tokens from browser."
+        logger.info(f"Attempting authentication for user: {username}")
+
+        # Try multiple authentication strategies
+        strategies = [
+            self._auth_ropc,
+            self._auth_password_realm,
+            self._auth_database_connection
+        ]
+
+        for strategy in strategies:
+            try:
+                result = strategy(username, password)
+                if result:
+                    logger.info("Authentication successful!")
+                    self._schedule_token_refresh()
+                    return True
+            except Exception as e:
+                logger.debug(f"Strategy {strategy.__name__} failed: {e}")
+                continue
+
+        # If all strategies failed
+        raise OVOAuthenticationError(
+            "Authentication failed. Please verify your credentials. "
+            "If the issue persists, you may need to use set_tokens() with "
+            "manually extracted tokens from the browser."
         )
+
+    def _auth_ropc(self, username: str, password: str) -> bool:
+        """
+        Try Resource Owner Password Credentials (ROPC) grant
+
+        Args:
+            username: User email
+            password: User password
+
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.debug("Trying ROPC grant")
+
+        token_url = f"{self.AUTH0_DOMAIN}/oauth/token"
+
+        payload = {
+            "grant_type": "password",
+            "username": username,
+            "password": password,
+            "client_id": self.CLIENT_ID,
+            "scope": "openid profile email offline_access",
+            "audience": "https://api.ovoenergy.com.au"
+        }
+
+        try:
+            response = requests.post(
+                token_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                tokens = response.json()
+                return self._process_tokens(tokens)
+
+            logger.debug(f"ROPC failed with status {response.status_code}: {response.text}")
+            return False
+
+        except Exception as e:
+            logger.debug(f"ROPC exception: {e}")
+            return False
+
+    def _auth_password_realm(self, username: str, password: str) -> bool:
+        """
+        Try password realm grant (Auth0 specific)
+
+        Args:
+            username: User email
+            password: User password
+
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.debug("Trying password realm grant")
+
+        token_url = f"{self.AUTH0_DOMAIN}/oauth/token"
+
+        payload = {
+            "grant_type": "http://auth0.com/oauth/grant-type/password-realm",
+            "username": username,
+            "password": password,
+            "client_id": self.CLIENT_ID,
+            "realm": "Username-Password-Authentication",
+            "scope": "openid profile email offline_access"
+        }
+
+        try:
+            response = requests.post(
+                token_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                tokens = response.json()
+                return self._process_tokens(tokens)
+
+            logger.debug(f"Password realm failed with status {response.status_code}: {response.text}")
+            return False
+
+        except Exception as e:
+            logger.debug(f"Password realm exception: {e}")
+            return False
+
+    def _auth_database_connection(self, username: str, password: str) -> bool:
+        """
+        Try Auth0 database connection login
+
+        Args:
+            username: User email
+            password: User password
+
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.debug("Trying database connection authentication")
+
+        # First, get the database connection login token
+        login_url = f"{self.AUTH0_DOMAIN}/usernamepassword/login"
+
+        payload = {
+            "client_id": self.CLIENT_ID,
+            "username": username,
+            "password": password,
+            "credential_type": "http://auth0.com/oauth/grant-type/password-realm",
+            "realm": "Username-Password-Authentication",
+            "scope": "openid profile email offline_access"
+        }
+
+        try:
+            session = requests.Session()
+            response = session.post(
+                login_url,
+                json=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Auth0-Client": base64.b64encode(json.dumps({
+                        "name": "auth0.js",
+                        "version": "9.20.0"
+                    }).encode()).decode()
+                },
+                timeout=30,
+                allow_redirects=False
+            )
+
+            # Check if we got a redirect or token
+            if response.status_code in [200, 302]:
+                # Try to get tokens from the response
+                try:
+                    data = response.json()
+                    if "access_token" in data or "id_token" in data:
+                        return self._process_tokens(data)
+                except:
+                    pass
+
+                # If we got redirected, try to follow the OAuth flow
+                if response.status_code == 302 or "location" in response.headers:
+                    location = response.headers.get("location", response.json().get("login_ticket"))
+                    if location:
+                        return self._complete_oauth_flow(session, location, username, password)
+
+            logger.debug(f"Database connection failed with status {response.status_code}")
+            return False
+
+        except Exception as e:
+            logger.debug(f"Database connection exception: {e}")
+            return False
+
+    def _complete_oauth_flow(self, session: requests.Session, state_or_ticket: str,
+                            username: str, password: str) -> bool:
+        """
+        Complete the OAuth flow after initial login
+
+        Args:
+            session: Requests session with cookies
+            state_or_ticket: State parameter or login ticket
+            username: User email
+            password: User password
+
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.debug("Attempting to complete OAuth flow")
+
+        # Generate PKCE parameters
+        code_verifier = _generate_code_verifier()
+        code_challenge = _generate_code_challenge(code_verifier)
+
+        # Build authorization URL
+        auth_params = {
+            "client_id": self.CLIENT_ID,
+            "response_type": "code",
+            "redirect_uri": "https://my.ovoenergy.com.au/login/callback",
+            "scope": "openid profile email offline_access",
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+            "state": secrets.token_urlsafe(32)
+        }
+
+        try:
+            # Try to get authorization code
+            auth_url = f"{self.AUTH0_DOMAIN}/authorize?{urlencode(auth_params)}"
+            response = session.get(auth_url, allow_redirects=True, timeout=30)
+
+            # Look for authorization code in redirects
+            for resp in [response] + list(getattr(response, 'history', [])):
+                if "code=" in resp.url:
+                    parsed = urlparse(resp.url)
+                    query_params = parse_qs(parsed.query)
+                    if "code" in query_params:
+                        auth_code = query_params["code"][0]
+                        return self._exchange_code_for_tokens(auth_code, code_verifier)
+
+            logger.debug("No authorization code found in OAuth flow")
+            return False
+
+        except Exception as e:
+            logger.debug(f"OAuth flow completion exception: {e}")
+            return False
+
+    def _exchange_code_for_tokens(self, auth_code: str, code_verifier: str) -> bool:
+        """
+        Exchange authorization code for tokens
+
+        Args:
+            auth_code: Authorization code from OAuth flow
+            code_verifier: PKCE code verifier
+
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.debug("Exchanging authorization code for tokens")
+
+        token_url = f"{self.AUTH0_DOMAIN}/oauth/token"
+
+        payload = {
+            "grant_type": "authorization_code",
+            "client_id": self.CLIENT_ID,
+            "code": auth_code,
+            "code_verifier": code_verifier,
+            "redirect_uri": "https://my.ovoenergy.com.au/login/callback"
+        }
+
+        try:
+            response = requests.post(
+                token_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                tokens = response.json()
+                return self._process_tokens(tokens)
+
+            logger.debug(f"Token exchange failed with status {response.status_code}: {response.text}")
+            return False
+
+        except Exception as e:
+            logger.debug(f"Token exchange exception: {e}")
+            return False
+
+    def _process_tokens(self, tokens: Dict[str, Any]) -> bool:
+        """
+        Process and store authentication tokens
+
+        Args:
+            tokens: Dictionary containing access_token, id_token, and optionally refresh_token
+
+        Returns:
+            True if tokens were successfully processed
+        """
+        access_token = tokens.get("access_token")
+        id_token = tokens.get("id_token")
+        refresh_token = tokens.get("refresh_token")
+
+        if not access_token or not id_token:
+            logger.error("Missing required tokens in response")
+            return False
+
+        # Store tokens (add "Bearer " prefix to access_token if not present)
+        if not access_token.startswith("Bearer "):
+            access_token = f"Bearer {access_token}"
+
+        self._access_token = access_token
+        self._id_token = id_token
+        self._refresh_token = refresh_token
+
+        self._update_session_headers()
+
+        # Try to extract account_id from ID token if not already set
+        if not self.account_id:
+            self.account_id = self._extract_account_id_from_token(id_token)
+
+        logger.info("Tokens successfully processed and stored")
+        return True
+
+    def _extract_account_id_from_token(self, id_token: str) -> Optional[str]:
+        """
+        Attempt to extract account_id from ID token
+
+        Note: This may not always work as the account_id might not be in the token.
+        If extraction fails, account_id must be set manually.
+
+        Args:
+            id_token: JWT ID token
+
+        Returns:
+            Account ID if found, None otherwise
+        """
+        try:
+            # Decode JWT without verification (we just need to read the payload)
+            parts = id_token.split('.')
+            if len(parts) != 3:
+                return None
+
+            # Add padding if needed
+            payload = parts[1]
+            padding = 4 - len(payload) % 4
+            if padding != 4:
+                payload += '=' * padding
+
+            # Decode base64
+            decoded = base64.urlsafe_b64decode(payload)
+            payload_data = json.loads(decoded)
+
+            # Look for account_id in various possible fields
+            for field in ['account_id', 'accountId', 'sub', 'user_id']:
+                if field in payload_data:
+                    value = str(payload_data[field])
+                    # Check if it looks like an account ID (numeric)
+                    if value.isdigit():
+                        logger.info(f"Extracted account_id from token: {value}")
+                        return value
+
+            logger.debug("Could not find account_id in ID token")
+            return None
+
+        except Exception as e:
+            logger.debug(f"Failed to extract account_id from token: {e}")
+            return None
 
     def set_tokens(self, access_token: str, id_token: str,
                    refresh_token: Optional[str] = None):
@@ -168,22 +542,72 @@ class OVOEnergyAU:
         """
         Refresh expired tokens using refresh_token
 
-        TODO: Implement token refresh logic:
-        1. POST to /oauth/token with refresh_token
-        2. Update _access_token and _id_token
-        3. Update session headers
-        4. Re-schedule next refresh
+        Uses the refresh token to obtain new access and ID tokens.
+        Automatically re-schedules the next refresh.
 
         Raises:
             OVOTokenExpiredError: If refresh fails
-            NotImplementedError: Currently not implemented
         """
         if not self._refresh_token:
             logger.error("Cannot refresh tokens: no refresh_token available")
             raise OVOTokenExpiredError("Tokens expired and no refresh token available")
 
-        logger.warning("Token refresh not yet implemented")
-        raise NotImplementedError("Token refresh not yet implemented")
+        logger.info("Refreshing tokens...")
+
+        token_url = f"{self.AUTH0_DOMAIN}/oauth/token"
+
+        payload = {
+            "grant_type": "refresh_token",
+            "client_id": self.CLIENT_ID,
+            "refresh_token": self._refresh_token
+        }
+
+        try:
+            response = requests.post(
+                token_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                tokens = response.json()
+
+                # Update tokens
+                access_token = tokens.get("access_token")
+                id_token = tokens.get("id_token")
+                refresh_token = tokens.get("refresh_token")  # May get a new refresh token
+
+                if not access_token or not id_token:
+                    raise OVOTokenExpiredError("Token refresh response missing required tokens")
+
+                # Add Bearer prefix if needed
+                if not access_token.startswith("Bearer "):
+                    access_token = f"Bearer {access_token}"
+
+                self._access_token = access_token
+                self._id_token = id_token
+
+                # Update refresh token if a new one was provided
+                if refresh_token:
+                    self._refresh_token = refresh_token
+
+                self._update_session_headers()
+
+                logger.info("Tokens successfully refreshed")
+
+                # Schedule next refresh
+                self._schedule_token_refresh()
+
+            else:
+                error_msg = f"Token refresh failed with status {response.status_code}: {response.text}"
+                logger.error(error_msg)
+                raise OVOTokenExpiredError(error_msg)
+
+        except requests.RequestException as e:
+            error_msg = f"Network error during token refresh: {e}"
+            logger.error(error_msg)
+            raise OVOTokenExpiredError(error_msg)
 
     def _make_graphql_request(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -396,24 +820,62 @@ def main():
     """
     Example usage of the OVO Energy Australia client
 
-    This demonstrates how to use the client with manually obtained tokens.
+    This demonstrates both OAuth authentication and manual token usage.
     """
     print("OVO Energy Australia API Client")
     print("=" * 50)
     print()
 
-    # Get tokens from user
-    print("You need to provide tokens manually until OAuth is implemented.")
-    print("See QUICK_START.md for instructions on extracting tokens from browser.")
+    # Choose authentication method
+    print("Authentication Methods:")
+    print("1. OAuth Login (username/password)")
+    print("2. Manual Tokens (from browser)")
     print()
+    choice = input("Choose method (1 or 2): ").strip()
 
-    access_token = input("Enter access_token (starts with 'Bearer '): ").strip()
-    id_token = input("Enter id_token (JWT): ").strip()
-    account_id = input("Enter account_id: ").strip()
+    client = None
 
-    # Create client and set tokens
-    client = OVOEnergyAU(account_id=account_id)
-    client.set_tokens(access_token, id_token)
+    if choice == "1":
+        # OAuth authentication
+        print("\nOAuth Authentication")
+        print("-" * 50)
+        username = input("Enter email: ").strip()
+        password = input("Enter password: ").strip()
+        account_id = input("Enter account_id (if known, or press Enter to skip): ").strip() or None
+
+        client = OVOEnergyAU(account_id=account_id)
+
+        try:
+            print("\nAuthenticating...")
+            client.authenticate(username, password)
+            print("✓ Authentication successful!")
+
+            # If account_id wasn't provided, we should fetch it
+            # (This would require implementing a getAccountDetails query)
+            if not client.account_id:
+                account_id = input("Enter your account_id: ").strip()
+                client.account_id = account_id
+
+        except OVOAuthenticationError as e:
+            print(f"\n✗ Authentication failed: {e}")
+            print("\nFalling back to manual token entry...")
+            choice = "2"  # Fall through to manual token entry
+
+    if choice == "2":
+        # Manual token authentication
+        print("\nManual Token Authentication")
+        print("-" * 50)
+        print("See QUICK_START.md for instructions on extracting tokens from browser.")
+        print()
+
+        access_token = input("Enter access_token (starts with 'Bearer '): ").strip()
+        id_token = input("Enter id_token (JWT): ").strip()
+        account_id = input("Enter account_id: ").strip()
+
+        if not client:
+            client = OVOEnergyAU(account_id=account_id)
+        client.set_tokens(access_token, id_token)
+        print("✓ Tokens set successfully!")
 
     try:
         # Fetch today's data

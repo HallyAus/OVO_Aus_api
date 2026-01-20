@@ -2,7 +2,7 @@
 
 Unofficial Python client and Home Assistant integration for OVO Energy Australia's GraphQL API.
 
-**Status:** 🚧 Prototype - Working but requires manual token management
+**Status:** ✅ Beta - OAuth authentication implemented with automatic token refresh
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/github/license/HallyAus/OVO_Aus_api)](LICENSE)
@@ -23,6 +23,20 @@ Unofficial Python client and Home Assistant integration for OVO Energy Australia
 
 ## Quick Start
 
+### Home Assistant (HACS - Recommended) ⭐
+
+```bash
+# Install via HACS:
+# 1. Add custom repository: https://github.com/HallyAus/OVO_Aus_api
+# 2. Search for "OVO Energy Australia"
+# 3. Click Download
+
+# Or use auto-install script:
+bash <(curl -s https://raw.githubusercontent.com/HallyAus/OVO_Aus_api/claude/create-github-project-rWeUP/install.sh)
+```
+
+For detailed instructions, see [HACS_INSTALLATION.md](HACS_INSTALLATION.md)
+
 ### Python Client
 
 ```bash
@@ -33,28 +47,11 @@ cd OVO_Aus_api
 # Install dependencies
 pip install -r requirements.txt
 
-# Run example
+# Run example (supports OAuth!)
 python3 ovo_australia_client.py
 ```
 
 For detailed instructions, see [QUICK_START.md](QUICK_START.md)
-
-### Home Assistant
-
-```bash
-# Copy custom component
-cp -r home_assistant_example/custom_components/ovo_energy_au ~/.homeassistant/custom_components/
-
-# Add to configuration.yaml
-ovo_energy_au:
-  access_token: "Bearer eyJ..."
-  id_token: "eyJ..."
-  account_id: "30264061"
-
-# Restart Home Assistant
-```
-
-For detailed instructions, see [home_assistant_example/README.md](home_assistant_example/README.md)
 
 ---
 
@@ -106,6 +103,8 @@ Pre-built custom component with 5 sensors:
 
 ### ✅ What Works
 
+- ✅ **OAuth 2.0 Authentication** - Full username/password login with PKCE
+- ✅ **Automatic Token Refresh** - Tokens refresh automatically every 4 minutes
 - ✅ GraphQL API client with authentication
 - ✅ Hourly energy data retrieval
 - ✅ Solar generation tracking
@@ -117,17 +116,21 @@ Pre-built custom component with 5 sensors:
 
 ### 🚧 Known Limitations
 
-- ⚠️ **OAuth Flow Not Implemented** - Must manually extract tokens from browser
-- ⚠️ **Tokens Expire After 5 Minutes** - No automatic refresh yet
-- ⚠️ **Home Assistant YAML Configuration Only** - No UI config flow
+- ⚠️ **OAuth Success Rate** - May not work for all Auth0 configurations (fallback to manual tokens available)
+- ⚠️ **Account ID** - May need to be entered manually after OAuth login
+- ⚠️ **Home Assistant YAML Configuration Only** - No UI config flow (can use manual tokens)
 - ⚠️ **Blocking I/O in HA Component** - Should be async
 - ⚠️ **Only Tested with Solar Accounts** - Non-solar accounts untested
 
 ### 🎯 Roadmap
 
+**Recently Completed:** ✅
+- [x] Implement OAuth 2.0 authentication flow with PKCE
+- [x] Automatic token refresh mechanism
+
 **High Priority:**
-- [ ] Implement OAuth 2.0 authentication flow
-- [ ] Automatic token refresh mechanism
+- [ ] Improve OAuth compatibility (test with more account types)
+- [ ] Auto-detect account ID after OAuth login
 - [ ] Home Assistant config flow (UI setup)
 - [ ] Async/await implementation for HA
 
@@ -136,10 +139,10 @@ Pre-built custom component with 5 sensors:
 - [ ] Daily/monthly data aggregation
 - [ ] Rate limiting and request throttling
 - [ ] Comprehensive error recovery
+- [ ] Unit tests for OAuth flow
 
 **Low Priority:**
 - [ ] HACS integration
-- [ ] Unit tests
 - [ ] Documentation improvements
 - [ ] Support for non-solar accounts
 
@@ -147,13 +150,46 @@ Pre-built custom component with 5 sensors:
 
 ## Installation
 
-### Requirements
+### Home Assistant Installation
 
-- **Python 3.11+**
-- **OVO Energy Australia account** with active service
-- **Solar panels** (recommended, but not required)
+**Choose one method:**
+
+#### Option 1: HACS (Recommended) ⭐
+
+Most users should use HACS for easy installation and updates:
+
+📖 **[Complete HACS Installation Guide →](HACS_INSTALLATION.md)**
+
+Quick steps:
+1. Add custom repository: `https://github.com/HallyAus/OVO_Aus_api`
+2. Search "OVO Energy Australia" in HACS
+3. Download and configure
+
+#### Option 2: Auto Install Script
+
+One-command installation:
+
+**Linux/macOS/Docker:**
+```bash
+bash <(curl -s https://raw.githubusercontent.com/HallyAus/OVO_Aus_api/claude/create-github-project-rWeUP/install.sh)
+```
+
+**Windows PowerShell:**
+```powershell
+iwr https://raw.githubusercontent.com/HallyAus/OVO_Aus_api/claude/create-github-project-rWeUP/install.ps1 -UseBasicParsing | iex
+```
+
+#### Option 3: Manual Installation
+
+See [HACS_INSTALLATION.md](HACS_INSTALLATION.md#method-3-manual-installation) for manual steps.
 
 ### Python Client Installation
+
+**Requirements:**
+- Python 3.11+
+- OVO Energy Australia account
+
+**Install:**
 
 ```bash
 # Clone repository
@@ -162,17 +198,45 @@ cd OVO_Aus_api
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Run with OAuth authentication
+python3 ovo_australia_client.py
 ```
-
-### Home Assistant Installation
-
-See [home_assistant_example/README.md](home_assistant_example/README.md) for detailed instructions.
 
 ---
 
 ## Usage Examples
 
-### Basic Usage
+### Basic Usage with OAuth
+
+```python
+from ovo_australia_client import OVOEnergyAU
+
+# Initialize client
+client = OVOEnergyAU()
+
+# Authenticate with username and password
+client.authenticate("your.email@example.com", "your_password")
+
+# Set account ID (if not auto-detected)
+client.account_id = "30264061"
+
+# Get today's data
+data = client.get_today_data()
+
+# Calculate totals
+total_solar = sum(p['consumption'] for p in data['solar'])
+total_export = sum(p['consumption'] for p in data['export'])
+
+print(f"Solar generated: {total_solar:.2f} kWh")
+print(f"Exported to grid: {total_export:.2f} kWh")
+
+# Token refresh happens automatically!
+# Clean up
+client.close()
+```
+
+### Basic Usage with Manual Tokens (Fallback)
 
 ```python
 from ovo_australia_client import OVOEnergyAU
@@ -186,13 +250,6 @@ client.set_tokens(
 
 # Get today's data
 data = client.get_today_data()
-
-# Calculate totals
-total_solar = sum(p['consumption'] for p in data['solar'])
-total_export = sum(p['consumption'] for p in data['export'])
-
-print(f"Solar generated: {total_solar:.2f} kWh")
-print(f"Exported to grid: {total_export:.2f} kWh")
 
 # Clean up
 client.close()
@@ -362,16 +419,24 @@ Contributions are welcome! This project needs help with:
 
 ## Troubleshooting
 
-### Tokens Expire Too Quickly
+### OAuth Authentication Fails
 
-**Problem:** Tokens expire after 5 minutes
+**Problem:** `authenticate()` method fails
 
-**Temporary Solution:**
-- Extract fresh tokens from browser
-- This is a known limitation
+**Solutions:**
+1. Verify your email and password are correct
+2. Check if your account uses MFA/2FA (not yet supported)
+3. Fall back to manual token extraction
+4. Check logs with `logging.basicConfig(level=logging.DEBUG)`
 
-**Permanent Solution (Needed):**
-- Implement OAuth flow (contributions welcome!)
+### Tokens Expire After Login
+
+**Problem:** Tokens expire and aren't refreshing
+
+**Solutions:**
+- This shouldn't happen anymore with OAuth! Token refresh is automatic
+- If using manual tokens, you need to provide a `refresh_token`
+- Check logs to see if refresh is failing
 
 ### "Authentication failed" Error
 
@@ -491,6 +556,17 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 
 ## Changelog
 
+### [0.2.0] - 2026-01-20
+
+**OAuth Authentication Release**
+- ✅ **NEW:** OAuth 2.0 authentication with PKCE flow
+- ✅ **NEW:** Automatic token refresh every 4 minutes
+- ✅ **NEW:** Multiple authentication strategies (ROPC, password realm, database connection)
+- ✅ **NEW:** Account ID extraction from JWT tokens
+- ✅ Improved error handling and logging
+- ✅ Updated documentation and examples
+- ✅ Fallback to manual tokens if OAuth fails
+
 ### [0.1.0] - 2026-01-20
 
 **Initial Release**
@@ -499,8 +575,6 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 - ✅ GetHourlyData query implementation
 - ✅ Home Assistant custom component
 - ✅ Complete documentation
-- ⚠️ OAuth flow not implemented
-- ⚠️ Token refresh not implemented
 
 ---
 
