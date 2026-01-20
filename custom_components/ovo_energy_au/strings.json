@@ -2,19 +2,46 @@
   "config": {
     "step": {
       "user": {
-        "title": "OVO Energy Australia Setup",
-        "description": "Enter your OVO Energy Australia authentication tokens. Note: Tokens expire every 5 minutes and need to be refreshed. See documentation for token extraction instructions.",
+        "title": "OVO Energy Australia - Choose Setup Method",
+        "description": "How would you like to set up OVO Energy Australia?\n\n**Recommended:** Paste OAuth Response (easiest - just copy/paste JSON)",
         "data": {
-          "access_token": "Access Token",
+          "auth_method": "Setup Method"
+        }
+      },
+      "json": {
+        "title": "Paste OAuth Response",
+        "description": "**Easy Setup - Just 3 steps:**\n\n1. Open https://my.ovoenergy.com.au in your browser\n2. Press F12 → Network tab → Login\n3. Find 'oauth/token' request → Response tab → Copy entire JSON\n\nPaste the JSON response below:",
+        "data": {
+          "oauth_response": "OAuth Response (JSON)",
+          "account_id": "Account ID (from Payload tab in any graphql request)"
+        }
+      },
+      "password": {
+        "title": "Username & Password",
+        "description": "Enter your OVO Energy credentials. Tokens will be fetched automatically.",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "account_id": "Account ID"
+        }
+      },
+      "tokens": {
+        "title": "Manual Token Entry",
+        "description": "For advanced users. Enter tokens manually.\n\nTokens will be automatically refreshed every 4 minutes.",
+        "data": {
+          "access_token": "Access Token (with 'Bearer ' prefix)",
           "id_token": "ID Token",
+          "refresh_token": "Refresh Token",
           "account_id": "Account ID"
         }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to OVO Energy API",
-      "invalid_auth": "Invalid authentication tokens. Please check your access_token, id_token, and account_id.",
-      "unknown": "Unexpected error occurred"
+      "invalid_auth": "Invalid authentication. Please check your credentials or tokens.",
+      "invalid_json": "Invalid JSON format. Please copy the entire Response body from oauth/token request.",
+      "invalid_json_missing_tokens": "JSON is missing required tokens (access_token or id_token). Make sure you copied the Response from oauth/token request.",
+      "unknown": "Unexpected error occurred. Check the logs for details."
     },
     "abort": {
       "already_configured": "This OVO Energy account is already configured"

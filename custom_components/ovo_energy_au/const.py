@@ -7,6 +7,7 @@ DOMAIN = "ovo_energy_au"
 CONF_ACCESS_TOKEN = "access_token"
 CONF_ID_TOKEN = "id_token"
 CONF_ACCOUNT_ID = "account_id"
+CONF_REFRESH_TOKEN = "refresh_token"
 
 # Default values
 DEFAULT_SCAN_INTERVAL = 300  # 5 minutes (matches token expiry)

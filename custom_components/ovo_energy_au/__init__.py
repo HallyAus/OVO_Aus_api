@@ -12,6 +12,7 @@ from .const import (
     CONF_ACCESS_TOKEN,
     CONF_ID_TOKEN,
     CONF_ACCOUNT_ID,
+    CONF_REFRESH_TOKEN,
     DEFAULT_SCAN_INTERVAL,
 )
 from .ovo_client import OVOEnergyAU, OVOAPIError, OVOTokenExpiredError
@@ -33,11 +34,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Extract configuration
     access_token = entry.data.get(CONF_ACCESS_TOKEN)
     id_token = entry.data.get(CONF_ID_TOKEN)
+    refresh_token = entry.data.get(CONF_REFRESH_TOKEN)
     account_id = entry.data.get(CONF_ACCOUNT_ID)
 
+    # Define token update callback
+    def token_update_callback(new_access_token: str, new_id_token: str, new_refresh_token: str):
+        """Update config entry with new tokens."""
+        _LOGGER.info("Updating config entry with refreshed tokens")
+        hass.config_entries.async_update_entry(
+            entry,
+            data={
+                CONF_ACCESS_TOKEN: new_access_token,
+                CONF_ID_TOKEN: new_id_token,
+                CONF_REFRESH_TOKEN: new_refresh_token,
+                CONF_ACCOUNT_ID: account_id,
+            },
+        )
+
     # Create OVO client
-    client = OVOEnergyAU(account_id=account_id)
-    client.set_tokens(access_token, id_token)
+    client = OVOEnergyAU(
+        account_id=account_id,
+        refresh_token=refresh_token,
+        token_update_callback=token_update_callback
+    )
+    client.set_tokens(access_token, id_token, refresh_token)
 
     # Create update coordinator
     coordinator = OVODataUpdateCoordinator(

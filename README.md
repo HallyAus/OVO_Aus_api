@@ -118,22 +118,19 @@ Pre-built custom component with 5 sensors:
 
 - ⚠️ **OAuth Success Rate** - May not work for all Auth0 configurations (fallback to manual tokens available)
 - ⚠️ **Account ID** - May need to be entered manually after OAuth login
-- ⚠️ **Token Lifespan** - Tokens expire every 5 minutes and need manual refresh in Home Assistant
 - ⚠️ **Only Tested with Solar Accounts** - Non-solar accounts untested
 
 ### 🎯 Roadmap
 
 **Recently Completed:** ✅
 - [x] Implement OAuth 2.0 authentication flow with PKCE
-- [x] Automatic token refresh mechanism
-
-**Recently Completed:** ✅
+- [x] Automatic token refresh mechanism (Python client)
 - [x] Home Assistant config flow (UI setup)
+- [x] Automatic token refresh in Home Assistant
 
 **High Priority:**
 - [ ] Improve OAuth compatibility (test with more account types)
 - [ ] Auto-detect account ID after OAuth login
-- [ ] Automatic token refresh in Home Assistant
 
 **Medium Priority:**
 - [ ] Additional GraphQL queries (billing, account details)
@@ -556,6 +553,28 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 ---
 
 ## Changelog
+
+### [0.2.4] - 2026-01-20
+
+**Easy Setup Release** 🚀
+- ✅ **NEW:** Multi-step configuration flow with 3 auth methods
+- ✅ **NEW:** OAuth JSON Paste - Just copy/paste one JSON response!
+- ✅ **NEW:** No more extracting 4 separate tokens manually
+- ✅ **NEW:** Clear step-by-step instructions in UI
+- ✅ Automatically parses JSON and extracts all tokens
+- ✅ Auto-adds "Bearer " prefix to access_token
+- ✅ Updated installation documentation with JSON paste method
+
+### [0.2.3] - 2026-01-20
+
+**Automatic Token Refresh Release** 🎉
+- ✅ **NEW:** Automatic token refresh using refresh_token
+- ✅ **NEW:** No more manual token updates needed!
+- ✅ **NEW:** Tokens refresh automatically when they expire
+- ✅ **NEW:** Refreshed tokens saved to config entry automatically
+- ✅ Config flow now collects refresh_token
+- ✅ Auto-retry API requests with token refresh on 401 errors
+- ✅ Token update callback persists new tokens
 
 ### [0.2.2] - 2026-01-20
 
