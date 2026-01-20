@@ -147,6 +147,8 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
 
     def _process_data(self, today_data: dict, interval_data: dict) -> dict:
         """Process raw API data into structured format for sensors."""
+        from datetime import datetime
+
         # Process today's hourly data
         solar_data = today_data.get("solar", [])
         export_data = today_data.get("export", [])
@@ -181,6 +183,54 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         savings_this_month = monthly_savings[-1].get("amount", {}).get("value", 0) if monthly_savings else 0
         savings_last_month = monthly_savings[-2].get("amount", {}).get("value", 0) if len(monthly_savings) >= 2 else 0
 
+        # Process daily interval data for day-by-day breakdown
+        daily_data = interval_data.get("daily", {})
+        daily_solar = daily_data.get("solar", [])
+        daily_export = daily_data.get("export", [])
+        daily_savings = daily_data.get("savings", [])
+
+        # Get current month and last month for filtering
+        now = datetime.now()
+        current_month = now.month
+        current_year = now.year
+
+        # Calculate last month
+        if current_month == 1:
+            last_month = 12
+            last_month_year = current_year - 1
+        else:
+            last_month = current_month - 1
+            last_month_year = current_year
+
+        # Filter daily data into this month and last month
+        def filter_by_month(daily_list, month, year):
+            """Filter daily data by month/year and format for attributes."""
+            filtered = []
+            for day in daily_list:
+                period_from = day.get("periodFrom", "")
+                if period_from:
+                    try:
+                        date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+                        if date.month == month and date.year == year:
+                            filtered.append({
+                                "date": date.strftime("%Y-%m-%d"),
+                                "consumption": day.get("consumption", 0),
+                                "charge": day.get("charge", {}).get("value", 0) if "charge" in day else day.get("amount", {}).get("value", 0)
+                            })
+                    except:
+                        pass
+            return sorted(filtered, key=lambda x: x["date"])
+
+        # Create daily breakdowns
+        solar_daily_this_month = filter_by_month(daily_solar, current_month, current_year)
+        solar_daily_last_month = filter_by_month(daily_solar, last_month, last_month_year)
+
+        export_daily_this_month = filter_by_month(daily_export, current_month, current_year)
+        export_daily_last_month = filter_by_month(daily_export, last_month, last_month_year)
+
+        savings_daily_this_month = filter_by_month(daily_savings, current_month, current_year)
+        savings_daily_last_month = filter_by_month(daily_savings, last_month, last_month_year)
+
         return {
             "solar_current": solar_current,
             "export_current": export_current,
@@ -193,5 +243,11 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
             "export_last_month": export_last_month,
             "savings_this_month": savings_this_month,
             "savings_last_month": savings_last_month,
+            "solar_daily_this_month": solar_daily_this_month,
+            "solar_daily_last_month": solar_daily_last_month,
+            "export_daily_this_month": export_daily_this_month,
+            "export_daily_last_month": export_daily_last_month,
+            "savings_daily_this_month": savings_daily_this_month,
+            "savings_daily_last_month": savings_daily_last_month,
             "last_updated": solar_data[-1].get("periodTo") if solar_data else None,
         }

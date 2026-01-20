@@ -203,9 +203,36 @@ class OVOEnergySensor(CoordinatorEntity, SensorEntity):
         if self.coordinator.data is None:
             return {}
 
-        return {
+        attributes = {
             "last_updated": self.coordinator.data.get("last_updated"),
         }
+
+        # Add daily breakdown for monthly sensors
+        daily_breakdown_map = {
+            SENSOR_SOLAR_THIS_MONTH: "solar_daily_this_month",
+            SENSOR_SOLAR_LAST_MONTH: "solar_daily_last_month",
+            SENSOR_EXPORT_THIS_MONTH: "export_daily_this_month",
+            SENSOR_EXPORT_LAST_MONTH: "export_daily_last_month",
+            SENSOR_SAVINGS_THIS_MONTH: "savings_daily_this_month",
+            SENSOR_SAVINGS_LAST_MONTH: "savings_daily_last_month",
+        }
+
+        if self._sensor_type in daily_breakdown_map:
+            daily_key = daily_breakdown_map[self._sensor_type]
+            daily_data = self.coordinator.data.get(daily_key, [])
+
+            if daily_data:
+                attributes["daily_breakdown"] = daily_data
+                attributes["days_count"] = len(daily_data)
+
+                # Add helpful summary stats
+                if daily_data:
+                    consumptions = [d.get("consumption", 0) for d in daily_data]
+                    attributes["daily_average"] = round(sum(consumptions) / len(consumptions), 2) if consumptions else 0
+                    attributes["daily_max"] = round(max(consumptions), 2) if consumptions else 0
+                    attributes["daily_min"] = round(min(consumptions), 2) if consumptions else 0
+
+        return attributes
 
     @property
     def available(self) -> bool:
