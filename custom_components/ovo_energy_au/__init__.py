@@ -111,15 +111,19 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Fetch data from OVO Energy API."""
         try:
+            _LOGGER.info("Fetching data from OVO Energy API...")
+
             # Run sync client in executor
             data = await self.hass.async_add_executor_job(
                 self.client.get_today_data
             )
 
+            _LOGGER.info("Received raw data from API: %s", data)
+
             # Process and structure the data
             processed_data = self._process_data(data)
 
-            _LOGGER.debug("Successfully updated OVO Energy data")
+            _LOGGER.info("Processed data for sensors: %s", processed_data)
             return processed_data
 
         except OVOTokenExpiredError as err:

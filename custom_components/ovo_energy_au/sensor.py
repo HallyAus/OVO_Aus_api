@@ -35,7 +35,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up OVO Energy sensors based on a config entry."""
+    _LOGGER.info("Setting up OVO Energy sensors for entry %s", entry.entry_id)
+
     coordinator = hass.data[DOMAIN][entry.entry_id]
+    _LOGGER.info("Coordinator found: %s, data: %s", coordinator, coordinator.data)
 
     # Define sensors
     sensors = [
@@ -86,7 +89,9 @@ async def async_setup_entry(
         ),
     ]
 
+    _LOGGER.info("Adding %d OVO Energy sensors", len(sensors))
     async_add_entities(sensors)
+    _LOGGER.info("OVO Energy sensors added successfully")
 
 
 class OVOEnergySensor(CoordinatorEntity, SensorEntity):
@@ -117,15 +122,20 @@ class OVOEnergySensor(CoordinatorEntity, SensorEntity):
     def native_value(self) -> float | None:
         """Return the state of the sensor."""
         if self.coordinator.data is None:
+            _LOGGER.warning("Sensor %s: coordinator.data is None", self._sensor_type)
             return None
 
         value = self.coordinator.data.get(self._sensor_type)
 
         if value is None:
+            _LOGGER.warning("Sensor %s: value is None, coordinator data: %s",
+                          self._sensor_type, self.coordinator.data)
             return None
 
         # Round to 2 decimal places
-        return round(value, 2)
+        rounded = round(value, 2)
+        _LOGGER.debug("Sensor %s: value = %s", self._sensor_type, rounded)
+        return rounded
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
