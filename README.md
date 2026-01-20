@@ -6,10 +6,10 @@
 
 <br/><br/>
 
-[![Version](https://img.shields.io/badge/version-2.5.5-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-2.5.6-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-green.svg)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/github/license/HallyAus/OVO_Aus_api)](LICENSE)
+[![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
 ![GitHub Stars](https://img.shields.io/github/stars/HallyAus/OVO_Aus_api?style=social)
