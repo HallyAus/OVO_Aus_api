@@ -135,6 +135,106 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=FAST_UPDATE_INTERVAL,
         )
 
+    @staticmethod
+    def analyze_plan_and_rates(hourly_data: dict) -> dict:
+        """Analyze hourly data to detect plan type and actual rates.
+
+        Returns dict with:
+            - plan_type: detected plan ("ev", "free_3", "basic", "one")
+            - confidence: detection confidence 0-100
+            - rates: dict of detected rates
+            - charge_types_found: list of unique charge types in data
+        """
+        result = {
+            "plan_type": "basic",
+            "confidence": 0,
+            "rates": {
+                "peak": 0.35,
+                "shoulder": 0.25,
+                "off_peak": 0.18,
+                "ev": 0.06,
+            },
+            "charge_types_found": [],
+        }
+
+        if not hourly_data:
+            return result
+
+        # Collect all entries with charge information
+        charge_types = set()
+        rate_samples = {"peak": [], "shoulder": [], "off_peak": [], "free": []}
+
+        for source in ["solar", "export"]:
+            for entry in hourly_data.get(source, []) or []:
+                charge = entry.get("charge", {})
+                charge_type = charge.get("type", "")
+                charge_value = abs(charge.get("value", 0))
+                consumption = entry.get("consumption", 0)
+
+                if charge_type:
+                    charge_types.add(charge_type)
+
+                # Calculate rate if we have both consumption and charge
+                if consumption > 0 and charge_value > 0:
+                    rate = charge_value / consumption
+
+                    if charge_type == "PEAK":
+                        rate_samples["peak"].append(rate)
+                    elif charge_type == "OFF_PEAK":
+                        rate_samples["off_peak"].append(rate)
+                    elif charge_type in ["SHOULDER", "DEBIT"]:
+                        rate_samples["shoulder"].append(rate)
+                    elif charge_type == "FREE":
+                        rate_samples["free"].append(0.0)
+
+        result["charge_types_found"] = list(charge_types)
+
+        # Calculate average rates
+        for period, samples in rate_samples.items():
+            if samples and period != "free":
+                result["rates"][period] = round(sum(samples) / len(samples), 4)
+
+        # Detect plan type based on charge types found
+        has_free = "FREE" in charge_types
+        has_peak = "PEAK" in charge_types
+        has_off_peak = "OFF_PEAK" in charge_types
+
+        if has_free and has_peak and has_off_peak:
+            # Could be Free 3 or EV plan
+            # Check if there are very low rates (< 0.10) which would indicate EV plan
+            if rate_samples["off_peak"]:
+                min_off_peak = min(rate_samples["off_peak"])
+                if min_off_peak < 0.10:
+                    result["plan_type"] = "ev"
+                    result["confidence"] = 85
+                    result["rates"]["ev"] = round(min_off_peak, 4)
+                else:
+                    result["plan_type"] = "free_3"
+                    result["confidence"] = 80
+            else:
+                result["plan_type"] = "free_3"
+                result["confidence"] = 70
+        elif has_free:
+            # Just free periods, likely Free 3
+            result["plan_type"] = "free_3"
+            result["confidence"] = 75
+        elif has_peak and has_off_peak:
+            # Standard TOU, basic plan
+            result["plan_type"] = "basic"
+            result["confidence"] = 90
+        elif len(charge_types) <= 2 and "DEBIT" in charge_types:
+            # Mostly DEBIT, might be flat rate One plan
+            result["plan_type"] = "one"
+            result["confidence"] = 60
+            if rate_samples["shoulder"]:
+                result["rates"]["flat"] = round(sum(rate_samples["shoulder"]) / len(rate_samples["shoulder"]), 4)
+        else:
+            # Not enough data, default to basic
+            result["plan_type"] = "basic"
+            result["confidence"] = 30
+
+        return result
+
     async def _async_update_data(self):
         """Fetch data from OVO Energy API."""
         try:
@@ -700,7 +800,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         # ====================
 
         # Feature 1: Peak Usage Time Blocks (4-hour windows)
-        # Combine all consumption data with timestamps
+        # Combine all consumption data with timestamps AND charge information
         from datetime import datetime as dt
         hourly_timeline = []
 
@@ -709,11 +809,14 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             if period_from:
                 try:
                     timestamp = dt.fromisoformat(period_from.replace("Z", "+00:00"))
+                    charge_info = entry.get("charge", {})
                     hourly_timeline.append({
                         "timestamp": timestamp,
                         "hour": timestamp.hour,
                         "consumption": entry.get("consumption", 0),
                         "type": "solar",
+                        "charge_type": charge_info.get("type", "DEBIT"),
+                        "charge_value": charge_info.get("value", 0),
                     })
                 except:
                     continue
@@ -723,11 +826,14 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             if period_from:
                 try:
                     timestamp = dt.fromisoformat(period_from.replace("Z", "+00:00"))
+                    charge_info = entry.get("charge", {})
                     hourly_timeline.append({
                         "timestamp": timestamp,
                         "hour": timestamp.hour,
                         "consumption": entry.get("consumption", 0),
                         "type": "grid",
+                        "charge_type": charge_info.get("type", "DEBIT"),
+                        "charge_value": charge_info.get("value", 0),
                     })
                 except:
                     continue
@@ -810,22 +916,28 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         ev_usage_yearly = {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0}
 
         # Calculate free usage (MTD only) and EV usage (MTD)
+        # NOW USING API charge_type INSTEAD OF HARDCODED TIME WINDOWS!
         for entry in mtd_hourly:
             timestamp = entry["timestamp"]
             hour = timestamp.hour
             consumption = entry["consumption"]
+            charge_type = entry.get("charge_type", "DEBIT")
+            charge_value = abs(entry.get("charge_value", 0))  # Absolute value for cost
 
-            # Track free period (11:00-14:00) for Free 3 and EV plans
-            if plan_type in ["free_3", "ev"] and 11 <= hour < 14:
+            # Track FREE periods from API (charge_type = "FREE")
+            if charge_type == "FREE":
                 free_usage_mtd["consumption"] += consumption
                 free_usage_mtd["hours"] += 1
+                # Calculate savings: what it WOULD have cost at shoulder rate
                 free_usage_mtd["cost_saved"] += consumption * shoulder_rate
 
-            # Track EV charging period (00:00-06:00) for EV plan
+            # Track EV charging (00:00-06:00) for EV plan - keep time-based for now
+            # TODO: Check if OVO API has special charge_type for EV periods
             if plan_type == "ev" and 0 <= hour < 6:
                 ev_usage_mtd["consumption"] += consumption
-                ev_usage_mtd["cost"] += consumption * ev_rate
+                ev_usage_mtd["cost"] += charge_value  # Use actual cost from API
                 ev_usage_mtd["hours"] += 1
+                # Calculate savings vs off-peak rate
                 ev_usage_mtd["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
         # Calculate EV usage for last 7 days (weekly)
@@ -833,10 +945,11 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             timestamp = entry["timestamp"]
             hour = timestamp.hour
             consumption = entry["consumption"]
+            charge_value = abs(entry.get("charge_value", 0))
 
             if plan_type == "ev" and 0 <= hour < 6:
                 ev_usage_weekly["consumption"] += consumption
-                ev_usage_weekly["cost"] += consumption * ev_rate
+                ev_usage_weekly["cost"] += charge_value  # Use actual cost from API
                 ev_usage_weekly["hours"] += 1
                 ev_usage_weekly["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
@@ -845,84 +958,47 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             timestamp = entry["timestamp"]
             hour = timestamp.hour
             consumption = entry["consumption"]
+            charge_value = abs(entry.get("charge_value", 0))
 
             if plan_type == "ev" and 0 <= hour < 6:
                 ev_usage_yearly["consumption"] += consumption
-                ev_usage_yearly["cost"] += consumption * ev_rate
+                ev_usage_yearly["cost"] += charge_value  # Use actual cost from API
                 ev_usage_yearly["hours"] += 1
                 ev_usage_yearly["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
         # Now process TOU breakdown across all hourly data (last 7 days)
+        # USE API charge_type FOR ACCURATE CLASSIFICATION!
         for entry in hourly_timeline:
             timestamp = entry["timestamp"]
             hour = timestamp.hour
-            weekday = timestamp.weekday()  # Monday = 0, Sunday = 6
             consumption = entry["consumption"]
-            is_weekday = weekday < 5
+            charge_type = entry.get("charge_type", "DEBIT")
+            charge_value = abs(entry.get("charge_value", 0))
 
-            # Initialize cost
-            cost = 0
+            # Map API charge_type to our TOU periods
+            # API returns: PEAK, OFF_PEAK, SHOULDER, FREE, DEBIT, CREDIT
             period = None
-            is_free = False
-            is_ev_period = False
+            skip_entry = False
 
-            # Plan-specific logic for TOU breakdown
-            if plan_type == "free_3":
-                # Free 3 Plan: Free 11:00-14:00 daily, standard TOU otherwise
-                if 11 <= hour < 14:
-                    # Free period - don't add to TOU
-                    is_free = True
-                else:
-                    # Standard TOU periods
-                    if is_weekday and 14 <= hour < 21:
-                        period = "peak"
-                        cost = consumption * peak_rate
-                    elif hour < 7 or hour >= 22:
-                        period = "off_peak"
-                        cost = consumption * off_peak_rate
-                    else:
-                        period = "shoulder"
-                        cost = consumption * shoulder_rate
+            if charge_type == "PEAK":
+                period = "peak"
+                cost = charge_value
+            elif charge_type == "OFF_PEAK":
+                period = "off_peak"
+                cost = charge_value
+            elif charge_type in ["SHOULDER", "DEBIT"]:
+                # DEBIT is typically shoulder period or could be any consumption
+                period = "shoulder"
+                cost = charge_value
+            elif charge_type == "FREE":
+                # Free periods tracked separately, skip from TOU
+                skip_entry = True
+            elif charge_type == "CREDIT":
+                # Solar export, skip from consumption TOU
+                skip_entry = True
 
-            elif plan_type == "ev":
-                # EV Plan: EV rate 00:00-06:00, free 11:00-14:00, standard TOU otherwise
-                if 0 <= hour < 6:
-                    # EV charging period - don't add to TOU
-                    is_ev_period = True
-                elif 11 <= hour < 14:
-                    # Free period - don't add to TOU
-                    is_free = True
-                else:
-                    # Standard TOU periods
-                    if is_weekday and 14 <= hour < 21:
-                        period = "peak"
-                        cost = consumption * peak_rate
-                    elif hour < 7 or hour >= 22:
-                        period = "off_peak"
-                        cost = consumption * off_peak_rate
-                    else:
-                        period = "shoulder"
-                        cost = consumption * shoulder_rate
-
-            elif plan_type == "one":
-                # One Plan: Flat rate all day
-                period = "shoulder"  # Use shoulder for display purposes
-                cost = consumption * flat_rate
-
-            else:  # basic plan
-                # Basic Plan: Standard TOU
-                if is_weekday and 14 <= hour < 21:
-                    period = "peak"
-                    cost = consumption * peak_rate
-                elif hour < 7 or hour >= 22:
-                    period = "off_peak"
-                    cost = consumption * off_peak_rate
-                else:
-                    period = "shoulder"
-                    cost = consumption * shoulder_rate
-
-            # Add to appropriate period (if not free or EV period)
-            if period and not is_free and not is_ev_period:
+            # Add to appropriate period
+            if period and not skip_entry and consumption > 0:
                 tou_breakdown[period]["consumption"] += consumption
                 tou_breakdown[period]["cost"] += cost
                 tou_breakdown[period]["hours"] += 1
