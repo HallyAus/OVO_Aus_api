@@ -232,6 +232,121 @@ Your credentials are only used to access your OVO Energy data through their offi
         )
 
 
+    @staticmethod
+    def async_get_options_flow(config_entry):
+        """Get the options flow for this handler."""
+        return OptionsFlowHandler(config_entry)
+
+
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for OVO Energy Australia."""
+
+    def __init__(self, config_entry):
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        errors = {}
+
+        if user_input is not None:
+            # Update config entry with new plan settings
+            data = dict(self.config_entry.data)
+            data[CONF_PLAN_TYPE] = user_input[CONF_PLAN_TYPE]
+
+            # Update rates based on plan type
+            plan_type = user_input[CONF_PLAN_TYPE]
+            default_rates = DEFAULT_RATES.get(plan_type, {})
+
+            if plan_type == PLAN_FREE_3:
+                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
+                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
+                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+                # Remove unused rates
+                data.pop(CONF_EV_RATE, None)
+                data.pop(CONF_FLAT_RATE, None)
+            elif plan_type == PLAN_EV:
+                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
+                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
+                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+                data[CONF_EV_RATE] = user_input.get(CONF_EV_RATE, default_rates.get("ev", 0.06))
+                data.pop(CONF_FLAT_RATE, None)
+            elif plan_type == PLAN_BASIC:
+                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
+                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
+                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+                data.pop(CONF_EV_RATE, None)
+                data.pop(CONF_FLAT_RATE, None)
+            elif plan_type == PLAN_ONE:
+                data[CONF_FLAT_RATE] = user_input.get(CONF_FLAT_RATE, default_rates.get("flat", 0.28))
+                # Remove TOU rates
+                data.pop(CONF_PEAK_RATE, None)
+                data.pop(CONF_SHOULDER_RATE, None)
+                data.pop(CONF_OFF_PEAK_RATE, None)
+                data.pop(CONF_EV_RATE, None)
+
+            # Update the config entry
+            self.hass.config_entries.async_update_entry(self.config_entry, data=data)
+
+            # Reload the integration to apply changes
+            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+
+            return self.async_create_entry(title="", data={})
+
+        # Get current plan settings or use defaults
+        current_plan = self.config_entry.data.get(CONF_PLAN_TYPE, PLAN_BASIC)
+        current_peak = self.config_entry.data.get(CONF_PEAK_RATE, 0.35)
+        current_shoulder = self.config_entry.data.get(CONF_SHOULDER_RATE, 0.25)
+        current_off_peak = self.config_entry.data.get(CONF_OFF_PEAK_RATE, 0.18)
+        current_ev = self.config_entry.data.get(CONF_EV_RATE, 0.06)
+        current_flat = self.config_entry.data.get(CONF_FLAT_RATE, 0.28)
+
+        # Build options schema
+        options_schema = vol.Schema({
+            vol.Required(CONF_PLAN_TYPE, default=current_plan): vol.In({
+                PLAN_FREE_3: PLAN_NAMES[PLAN_FREE_3],
+                PLAN_EV: PLAN_NAMES[PLAN_EV],
+                PLAN_BASIC: PLAN_NAMES[PLAN_BASIC],
+                PLAN_ONE: PLAN_NAMES[PLAN_ONE],
+            }),
+            vol.Optional(CONF_PEAK_RATE, default=current_peak): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_SHOULDER_RATE, default=current_shoulder): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_OFF_PEAK_RATE, default=current_off_peak): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_EV_RATE, default=current_ev): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_FLAT_RATE, default=current_flat): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+        })
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=options_schema,
+            description_placeholders={
+                "info": """Update your OVO Energy plan and rates (AUD per kWh).
+
+**The Free 3 Plan:**
+• Free electricity from 11:00-14:00 daily (0 c/kWh)
+• Standard TOU rates outside free hours
+• We'll track your free usage and calculate savings!
+
+**The EV Plan:**
+• Super off-peak EV charging 00:00-06:00 (~6 c/kWh)
+• May include free period 11:00-14:00
+• Standard TOU rates for other times
+
+**The Basic Plan:**
+• Standard Time-of-Use pricing
+• Peak: ~15:00-21:00 weekdays
+• Shoulder: Morning and evening periods
+• Off-Peak: Overnight and early morning
+
+**The One Plan:**
+• Flat rate all day (no TOU periods)
+• Single rate for all consumption
+
+**Note:** Changes will reload the integration and apply immediately."""
+            }
+        )
+
+
 class CannotConnect(HomeAssistantError):
     """Error to indicate we cannot connect."""
 
