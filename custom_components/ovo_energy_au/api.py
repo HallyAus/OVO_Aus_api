@@ -699,20 +699,6 @@ class OVOEnergyAUApiClient:
         """
         await self._ensure_authenticated()
 
-        # Extract email from ID token (same pattern as get_contact_info)
-        try:
-            decoded_id = jwt.decode(
-                self._id_token,
-                options={"verify_signature": False},
-            )
-            email = decoded_id.get('email')
-            if not email:
-                raise OVOEnergyAUApiClientError("Email not found in ID token")
-        except Exception as err:
-            raise OVOEnergyAUApiClientError(
-                f"Error decoding ID token: {err}"
-            ) from err
-
         headers = {
             "accept": "*/*",
             "authorization": f"Bearer {self._access_token}",
@@ -722,18 +708,19 @@ class OVOEnergyAUApiClient:
             "referer": f"{API_BASE_URL}/usage",
         }
 
-        # Try with email input first (same pattern as GetContactInfo)
+        # Use the same pattern as browser - id + system: KALUZA
         payload = {
-            "operationName": "GetAccountInfo",
+            "operationName": "GetProductAgreements",
             "variables": {
                 "input": {
-                    "email": email
+                    "id": account_id,
+                    "system": "KALUZA"
                 }
             },
             "query": GET_ACCOUNT_INFO_QUERY
         }
 
-        _LOGGER.debug("Fetching product agreements with email input: %s", email)
+        _LOGGER.debug("Fetching product agreements for account %s with system: KALUZA", account_id)
 
         try:
             async with self._session.post(
@@ -741,26 +728,6 @@ class OVOEnergyAUApiClient:
                 json=payload,
                 headers=headers,
             ) as response:
-                # Log response details for debugging
-                _LOGGER.debug("GetAccountInfo response status: %d", response.status)
-
-                # If 400, try with accountId instead of email
-                if response.status == 400:
-                    _LOGGER.info("Email input failed (400), retrying with accountId input")
-                    payload["variables"] = {
-                        "input": {
-                            "accountId": account_id
-                        }
-                    }
-
-                    async with self._session.post(
-                        GRAPHQL_URL,
-                        json=payload,
-                        headers=headers,
-                    ) as response2:
-                        response = response2
-                        _LOGGER.debug("GetAccountInfo retry response status: %d", response.status)
-
                 response.raise_for_status()
 
                 # Check content type before trying to parse JSON

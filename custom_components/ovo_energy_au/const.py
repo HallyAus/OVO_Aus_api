@@ -281,23 +281,34 @@ query GetAccountInfo($input: GetAccountInfoInput!) {
       id
       fromDt
       toDt
+      fixedContractToDt
       nmi
       product {
         code
         displayName
+        paymentTiming
         standingChargeCentsPerDay
+        isSolarSponge
         unitRatesCentsPerKWH {
           standard
+          CL1
+          CL2
+          feedInTariff
+          isPremiumFeedInTariff
           peak
           shoulder
           offPeak
           evOffPeak
           superOffPeak
-          feedInTariff
-          CL1
-          CL2
-          block
+          block {
+            usageBlock1
+            usageBlock2
+            maxBlock1Threshold
+            __typename
+          }
           demand {
+            highSeasonDemand
+            lowSeasonDemand
             peakDemand
             __typename
           }
