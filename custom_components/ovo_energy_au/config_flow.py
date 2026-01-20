@@ -226,22 +226,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=STEP_USER_SCHEMA,
             errors=errors,
-            description_placeholders={
-                "info": """Enter your OVO Energy Australia account credentials.
-
-**What we do with your credentials:**
-• Stored securely in Home Assistant's encrypted storage
-• Used to authenticate with OVO Energy's API every 5 minutes
-• Never shared with third parties
-• Account ID is automatically retrieved after login
-
-**Why we need your password:**
-• OVO's API tokens expire quickly (5 minutes)
-• We re-authenticate using your credentials before each data fetch
-• This ensures your sensors stay online 24/7
-
-Your credentials are only used to access your OVO Energy data through their official API."""
-            }
         )
 
     async def async_step_plan(
@@ -296,40 +280,10 @@ Your credentials are only used to access your OVO Energy data through their offi
             vol.Optional(CONF_FLAT_RATE, default=default_rates.get("flat", 0.28)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
         })
 
-        # Build description with detection info if available
-        detection_info = ""
-        if self._detected_plan:
-            detection_info = f"\n\n✨ **Auto-Detected:** {PLAN_NAMES.get(self._detected_plan, self._detected_plan)}\n💡 Rates below are from your actual usage data!\n"
-
         return self.async_show_form(
             step_id="plan",
             data_schema=plan_schema,
             errors=errors,
-            description_placeholders={
-                "info": f"""Select your OVO Energy plan and customize rates (AUD per kWh).{detection_info}
-
-**The Free 3 Plan:**
-• Free electricity from 11:00-14:00 daily (0 c/kWh)
-• Standard TOU rates outside free hours
-• We'll track your free usage and calculate savings!
-
-**The EV Plan:**
-• Super off-peak EV charging 00:00-06:00 (~6 c/kWh)
-• May include free period 11:00-14:00
-• Standard TOU rates for other times
-
-**The Basic Plan:**
-• Standard Time-of-Use pricing
-• Peak: ~15:00-21:00 weekdays
-• Shoulder: Morning and evening periods
-• Off-Peak: Overnight and early morning
-
-**The One Plan:**
-• Flat rate all day (no TOU periods)
-• Single rate for all consumption
-
-**Note:** Rates are customizable. Default values shown are your actual rates or typical NSW/QLD rates."""
-            }
         )
 
 
