@@ -7,6 +7,70 @@ DOMAIN = "ovo_energy_au"
 
 # Configuration and options
 CONF_ACCOUNT_ID = "account_id"
+CONF_PLAN_TYPE = "plan_type"
+CONF_PEAK_RATE = "peak_rate"
+CONF_SHOULDER_RATE = "shoulder_rate"
+CONF_OFF_PEAK_RATE = "off_peak_rate"
+CONF_EV_RATE = "ev_rate"
+CONF_FLAT_RATE = "flat_rate"
+
+# Plan types
+PLAN_FREE_3 = "free_3"
+PLAN_EV = "ev"
+PLAN_BASIC = "basic"
+PLAN_ONE = "one"
+
+PLAN_NAMES = {
+    PLAN_FREE_3: "The Free 3 Plan",
+    PLAN_EV: "The EV Plan",
+    PLAN_BASIC: "The Basic Plan",
+    PLAN_ONE: "The One Plan",
+}
+
+# Default rates (AUD per kWh) - users can customize these
+DEFAULT_RATES = {
+    PLAN_FREE_3: {
+        "peak": 0.35,
+        "shoulder": 0.25,
+        "off_peak": 0.18,
+        "free_start": 11,  # 11:00
+        "free_end": 14,    # 14:00
+    },
+    PLAN_EV: {
+        "peak": 0.35,
+        "shoulder": 0.25,
+        "off_peak": 0.18,
+        "ev": 0.06,
+        "ev_start": 0,     # 00:00
+        "ev_end": 6,       # 06:00
+        "free_start": 11,  # Some EV plans include free period
+        "free_end": 14,
+    },
+    PLAN_BASIC: {
+        "peak": 0.35,
+        "shoulder": 0.25,
+        "off_peak": 0.18,
+    },
+    PLAN_ONE: {
+        "flat": 0.28,      # Single rate all day
+    },
+}
+
+# Time-of-Use periods (24-hour format)
+# These are typical NSW/QLD distributor TOU windows
+TOU_PERIODS = {
+    "peak": {
+        "weekday_start": 14,  # 14:00 (2pm)
+        "weekday_end": 21,    # 21:00 (9pm) - exclusive
+        "applies_weekend": False,
+    },
+    "off_peak": {
+        "start": 22,  # 22:00 (10pm)
+        "end": 7,     # 07:00 (7am)
+        "applies_weekend": True,
+    },
+    # Shoulder is everything else
+}
 
 # Auth0 / OAuth2 constants
 AUTH_BASE_URL = "https://login.ovoenergy.com.au"

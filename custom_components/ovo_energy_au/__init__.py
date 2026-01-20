@@ -54,11 +54,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Authentication failed during setup: %s", err)
         raise ConfigEntryAuthFailed(err) from err
 
+    # Get plan configuration from entry data
+    plan_config = {
+        "plan_type": entry.data.get("plan_type", "basic"),
+        "peak_rate": entry.data.get("peak_rate", 0.35),
+        "shoulder_rate": entry.data.get("shoulder_rate", 0.25),
+        "off_peak_rate": entry.data.get("off_peak_rate", 0.18),
+        "ev_rate": entry.data.get("ev_rate", 0.06),
+        "flat_rate": entry.data.get("flat_rate", 0.28),
+    }
+
     # Create coordinator
     coordinator = OVOEnergyAUDataUpdateCoordinator(
         hass,
         client=client,
         account_id=account_id,
+        plan_config=plan_config,
     )
 
     # Fetch initial data
@@ -103,10 +114,19 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         hass: HomeAssistant,
         client: OVOEnergyAUApiClient,
         account_id: str,
+        plan_config: dict = None,
     ) -> None:
         """Initialize the coordinator."""
         self.client = client
         self.account_id = account_id
+        self.plan_config = plan_config or {
+            "plan_type": "basic",
+            "peak_rate": 0.35,
+            "shoulder_rate": 0.25,
+            "off_peak_rate": 0.18,
+            "ev_rate": 0.06,
+            "flat_rate": 0.28,
+        }
 
         super().__init__(
             hass,
@@ -718,53 +738,128 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
             processed["peak_4hour_window"] = peak_window
 
-        # Feature 4: Time-of-Use Cost Breakdown
-        # Australian typical TOU periods:
-        # Peak: 2pm-8pm weekdays
-        # Shoulder: 7am-2pm and 8pm-10pm weekdays, 7am-10pm weekends
-        # Off-peak: 10pm-7am all days
+        # Feature 4: Time-of-Use Cost Breakdown (Plan-Aware)
+        # Get plan configuration
+        plan_type = self.plan_config.get("plan_type", "basic")
+        peak_rate = self.plan_config.get("peak_rate", 0.35)
+        shoulder_rate = self.plan_config.get("shoulder_rate", 0.25)
+        off_peak_rate = self.plan_config.get("off_peak_rate", 0.18)
+        ev_rate = self.plan_config.get("ev_rate", 0.06)
+        flat_rate = self.plan_config.get("flat_rate", 0.28)
+
         tou_breakdown = {
             "peak": {"consumption": 0, "cost": 0, "hours": 0},
             "shoulder": {"consumption": 0, "cost": 0, "hours": 0},
             "off_peak": {"consumption": 0, "cost": 0, "hours": 0},
         }
 
+        # Free usage and savings tracking
+        free_usage = {"consumption": 0, "cost_saved": 0, "hours": 0}
+        ev_usage = {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0}
+
         for entry in hourly_timeline:
             timestamp = entry["timestamp"]
             hour = timestamp.hour
             weekday = timestamp.weekday()  # Monday = 0, Sunday = 6
             consumption = entry["consumption"]
-
-            # Estimate cost based on type (this is approximate)
-            # We'll use the grid rate from grid entries
-            cost_estimate = 0
-            if entry["type"] == "grid":
-                # Find matching entry in grid_entries to get actual charge
-                for grid_entry in processed["grid_entries"]:
-                    if grid_entry.get("periodFrom") == timestamp.isoformat().replace("+00:00", "Z"):
-                        cost_estimate = grid_entry.get("charge", {}).get("value", 0)
-                        break
-
-            # Classify time period
             is_weekday = weekday < 5
 
-            if is_weekday and 14 <= hour < 20:  # 2pm-8pm weekdays
-                period = "peak"
-            elif hour < 7 or hour >= 22:  # 10pm-7am
-                period = "off_peak"
-            else:  # Everything else
-                period = "shoulder"
+            # Initialize cost
+            cost = 0
+            period = None
+            is_free = False
+            is_ev_period = False
 
-            tou_breakdown[period]["consumption"] += consumption
-            tou_breakdown[period]["cost"] += cost_estimate
-            tou_breakdown[period]["hours"] += 1
+            # Plan-specific logic
+            if plan_type == "free_3":
+                # Free 3 Plan: Free 11:00-14:00 daily, standard TOU otherwise
+                if 11 <= hour < 14:
+                    # Free period
+                    is_free = True
+                    free_usage["consumption"] += consumption
+                    free_usage["hours"] += 1
+                    # Calculate what this WOULD have cost (use shoulder rate as baseline)
+                    free_usage["cost_saved"] += consumption * shoulder_rate
+                else:
+                    # Standard TOU periods
+                    if is_weekday and 14 <= hour < 21:
+                        period = "peak"
+                        cost = consumption * peak_rate
+                    elif hour < 7 or hour >= 22:
+                        period = "off_peak"
+                        cost = consumption * off_peak_rate
+                    else:
+                        period = "shoulder"
+                        cost = consumption * shoulder_rate
+
+            elif plan_type == "ev":
+                # EV Plan: EV rate 00:00-06:00, free 11:00-14:00, standard TOU otherwise
+                if 0 <= hour < 6:
+                    # EV charging period
+                    is_ev_period = True
+                    ev_usage["consumption"] += consumption
+                    ev_usage["cost"] += consumption * ev_rate
+                    ev_usage["hours"] += 1
+                    # Calculate savings vs off-peak rate
+                    ev_usage["cost_saved"] += consumption * (off_peak_rate - ev_rate)
+                elif 11 <= hour < 14:
+                    # Free period
+                    is_free = True
+                    free_usage["consumption"] += consumption
+                    free_usage["hours"] += 1
+                    free_usage["cost_saved"] += consumption * shoulder_rate
+                else:
+                    # Standard TOU periods
+                    if is_weekday and 14 <= hour < 21:
+                        period = "peak"
+                        cost = consumption * peak_rate
+                    elif hour < 7 or hour >= 22:
+                        period = "off_peak"
+                        cost = consumption * off_peak_rate
+                    else:
+                        period = "shoulder"
+                        cost = consumption * shoulder_rate
+
+            elif plan_type == "one":
+                # One Plan: Flat rate all day
+                period = "shoulder"  # Use shoulder for display purposes
+                cost = consumption * flat_rate
+
+            else:  # basic plan
+                # Basic Plan: Standard TOU
+                if is_weekday and 14 <= hour < 21:
+                    period = "peak"
+                    cost = consumption * peak_rate
+                elif hour < 7 or hour >= 22:
+                    period = "off_peak"
+                    cost = consumption * off_peak_rate
+                else:
+                    period = "shoulder"
+                    cost = consumption * shoulder_rate
+
+            # Add to appropriate period (if not free or EV period)
+            if period and not is_free and not is_ev_period:
+                tou_breakdown[period]["consumption"] += consumption
+                tou_breakdown[period]["cost"] += cost
+                tou_breakdown[period]["hours"] += 1
 
         # Round values
         for period in tou_breakdown:
             tou_breakdown[period]["consumption"] = round(tou_breakdown[period]["consumption"], 2)
             tou_breakdown[period]["cost"] = round(tou_breakdown[period]["cost"], 2)
 
+        # Round free usage
+        free_usage["consumption"] = round(free_usage["consumption"], 2)
+        free_usage["cost_saved"] = round(free_usage["cost_saved"], 2)
+
+        # Round EV usage
+        ev_usage["consumption"] = round(ev_usage["consumption"], 2)
+        ev_usage["cost"] = round(ev_usage["cost"], 2)
+        ev_usage["cost_saved"] = round(ev_usage["cost_saved"], 2)
+
         processed["time_of_use"] = tou_breakdown
+        processed["free_usage"] = free_usage
+        processed["ev_usage"] = ev_usage
 
         # Feature 7: Hourly Heatmap Data (day-of-week averages)
         heatmap_data = {}  # Structure: {day_name: {hour: {consumption, count}}}
