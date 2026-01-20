@@ -108,15 +108,15 @@ class OVOEnergyAU:
 
         query = """
         query GetHourlyData($input: GetHourlyDataInput!) {
-          getHourlyData(input: $input) {
+          GetHourlyData(input: $input) {
             solar {
               periodFrom
               periodTo
               consumption
               readType
               charge {
-                amount
-                currency
+                value
+                type
               }
             }
             export {
@@ -125,19 +125,27 @@ class OVOEnergyAU:
               consumption
               readType
               charge {
-                amount
-                currency
+                value
+                type
+              }
+              rates {
+                type
+                charge {
+                  value
+                  type
+                }
+                consumption
+                percentOfTotal
               }
             }
             savings {
               periodFrom
               periodTo
-              consumption
-              readType
-              charge {
-                amount
-                currency
+              amount {
+                value
+                type
               }
+              description
             }
           }
         }
@@ -154,7 +162,7 @@ class OVOEnergyAU:
         }
 
         result = self._make_graphql_request(query, variables)
-        return result.get("getHourlyData", {})
+        return result.get("GetHourlyData", {})
 
     def close(self):
         """Clean up resources"""

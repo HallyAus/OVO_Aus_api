@@ -126,8 +126,10 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         # Calculate totals for today
         solar_today = sum(point.get("consumption", 0) for point in solar_data)
         export_today = sum(point.get("consumption", 0) for point in export_data)
+
+        # Savings uses amount.value structure
         savings_today = sum(
-            point.get("charge", {}).get("amount", 0) for point in savings_data
+            point.get("amount", {}).get("value", 0) for point in savings_data
         )
 
         # Get current hour values (most recent data point)
@@ -140,5 +142,5 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
             "solar_today": solar_today,
             "export_today": export_today,
             "savings_today": savings_today,
-            "last_updated": raw_data.get("solar", [{}])[-1].get("periodTo") if solar_data else None,
+            "last_updated": solar_data[-1].get("periodTo") if solar_data else None,
         }

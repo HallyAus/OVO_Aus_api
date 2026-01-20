@@ -30,22 +30,28 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
+    _LOGGER.debug("Validating OVO Energy credentials for account %s", data[CONF_ACCOUNT_ID])
+
     # Create client and test authentication
     client = OVOEnergyAU(account_id=data[CONF_ACCOUNT_ID])
     client.set_tokens(data[CONF_ACCESS_TOKEN], data[CONF_ID_TOKEN])
 
     try:
         # Test the connection by fetching data
-        await hass.async_add_executor_job(client.get_today_data)
+        _LOGGER.debug("Testing API connection...")
+        result = await hass.async_add_executor_job(client.get_today_data)
+        _LOGGER.debug("API connection successful, received data: %s", result)
     except OVOAPIError as err:
         _LOGGER.error("Failed to authenticate with OVO Energy API: %s", err)
         raise InvalidAuth from err
     except Exception as err:
         _LOGGER.exception("Unexpected exception during validation")
         raise CannotConnect from err
+    finally:
+        client.close()
 
     # Return info to be stored in the config entry
-    return {"title": f"OVO Energy AU ({data[CONF_ACCOUNT_ID][:8]}...)"}
+    return {"title": f"OVO Energy AU ({data[CONF_ACCOUNT_ID]})"}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
