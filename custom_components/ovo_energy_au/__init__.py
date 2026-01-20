@@ -11,8 +11,14 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
-from .api import OVOEnergyAUApiClient, OVOEnergyAUApiClientAuthenticationError
+from .api import (
+    OVOEnergyAUApiClient,
+    OVOEnergyAUApiClientAuthenticationError,
+    OVOEnergyAUApiClientCommunicationError,
+    OVOEnergyAUApiClientError,
+)
 from .const import CONF_ACCOUNT_ID, DOMAIN, FAST_UPDATE_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
@@ -114,161 +120,162 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             _LOGGER.debug("Fetching data from OVO Energy API...")
 
-            # Get today's date for hourly data
-            today = datetime.now().date()
-            yesterday = today - timedelta(days=1)
-
-            # Fetch interval data (monthly/daily) and hourly data in parallel
+            # Fetch interval data (daily/monthly/yearly)
             interval_data = await self.client.get_interval_data(self.account_id)
-            hourly_data = await self.client.get_hourly_data(
-                self.account_id,
-                start_date=yesterday.isoformat(),
-                end_date=today.isoformat()
-            )
+            processed_data = self._process_interval_data(interval_data)
 
-            _LOGGER.debug("Successfully fetched data from API")
+            # Fetch hourly data for the last 7 days
+            # This ensures we:
+            # 1. Work around the API issue where single-day queries return 0 results
+            # 2. Backfill recent history if the integration was offline
+            # 3. Correctly update any partial data from previous days
+            now = dt_util.now()
 
-            # Process and structure the data
-            processed_data = self._process_data(interval_data, hourly_data)
+            # Query range: Last 7 days -> Today
+            start_date = now - timedelta(days=7)
+            query_start = start_date.strftime("%Y-%m-%d")
+            query_end = now.strftime("%Y-%m-%d")
 
+            try:
+                hourly_data = await self.client.get_hourly_data(
+                    self.account_id,
+                    query_start,
+                    query_end,
+                )
+
+                # Check if we got data
+                has_solar = len(hourly_data.get("solar", []) or []) > 0
+                has_export = len(hourly_data.get("export", []) or []) > 0
+
+                if not has_solar and not has_export:
+                    _LOGGER.info("No hourly data found in range %s to %s", query_start, query_end)
+                else:
+                    _LOGGER.debug(
+                        "Successfully fetched hourly data (range query: %s to %s)",
+                        query_start, query_end
+                    )
+
+                # Process hourly data
+                processed_data["hourly"] = self._process_hourly_data(hourly_data)
+            except Exception as err:
+                _LOGGER.warning("Failed to fetch hourly data: %s", err)
+                processed_data["hourly"] = {}
+
+            _LOGGER.debug("Successfully processed all data")
             return processed_data
 
         except OVOEnergyAUApiClientAuthenticationError as err:
             _LOGGER.error("Authentication error: %s", err)
             raise ConfigEntryAuthFailed(err) from err
+        except OVOEnergyAUApiClientCommunicationError as err:
+            _LOGGER.error("Communication error: %s", err)
+            raise UpdateFailed(f"Communication error: {err}") from err
+        except OVOEnergyAUApiClientError as err:
+            _LOGGER.error("API error: %s", err)
+            raise UpdateFailed(f"API error: {err}") from err
         except Exception as err:
             _LOGGER.exception("Unexpected error fetching OVO Energy data")
             raise UpdateFailed(f"Error fetching data: {err}") from err
 
-    def _process_data(self, interval_data: dict, hourly_data: dict) -> dict:
-        """Process raw API data into structured format for sensors."""
-        # Process hourly data for today
-        solar_hourly = hourly_data.get("solar", [])
-        export_hourly = hourly_data.get("export", [])
+    def _process_interval_data(self, data: dict) -> dict:
+        """Process the interval data (daily/monthly/yearly).
 
-        # Calculate totals for today
-        solar_today = sum(point.get("consumption", 0) for point in solar_hourly)
-        export_today = sum(point.get("consumption", 0) for point in export_hourly)
+        The API returns arrays of historical data:
+        - daily: array of individual day entries (latest = most recent day)
+        - monthly: array of individual month entries (latest = current month)
+        - yearly: array of individual year entries (latest = current year)
 
-        # Calculate savings for today (solar charge - export charge)
-        solar_charge_today = sum(
-            point.get("charge", {}).get("value", 0) for point in solar_hourly
-        )
-        export_charge_today = sum(
-            point.get("charge", {}).get("value", 0) for point in export_hourly
-        )
-        savings_today = solar_charge_today - export_charge_today
-
-        # Get current hour values (most recent data point)
-        solar_current = solar_hourly[-1].get("consumption", 0) if solar_hourly else 0
-        export_current = export_hourly[-1].get("consumption", 0) if export_hourly else 0
-
-        # Process monthly interval data
-        monthly_data = interval_data.get("monthly", {})
-        monthly_solar = monthly_data.get("solar", [])
-        monthly_export = monthly_data.get("export", [])
-
-        # Get this month (last element) and last month (second-to-last)
-        solar_this_month = monthly_solar[-1].get("consumption", 0) if monthly_solar else 0
-        solar_last_month = monthly_solar[-2].get("consumption", 0) if len(monthly_solar) >= 2 else 0
-
-        export_this_month = monthly_export[-1].get("consumption", 0) if monthly_export else 0
-        export_last_month = monthly_export[-2].get("consumption", 0) if len(monthly_export) >= 2 else 0
-
-        # Calculate monthly savings
-        solar_charge_this_month = monthly_solar[-1].get("charge", {}).get("value", 0) if monthly_solar else 0
-        solar_charge_last_month = monthly_solar[-2].get("charge", {}).get("value", 0) if len(monthly_solar) >= 2 else 0
-
-        export_charge_this_month = monthly_export[-1].get("charge", {}).get("value", 0) if monthly_export else 0
-        export_charge_last_month = monthly_export[-2].get("charge", {}).get("value", 0) if len(monthly_export) >= 2 else 0
-
-        savings_this_month = solar_charge_this_month - export_charge_this_month
-        savings_last_month = solar_charge_last_month - export_charge_last_month
-
-        # Process daily interval data for day-by-day breakdown
-        daily_data = interval_data.get("daily", {})
-        daily_solar = daily_data.get("solar", [])
-        daily_export = daily_data.get("export", [])
-
-        # Get current month and last month for filtering
-        now = datetime.now()
-        current_month = now.month
-        current_year = now.year
-
-        # Calculate last month
-        if current_month == 1:
-            last_month = 12
-            last_month_year = current_year - 1
-        else:
-            last_month = current_month - 1
-            last_month_year = current_year
-
-        # Filter daily data into this month and last month
-        def filter_by_month(daily_list, month, year):
-            """Filter daily data by month/year and format for attributes."""
-            filtered = []
-            for day in daily_list:
-                period_from = day.get("periodFrom", "")
-                if period_from:
-                    try:
-                        date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
-                        if date.month == month and date.year == year:
-                            filtered.append({
-                                "date": date.strftime("%Y-%m-%d"),
-                                "consumption": day.get("consumption", 0),
-                                "charge": day.get("charge", {}).get("value", 0)
-                            })
-                    except Exception:
-                        pass
-            return sorted(filtered, key=lambda x: x["date"])
-
-        # Create daily breakdowns
-        solar_daily_this_month = filter_by_month(daily_solar, current_month, current_year)
-        solar_daily_last_month = filter_by_month(daily_solar, last_month, last_month_year)
-
-        export_daily_this_month = filter_by_month(daily_export, current_month, current_year)
-        export_daily_last_month = filter_by_month(daily_export, last_month, last_month_year)
-
-        # Calculate savings breakdowns
-        savings_daily_this_month = [
-            {
-                "date": solar["date"],
-                "savings": solar["charge"] - next(
-                    (e["charge"] for e in export_daily_this_month if e["date"] == solar["date"]),
-                    0
-                )
-            }
-            for solar in solar_daily_this_month
-        ]
-
-        savings_daily_last_month = [
-            {
-                "date": solar["date"],
-                "savings": solar["charge"] - next(
-                    (e["charge"] for e in export_daily_last_month if e["date"] == solar["date"]),
-                    0
-                )
-            }
-            for solar in solar_daily_last_month
-        ]
-
-        return {
-            "solar_current": solar_current,
-            "export_current": export_current,
-            "solar_today": solar_today,
-            "export_today": export_today,
-            "savings_today": savings_today,
-            "solar_this_month": solar_this_month,
-            "solar_last_month": solar_last_month,
-            "export_this_month": export_this_month,
-            "export_last_month": export_last_month,
-            "savings_this_month": savings_this_month,
-            "savings_last_month": savings_last_month,
-            "solar_daily_this_month": solar_daily_this_month,
-            "solar_daily_last_month": solar_daily_last_month,
-            "export_daily_this_month": export_daily_this_month,
-            "export_daily_last_month": export_daily_last_month,
-            "savings_daily_this_month": savings_daily_this_month,
-            "savings_daily_last_month": savings_daily_last_month,
-            "last_updated": solar_hourly[-1].get("periodTo") if solar_hourly else None,
+        We only use the LATEST entry from each array.
+        """
+        processed = {
+            "daily": {},
+            "monthly": {},
+            "yearly": {},
         }
+
+        for period in ["daily", "monthly", "yearly"]:
+            if period not in data:
+                continue
+
+            period_data = data[period]
+
+            # Process solar data - use only the LATEST entry
+            if "solar" in period_data and period_data["solar"]:
+                latest_solar = period_data["solar"][-1]
+                processed[period]["solar_consumption"] = latest_solar.get("consumption", 0)
+                processed[period]["solar_charge"] = latest_solar.get("charge", {}).get("value", 0)
+                processed[period]["solar_latest"] = latest_solar
+
+            # Process export data - use only the LATEST entry
+            if "export" in period_data and period_data["export"]:
+                latest_export = period_data["export"][-1]
+
+                charge_type = latest_export.get("charge", {}).get("type", "DEBIT")
+                consumption = latest_export.get("consumption", 0)
+                charge_value = latest_export.get("charge", {}).get("value", 0)
+
+                # CREDIT means returning power to grid (solar export)
+                # DEBIT, FREE, PEAK, OFF_PEAK mean consuming from grid
+                if charge_type == "CREDIT":
+                    processed[period]["grid_consumption"] = 0
+                    processed[period]["grid_charge"] = 0
+                    processed[period]["return_to_grid"] = consumption
+                    processed[period]["return_to_grid_charge"] = charge_value
+                else:
+                    # Default to grid consumption for DEBIT, FREE, PEAK, OFF_PEAK
+                    processed[period]["grid_consumption"] = consumption
+                    processed[period]["grid_charge"] = charge_value
+                    processed[period]["return_to_grid"] = 0
+                    processed[period]["return_to_grid_charge"] = 0
+
+                processed[period]["grid_latest"] = latest_export
+
+        return processed
+
+    def _process_hourly_data(self, data: dict) -> dict:
+        """Process hourly data.
+
+        Unlike interval data, we keep ALL hourly entries for graphing.
+        """
+        processed = {
+            "solar_entries": [],
+            "grid_entries": [],
+            "return_to_grid_entries": [],
+            "solar_total": 0,
+            "grid_total": 0,
+            "return_to_grid_total": 0,
+        }
+
+        raw_solar_count = len(data.get("solar", []) or [])
+        raw_export_count = len(data.get("export", []) or [])
+        _LOGGER.debug(
+            "Processing hourly data: %d raw solar entries, %d raw export entries",
+            raw_solar_count, raw_export_count
+        )
+
+        # Process solar entries
+        for entry in data.get("solar", []) or []:
+            processed["solar_entries"].append(entry)
+            processed["solar_total"] += entry.get("consumption", 0)
+
+        # Process export entries
+        for entry in data.get("export", []) or []:
+            charge_type = entry.get("charge", {}).get("type", "DEBIT")
+            consumption = entry.get("consumption", 0)
+
+            # CREDIT = returning to grid, otherwise grid consumption
+            if charge_type == "CREDIT":
+                processed["return_to_grid_entries"].append(entry)
+                processed["return_to_grid_total"] += consumption
+            else:
+                processed["grid_entries"].append(entry)
+                processed["grid_total"] += consumption
+
+        _LOGGER.debug(
+            "Processed hourly: %d solar, %d grid, %d return entries",
+            len(processed["solar_entries"]),
+            len(processed["grid_entries"]),
+            len(processed["return_to_grid_entries"])
+        )
+
+        return processed

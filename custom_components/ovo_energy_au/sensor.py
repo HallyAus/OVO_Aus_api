@@ -15,22 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import (
-    DOMAIN,
-    SENSOR_SOLAR_CURRENT,
-    SENSOR_EXPORT_CURRENT,
-    SENSOR_SOLAR_TODAY,
-    SENSOR_EXPORT_TODAY,
-    SENSOR_SAVINGS_TODAY,
-    SENSOR_SOLAR_THIS_MONTH,
-    SENSOR_SOLAR_LAST_MONTH,
-    SENSOR_EXPORT_THIS_MONTH,
-    SENSOR_EXPORT_LAST_MONTH,
-    SENSOR_SAVINGS_THIS_MONTH,
-    SENSOR_SAVINGS_LAST_MONTH,
-    UNIT_KWH,
-    UNIT_CURRENCY,
-)
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,205 +25,329 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up OVO Energy sensors based on a config entry."""
-    _LOGGER.info("Setting up OVO Energy sensors for entry %s", entry.entry_id)
-
+    """Set up OVO Energy Australia sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    _LOGGER.info("Coordinator found: %s, data: %s", coordinator, coordinator.data)
 
-    # Define sensors
     sensors = [
-        OVOEnergySensor(
+        # Daily sensors
+        OVOEnergyAUSensor(
             coordinator,
-            SENSOR_SOLAR_CURRENT,
-            "Solar Generation (Current Hour)",
+            "daily_solar_consumption",
+            "Daily Solar Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
             "mdi:solar-power",
+            lambda data: data.get("daily", {}).get("solar_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "daily_grid_consumption",
+            "Daily Grid Consumption",
             UnitOfEnergy.KILO_WATT_HOUR,
             SensorDeviceClass.ENERGY,
-            SensorStateClass.MEASUREMENT,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower",
+            lambda data: data.get("daily", {}).get("grid_consumption"),
         ),
-        OVOEnergySensor(
+        OVOEnergyAUSensor(
             coordinator,
-            SENSOR_EXPORT_CURRENT,
-            "Grid Export (Current Hour)",
+            "daily_return_to_grid",
+            "Daily Return to Grid",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
             "mdi:transmission-tower-export",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.MEASUREMENT,
+            lambda data: data.get("daily", {}).get("return_to_grid"),
         ),
-        OVOEnergySensor(
+        OVOEnergyAUSensor(
             coordinator,
-            SENSOR_SOLAR_TODAY,
-            "Solar Generation (Today)",
-            "mdi:solar-power-variant",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL_INCREASING,
-        ),
-        OVOEnergySensor(
-            coordinator,
-            SENSOR_EXPORT_TODAY,
-            "Grid Export (Today)",
-            "mdi:transmission-tower",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL_INCREASING,
-        ),
-        OVOEnergySensor(
-            coordinator,
-            SENSOR_SAVINGS_TODAY,
-            "Cost Savings (Today)",
+            "daily_solar_charge",
+            "Daily Solar Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
             "mdi:currency-usd",
-            UNIT_CURRENCY,
+            lambda data: data.get("daily", {}).get("solar_charge"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "daily_grid_charge",
+            "Daily Grid Charge",
+            "AUD",
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
-        ),
-        OVOEnergySensor(
-            coordinator,
-            SENSOR_SOLAR_THIS_MONTH,
-            "Solar Generation (This Month)",
-            "mdi:solar-power-variant",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL_INCREASING,
-        ),
-        OVOEnergySensor(
-            coordinator,
-            SENSOR_SOLAR_LAST_MONTH,
-            "Solar Generation (Last Month)",
-            "mdi:solar-power-variant-outline",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-        ),
-        OVOEnergySensor(
-            coordinator,
-            SENSOR_EXPORT_THIS_MONTH,
-            "Grid Export (This Month)",
-            "mdi:transmission-tower",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL_INCREASING,
-        ),
-        OVOEnergySensor(
-            coordinator,
-            SENSOR_EXPORT_LAST_MONTH,
-            "Grid Export (Last Month)",
-            "mdi:transmission-tower-off",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-        ),
-        OVOEnergySensor(
-            coordinator,
-            SENSOR_SAVINGS_THIS_MONTH,
-            "Cost Savings (This Month)",
             "mdi:currency-usd",
-            UNIT_CURRENCY,
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
+            lambda data: data.get("daily", {}).get("grid_charge"),
         ),
-        OVOEnergySensor(
+        OVOEnergyAUSensor(
             coordinator,
-            SENSOR_SAVINGS_LAST_MONTH,
-            "Cost Savings (Last Month)",
-            "mdi:currency-usd-off",
-            UNIT_CURRENCY,
+            "daily_return_to_grid_charge",
+            "Daily Return to Grid Charge",
+            "AUD",
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("daily", {}).get("return_to_grid_charge"),
+        ),
+        # Monthly sensors
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_solar_consumption",
+            "Monthly Solar Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:solar-power",
+            lambda data: data.get("monthly", {}).get("solar_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_grid_consumption",
+            "Monthly Grid Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower",
+            lambda data: data.get("monthly", {}).get("grid_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_return_to_grid",
+            "Monthly Return to Grid",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower-export",
+            lambda data: data.get("monthly", {}).get("return_to_grid"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_solar_charge",
+            "Monthly Solar Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("monthly", {}).get("solar_charge"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_grid_charge",
+            "Monthly Grid Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("monthly", {}).get("grid_charge"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_return_to_grid_charge",
+            "Monthly Return to Grid Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("monthly", {}).get("return_to_grid_charge"),
+        ),
+        # Yearly sensors
+        OVOEnergyAUSensor(
+            coordinator,
+            "yearly_solar_consumption",
+            "Yearly Solar Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:solar-power",
+            lambda data: data.get("yearly", {}).get("solar_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "yearly_grid_consumption",
+            "Yearly Grid Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower",
+            lambda data: data.get("yearly", {}).get("grid_consumption"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "yearly_grid_charge",
+            "Yearly Grid Charge",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("yearly", {}).get("grid_charge"),
+        ),
+        # Hourly totals
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_solar_consumption",
+            "Hourly Solar Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            None,  # Not a total, just current value
+            "mdi:solar-power",
+            lambda data: data.get("hourly", {}).get("solar_total"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_grid_consumption",
+            "Hourly Grid Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            None,  # Not a total, just current value
+            "mdi:transmission-tower",
+            lambda data: data.get("hourly", {}).get("grid_total"),
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_return_to_grid",
+            "Hourly Return to Grid",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            None,  # Not a total, just current value
+            "mdi:transmission-tower-export",
+            lambda data: data.get("hourly", {}).get("return_to_grid_total"),
         ),
     ]
 
-    _LOGGER.info("Adding %d OVO Energy sensors", len(sensors))
     async_add_entities(sensors)
-    _LOGGER.info("OVO Energy sensors added successfully")
 
 
-class OVOEnergySensor(CoordinatorEntity, SensorEntity):
-    """Representation of an OVO Energy sensor."""
+class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
+    """Representation of an OVO Energy Australia sensor."""
 
     def __init__(
         self,
         coordinator,
-        sensor_type: str,
-        name: str,
-        icon: str,
+        sensor_key: str,
+        sensor_name: str,
         unit: str,
         device_class: SensorDeviceClass | None,
         state_class: SensorStateClass | None,
+        icon: str,
+        value_fn,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
+        self._sensor_key = sensor_key
+        self._sensor_name = sensor_name
+        self._unit = unit
+        self._device_class = device_class
+        self._state_class = state_class
+        self._icon = icon
+        self._value_fn = value_fn
 
-        self._sensor_type = sensor_type
-        self._attr_name = f"OVO Energy {name}"
-        self._attr_unique_id = f"ovo_energy_au_{sensor_type}"
-        self._attr_icon = icon
-        self._attr_native_unit_of_measurement = unit
-        self._attr_device_class = device_class
-        self._attr_state_class = state_class
+        # Generate unique ID
+        self._attr_unique_id = f"{coordinator.account_id}_{sensor_key}"
+        self._attr_has_entity_name = True
+
+    @property
+    def name(self) -> str:
+        """Return the name of the sensor."""
+        return self._sensor_name
 
     @property
     def native_value(self) -> float | None:
         """Return the state of the sensor."""
-        if self.coordinator.data is None:
-            _LOGGER.warning("Sensor %s: coordinator.data is None", self._sensor_type)
+        if not self.coordinator.data:
+            _LOGGER.debug("Sensor %s: coordinator.data is None", self._sensor_key)
             return None
 
-        value = self.coordinator.data.get(self._sensor_type)
+        try:
+            value = self._value_fn(self.coordinator.data)
+            if value is None:
+                _LOGGER.debug("Sensor %s: value_fn returned None", self._sensor_key)
+                return None
 
-        if value is None:
-            _LOGGER.warning("Sensor %s: value is None, coordinator data: %s",
-                          self._sensor_type, self.coordinator.data)
+            # Round to 2 decimal places
+            rounded = round(float(value), 2)
+            return rounded
+        except Exception as err:
+            _LOGGER.error(
+                "Sensor %s: Error getting value: %s (data keys: %s)",
+                self._sensor_key,
+                err,
+                list(self.coordinator.data.keys()) if self.coordinator.data else "None"
+            )
             return None
 
-        # Round to 2 decimal places
-        rounded = round(value, 2)
-        _LOGGER.debug("Sensor %s: value = %s", self._sensor_type, rounded)
-        return rounded
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return self._unit
+
+    @property
+    def device_class(self) -> SensorDeviceClass | None:
+        """Return the device class."""
+        return self._device_class
+
+    @property
+    def state_class(self) -> SensorStateClass | None:
+        """Return the state class."""
+        return self._state_class
+
+    @property
+    def icon(self) -> str:
+        """Return the icon."""
+        return self._icon
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional state attributes."""
-        if self.coordinator.data is None:
+        """Return extra attributes."""
+        if not self.coordinator.data:
             return {}
 
-        attributes = {
-            "last_updated": self.coordinator.data.get("last_updated"),
-        }
+        attributes = {}
 
-        # Add daily breakdown for monthly sensors
-        daily_breakdown_map = {
-            SENSOR_SOLAR_THIS_MONTH: "solar_daily_this_month",
-            SENSOR_SOLAR_LAST_MONTH: "solar_daily_last_month",
-            SENSOR_EXPORT_THIS_MONTH: "export_daily_this_month",
-            SENSOR_EXPORT_LAST_MONTH: "export_daily_last_month",
-            SENSOR_SAVINGS_THIS_MONTH: "savings_daily_this_month",
-            SENSOR_SAVINGS_LAST_MONTH: "savings_daily_last_month",
-        }
+        # Add hourly entries for hourly sensors
+        if "hourly_" in self._sensor_key:
+            hourly_data = self.coordinator.data.get("hourly", {})
 
-        if self._sensor_type in daily_breakdown_map:
-            daily_key = daily_breakdown_map[self._sensor_type]
-            daily_data = self.coordinator.data.get(daily_key, [])
+            if "solar" in self._sensor_key:
+                entries = hourly_data.get("solar_entries", [])
+                if entries:
+                    attributes["entries"] = entries
+                    attributes["entry_count"] = len(entries)
+            elif "grid" in self._sensor_key:
+                entries = hourly_data.get("grid_entries", [])
+                if entries:
+                    attributes["entries"] = entries
+                    attributes["entry_count"] = len(entries)
+            elif "return_to_grid" in self._sensor_key:
+                entries = hourly_data.get("return_to_grid_entries", [])
+                if entries:
+                    attributes["entries"] = entries
+                    attributes["entry_count"] = len(entries)
 
-            if daily_data:
-                attributes["daily_breakdown"] = daily_data
-                attributes["days_count"] = len(daily_data)
+        # Add latest entry for daily/monthly/yearly sensors
+        period = None
+        if "daily_" in self._sensor_key:
+            period = "daily"
+        elif "monthly_" in self._sensor_key:
+            period = "monthly"
+        elif "yearly_" in self._sensor_key:
+            period = "yearly"
 
-                # Add helpful summary stats
-                if daily_data:
-                    # For savings sensors, use "savings" key, otherwise use "consumption"
-                    if self._sensor_type in [SENSOR_SAVINGS_THIS_MONTH, SENSOR_SAVINGS_LAST_MONTH]:
-                        values = [d.get("savings", 0) for d in daily_data]
-                    else:
-                        values = [d.get("consumption", 0) for d in daily_data]
-                    attributes["daily_average"] = round(sum(values) / len(values), 2) if values else 0
-                    attributes["daily_max"] = round(max(values), 2) if values else 0
-                    attributes["daily_min"] = round(min(values), 2) if values else 0
+        if period:
+            period_data = self.coordinator.data.get(period, {})
+            if "solar" in self._sensor_key and "solar_latest" in period_data:
+                attributes["latest_entry"] = period_data["solar_latest"]
+            elif ("grid" in self._sensor_key or "return" in self._sensor_key) and "grid_latest" in period_data:
+                attributes["latest_entry"] = period_data["grid_latest"]
 
         return attributes
 
     @property
-    def available(self) -> bool:
-        """Return if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.data is not None
+    def device_info(self) -> dict[str, Any]:
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, self.coordinator.account_id)},
+            "name": f"OVO Energy AU {self.coordinator.account_id}",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+        }
