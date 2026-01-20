@@ -35,6 +35,10 @@ from .api import (
     OVOEnergyAUApiClientCommunicationError,
 )
 
+# Import for plan detection
+import sys
+from datetime import datetime, timedelta
+
 _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_SCHEMA = vol.Schema(
@@ -92,6 +96,53 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self):
         """Initialize the config flow."""
         self._auth_data = {}
+        self._detected_plan = None
+        self._detected_rates = None
+
+    async def _detect_plan_from_api(self, username: str, password: str, account_id: str) -> None:
+        """Fetch hourly data and detect plan/rates."""
+        try:
+            # Import the coordinator's analyzer
+            from . import OVOEnergyAUDataUpdateCoordinator
+
+            # Create client and authenticate
+            session = async_get_clientsession(self.hass)
+            client = OVOEnergyAUApiClient(session, username=username, password=password)
+            await client.authenticate_with_password(username, password)
+
+            # Fetch last 3 days of hourly data for analysis
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=3)
+
+            hourly_data = await client.get_hourly_data(
+                account_id,
+                start_date.strftime("%Y-%m-%d"),
+                end_date.strftime("%Y-%m-%d")
+            )
+
+            # Analyze the data to detect plan and rates
+            if hourly_data:
+                detection = OVOEnergyAUDataUpdateCoordinator.analyze_plan_and_rates(hourly_data)
+
+                # Only use detection if confidence is reasonable
+                if detection["confidence"] >= 60:
+                    self._detected_plan = detection["plan_type"]
+                    self._detected_rates = detection["rates"]
+                    _LOGGER.info(
+                        "Auto-detected plan: %s (confidence: %d%%), rates: %s",
+                        detection["plan_type"],
+                        detection["confidence"],
+                        detection["rates"]
+                    )
+                else:
+                    _LOGGER.info(
+                        "Low confidence detection (%d%%), using defaults",
+                        detection["confidence"]
+                    )
+
+        except Exception as err:
+            _LOGGER.error("Failed to detect plan: %s", err)
+            # Detection failure is not fatal, continue with defaults
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -118,6 +169,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Create unique ID based on account ID
                 await self.async_set_unique_id(info["account_id"])
                 self._abort_if_unique_id_configured()
+
+                # Try to detect plan and rates from API data
+                try:
+                    await self._detect_plan_from_api(
+                        user_input[CONF_USERNAME],
+                        user_input[CONF_PASSWORD],
+                        info["account_id"]
+                    )
+                except Exception as err:
+                    _LOGGER.warning("Could not auto-detect plan: %s", err)
+                    # Continue anyway with defaults
 
                 # Proceed to plan selection step
                 return await self.async_step_plan()
@@ -185,27 +247,36 @@ Your credentials are only used to access your OVO Energy data through their offi
 
             return self.async_create_entry(title=self._auth_data["title"], data=data)
 
-        # Build schema based on default rates
+        # Use detected plan and rates as defaults if available
+        default_plan = self._detected_plan if self._detected_plan else PLAN_BASIC
+        default_rates = self._detected_rates if self._detected_rates else {}
+
+        # Build schema with smart defaults
         plan_schema = vol.Schema({
-            vol.Required(CONF_PLAN_TYPE, default=PLAN_BASIC): vol.In({
+            vol.Required(CONF_PLAN_TYPE, default=default_plan): vol.In({
                 PLAN_FREE_3: PLAN_NAMES[PLAN_FREE_3],
                 PLAN_EV: PLAN_NAMES[PLAN_EV],
                 PLAN_BASIC: PLAN_NAMES[PLAN_BASIC],
                 PLAN_ONE: PLAN_NAMES[PLAN_ONE],
             }),
-            vol.Optional(CONF_PEAK_RATE, default=0.35): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_SHOULDER_RATE, default=0.25): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_OFF_PEAK_RATE, default=0.18): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_EV_RATE, default=0.06): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_FLAT_RATE, default=0.28): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_PEAK_RATE, default=default_rates.get("peak", 0.35)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_SHOULDER_RATE, default=default_rates.get("shoulder", 0.25)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_OFF_PEAK_RATE, default=default_rates.get("off_peak", 0.18)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_EV_RATE, default=default_rates.get("ev", 0.06)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_FLAT_RATE, default=default_rates.get("flat", 0.28)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
         })
+
+        # Build description with detection info if available
+        detection_info = ""
+        if self._detected_plan:
+            detection_info = f"\n\n✨ **Auto-Detected:** {PLAN_NAMES.get(self._detected_plan, self._detected_plan)}\n💡 Rates below are from your actual usage data!\n"
 
         return self.async_show_form(
             step_id="plan",
             data_schema=plan_schema,
             errors=errors,
             description_placeholders={
-                "info": """Select your OVO Energy plan and customize rates (AUD per kWh).
+                "info": f"""Select your OVO Energy plan and customize rates (AUD per kWh).{detection_info}
 
 **The Free 3 Plan:**
 • Free electricity from 11:00-14:00 daily (0 c/kWh)
@@ -227,7 +298,7 @@ Your credentials are only used to access your OVO Energy data through their offi
 • Flat rate all day (no TOU periods)
 • Single rate for all consumption
 
-**Note:** Rates are customizable. Default values shown are typical NSW/QLD rates."""
+**Note:** Rates are customizable. Default values shown are your actual rates or typical NSW/QLD rates."""
             }
         )
 
