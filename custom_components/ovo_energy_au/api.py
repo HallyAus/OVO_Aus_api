@@ -710,11 +710,7 @@ class OVOEnergyAUApiClient:
 
         payload = {
             "operationName": "GetAccountInfo",
-            "variables": {
-                "input": {
-                    "accountId": account_id
-                }
-            },
+            "variables": {},
             "query": GET_ACCOUNT_INFO_QUERY
         }
 

@@ -274,8 +274,8 @@ fragment UsageV2DataParts on UsageV2Data {
 """
 
 GET_ACCOUNT_INFO_QUERY = """
-query GetAccountInfo($input: GetAccountInfoInput!) {
-  GetAccountInfo(input: $input) {
+query GetAccountInfo {
+  GetAccountInfo {
     id
     productAgreements {
       id
