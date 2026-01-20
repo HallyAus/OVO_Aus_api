@@ -592,6 +592,111 @@ async def async_setup_entry(
             "EV Charging",
         ),
 
+        # EV Charging - Weekly (Last 7 Days)
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_weekly_consumption",
+            "EV Charging Consumption (Weekly)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:ev-station",
+            lambda data: data.get("hourly", {}).get("ev_usage_weekly", {}).get("consumption"),
+            "EV Charging - Weekly",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_weekly_cost",
+            "EV Charging Cost (Weekly)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("hourly", {}).get("ev_usage_weekly", {}).get("cost"),
+            "EV Charging - Weekly",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_weekly_savings",
+            "EV Charging Savings (Weekly)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:cash-plus",
+            lambda data: data.get("hourly", {}).get("ev_usage_weekly", {}).get("cost_saved"),
+            "EV Charging - Weekly",
+        ),
+
+        # EV Charging - Monthly (Month to Date)
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_monthly_consumption",
+            "EV Charging Consumption (Monthly)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:ev-station",
+            lambda data: data.get("hourly", {}).get("ev_usage_monthly", {}).get("consumption"),
+            "EV Charging - Monthly",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_monthly_cost",
+            "EV Charging Cost (Monthly)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("hourly", {}).get("ev_usage_monthly", {}).get("cost"),
+            "EV Charging - Monthly",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_monthly_savings",
+            "EV Charging Savings (Monthly)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:cash-plus",
+            lambda data: data.get("hourly", {}).get("ev_usage_monthly", {}).get("cost_saved"),
+            "EV Charging - Monthly",
+        ),
+
+        # EV Charging - Yearly (Year to Date)
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_yearly_consumption",
+            "EV Charging Consumption (Yearly)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:ev-station",
+            lambda data: data.get("hourly", {}).get("ev_usage_yearly", {}).get("consumption"),
+            "EV Charging - Yearly",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_yearly_cost",
+            "EV Charging Cost (Yearly)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("hourly", {}).get("ev_usage_yearly", {}).get("cost"),
+            "EV Charging - Yearly",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_yearly_savings",
+            "EV Charging Savings (Yearly)",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:cash-plus",
+            lambda data: data.get("hourly", {}).get("ev_usage_yearly", {}).get("cost_saved"),
+            "EV Charging - Yearly",
+        ),
+
         # Feature 5: Solar Self-Sufficiency Score
         OVOEnergyAUSensor(
             coordinator,
@@ -1011,14 +1116,28 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
 
         # EV Charging Tracking
         if "ev_charging" in self._sensor_key:
-            ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage", {})
+            # Determine which period based on sensor key
+            if "weekly" in self._sensor_key:
+                ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage_weekly", {})
+                period_label = "Last 7 days, 00:00-06:00 daily"
+            elif "monthly" in self._sensor_key:
+                ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage_monthly", {})
+                period_label = "Month to date, 00:00-06:00 daily"
+            elif "yearly" in self._sensor_key:
+                ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage_yearly", {})
+                period_label = "Year to date, 00:00-06:00 daily"
+            else:
+                # Default (backward compatibility)
+                ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage", {})
+                period_label = "Month to date, 00:00-06:00 daily"
+
             if ev_data:
                 attributes.update({
                     "consumption": ev_data.get("consumption"),
                     "cost": ev_data.get("cost"),
                     "cost_saved": ev_data.get("cost_saved"),
                     "hours": ev_data.get("hours"),
-                    "period": "00:00-06:00 daily",
+                    "period": period_label,
                 })
 
         # Feature 5: Solar Self-Sufficiency

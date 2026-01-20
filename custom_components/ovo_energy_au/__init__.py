@@ -195,6 +195,9 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                     },
                     "free_usage": {"consumption": 0, "cost_saved": 0, "hours": 0},
                     "ev_usage": {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0},
+                    "ev_usage_weekly": {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0},
+                    "ev_usage_monthly": {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0},
+                    "ev_usage_yearly": {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0},
                     "hourly_heatmap": {},
                 }
 
@@ -772,7 +775,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Free usage and savings tracking (month-to-date)
         # Filter hourly_timeline to only include entries from current month
-        from datetime import datetime, timezone
+        from datetime import datetime, timezone, timedelta
         now_utc = datetime.now(timezone.utc)
         current_month = now_utc.month
         current_year = now_utc.year
@@ -783,10 +786,26 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             if entry["timestamp"].month == current_month and entry["timestamp"].year == current_year
         ]
 
-        free_usage = {"consumption": 0, "cost_saved": 0, "hours": 0}
-        ev_usage = {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0}
+        # Filter to last 7 days for weekly tracking
+        seven_days_ago = now_utc - timedelta(days=7)
+        last_7_days_hourly = [
+            entry for entry in hourly_timeline
+            if entry["timestamp"] >= seven_days_ago
+        ]
 
-        # Calculate free usage and EV usage from month-to-date entries only
+        # Filter to current year for yearly tracking
+        ytd_hourly = [
+            entry for entry in hourly_timeline
+            if entry["timestamp"].year == current_year
+        ]
+
+        # Initialize tracking dictionaries
+        free_usage_mtd = {"consumption": 0, "cost_saved": 0, "hours": 0}
+        ev_usage_mtd = {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0}
+        ev_usage_weekly = {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0}
+        ev_usage_yearly = {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0}
+
+        # Calculate free usage (MTD only) and EV usage (MTD)
         for entry in mtd_hourly:
             timestamp = entry["timestamp"]
             hour = timestamp.hour
@@ -794,16 +813,40 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Track free period (11:00-14:00) for Free 3 and EV plans
             if plan_type in ["free_3", "ev"] and 11 <= hour < 14:
-                free_usage["consumption"] += consumption
-                free_usage["hours"] += 1
-                free_usage["cost_saved"] += consumption * shoulder_rate
+                free_usage_mtd["consumption"] += consumption
+                free_usage_mtd["hours"] += 1
+                free_usage_mtd["cost_saved"] += consumption * shoulder_rate
 
             # Track EV charging period (00:00-06:00) for EV plan
             if plan_type == "ev" and 0 <= hour < 6:
-                ev_usage["consumption"] += consumption
-                ev_usage["cost"] += consumption * ev_rate
-                ev_usage["hours"] += 1
-                ev_usage["cost_saved"] += consumption * (off_peak_rate - ev_rate)
+                ev_usage_mtd["consumption"] += consumption
+                ev_usage_mtd["cost"] += consumption * ev_rate
+                ev_usage_mtd["hours"] += 1
+                ev_usage_mtd["cost_saved"] += consumption * (off_peak_rate - ev_rate)
+
+        # Calculate EV usage for last 7 days (weekly)
+        for entry in last_7_days_hourly:
+            timestamp = entry["timestamp"]
+            hour = timestamp.hour
+            consumption = entry["consumption"]
+
+            if plan_type == "ev" and 0 <= hour < 6:
+                ev_usage_weekly["consumption"] += consumption
+                ev_usage_weekly["cost"] += consumption * ev_rate
+                ev_usage_weekly["hours"] += 1
+                ev_usage_weekly["cost_saved"] += consumption * (off_peak_rate - ev_rate)
+
+        # Calculate EV usage for current year (yearly)
+        for entry in ytd_hourly:
+            timestamp = entry["timestamp"]
+            hour = timestamp.hour
+            consumption = entry["consumption"]
+
+            if plan_type == "ev" and 0 <= hour < 6:
+                ev_usage_yearly["consumption"] += consumption
+                ev_usage_yearly["cost"] += consumption * ev_rate
+                ev_usage_yearly["hours"] += 1
+                ev_usage_yearly["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
         # Now process TOU breakdown across all hourly data (last 7 days)
         for entry in hourly_timeline:
@@ -885,18 +928,29 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             tou_breakdown[period]["consumption"] = round(tou_breakdown[period]["consumption"], 2)
             tou_breakdown[period]["cost"] = round(tou_breakdown[period]["cost"], 2)
 
-        # Round free usage
-        free_usage["consumption"] = round(free_usage["consumption"], 2)
-        free_usage["cost_saved"] = round(free_usage["cost_saved"], 2)
+        # Round free usage (MTD)
+        free_usage_mtd["consumption"] = round(free_usage_mtd["consumption"], 2)
+        free_usage_mtd["cost_saved"] = round(free_usage_mtd["cost_saved"], 2)
 
-        # Round EV usage
-        ev_usage["consumption"] = round(ev_usage["consumption"], 2)
-        ev_usage["cost"] = round(ev_usage["cost"], 2)
-        ev_usage["cost_saved"] = round(ev_usage["cost_saved"], 2)
+        # Round EV usage (all periods)
+        ev_usage_mtd["consumption"] = round(ev_usage_mtd["consumption"], 2)
+        ev_usage_mtd["cost"] = round(ev_usage_mtd["cost"], 2)
+        ev_usage_mtd["cost_saved"] = round(ev_usage_mtd["cost_saved"], 2)
+
+        ev_usage_weekly["consumption"] = round(ev_usage_weekly["consumption"], 2)
+        ev_usage_weekly["cost"] = round(ev_usage_weekly["cost"], 2)
+        ev_usage_weekly["cost_saved"] = round(ev_usage_weekly["cost_saved"], 2)
+
+        ev_usage_yearly["consumption"] = round(ev_usage_yearly["consumption"], 2)
+        ev_usage_yearly["cost"] = round(ev_usage_yearly["cost"], 2)
+        ev_usage_yearly["cost_saved"] = round(ev_usage_yearly["cost_saved"], 2)
 
         processed["time_of_use"] = tou_breakdown
-        processed["free_usage"] = free_usage
-        processed["ev_usage"] = ev_usage
+        processed["free_usage"] = free_usage_mtd
+        processed["ev_usage"] = ev_usage_mtd  # Keep for backward compatibility
+        processed["ev_usage_weekly"] = ev_usage_weekly
+        processed["ev_usage_monthly"] = ev_usage_mtd  # Explicit monthly
+        processed["ev_usage_yearly"] = ev_usage_yearly
 
         # Feature 7: Hourly Heatmap Data (day-of-week averages)
         heatmap_data = {}  # Structure: {day_name: {hour: {consumption, count}}}
