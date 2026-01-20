@@ -554,6 +554,17 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 
 ## Changelog
 
+### [0.2.4] - 2026-01-20
+
+**Easy Setup Release** 🚀
+- ✅ **NEW:** Multi-step configuration flow with 3 auth methods
+- ✅ **NEW:** OAuth JSON Paste - Just copy/paste one JSON response!
+- ✅ **NEW:** No more extracting 4 separate tokens manually
+- ✅ **NEW:** Clear step-by-step instructions in UI
+- ✅ Automatically parses JSON and extracts all tokens
+- ✅ Auto-adds "Bearer " prefix to access_token
+- ✅ Updated installation documentation with JSON paste method
+
 ### [0.2.3] - 2026-01-20
 
 **Automatic Token Refresh Release** 🎉
