@@ -699,6 +699,20 @@ class OVOEnergyAUApiClient:
         """
         await self._ensure_authenticated()
 
+        # Extract email from ID token (same pattern as get_contact_info)
+        try:
+            decoded_id = jwt.decode(
+                self._id_token,
+                options={"verify_signature": False},
+            )
+            email = decoded_id.get('email')
+            if not email:
+                raise OVOEnergyAUApiClientError("Email not found in ID token")
+        except Exception as err:
+            raise OVOEnergyAUApiClientError(
+                f"Error decoding ID token: {err}"
+            ) from err
+
         headers = {
             "accept": "*/*",
             "authorization": f"Bearer {self._access_token}",
@@ -708,11 +722,18 @@ class OVOEnergyAUApiClient:
             "referer": f"{API_BASE_URL}/usage",
         }
 
+        # Try with email input first (same pattern as GetContactInfo)
         payload = {
             "operationName": "GetAccountInfo",
-            "variables": {},
+            "variables": {
+                "input": {
+                    "email": email
+                }
+            },
             "query": GET_ACCOUNT_INFO_QUERY
         }
+
+        _LOGGER.debug("Fetching product agreements with email input: %s", email)
 
         try:
             async with self._session.post(
@@ -720,6 +741,26 @@ class OVOEnergyAUApiClient:
                 json=payload,
                 headers=headers,
             ) as response:
+                # Log response details for debugging
+                _LOGGER.debug("GetAccountInfo response status: %d", response.status)
+
+                # If 400, try with accountId instead of email
+                if response.status == 400:
+                    _LOGGER.info("Email input failed (400), retrying with accountId input")
+                    payload["variables"] = {
+                        "input": {
+                            "accountId": account_id
+                        }
+                    }
+
+                    async with self._session.post(
+                        GRAPHQL_URL,
+                        json=payload,
+                        headers=headers,
+                    ) as response2:
+                        response = response2
+                        _LOGGER.debug("GetAccountInfo retry response status: %d", response.status)
+
                 response.raise_for_status()
 
                 # Check content type before trying to parse JSON
@@ -735,15 +776,21 @@ class OVOEnergyAUApiClient:
                     )
 
                 data = await response.json()
+                _LOGGER.debug("GetAccountInfo response data keys: %s", list(data.keys()))
 
                 if "errors" in data:
                     error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
+                    _LOGGER.error("GetAccountInfo GraphQL errors: %s", error_messages)
                     raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
 
                 if "data" not in data or "GetAccountInfo" not in data["data"]:
+                    _LOGGER.error("Invalid GetAccountInfo response structure: %s", data)
                     raise OVOEnergyAUApiClientError("Invalid response from API")
 
-                return data["data"]["GetAccountInfo"]
+                result = data["data"]["GetAccountInfo"]
+                _LOGGER.info("Successfully fetched product agreements for account %s", result.get("id"))
+                return result
+
         except OVOEnergyAUApiClientAuthenticationError:
             raise
         except aiohttp.ClientResponseError as err:
@@ -751,6 +798,7 @@ class OVOEnergyAUApiClient:
                 raise OVOEnergyAUApiClientAuthenticationError(
                     "Authentication failed"
                 ) from err
+            _LOGGER.error("GetAccountInfo HTTP error %d: %s", err.status, err.message)
             raise OVOEnergyAUApiClientCommunicationError(
                 f"Error communicating with API: {err}"
             ) from err
@@ -759,6 +807,7 @@ class OVOEnergyAUApiClient:
                 "Token expired or invalid - API returned HTML instead of JSON"
             ) from err
         except aiohttp.ClientError as err:
+            _LOGGER.error("GetAccountInfo client error: %s", err)
             raise OVOEnergyAUApiClientCommunicationError(
                 f"Error communicating with API: {err}"
             ) from err
