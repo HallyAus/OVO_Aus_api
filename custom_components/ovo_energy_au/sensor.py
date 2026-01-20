@@ -1377,14 +1377,19 @@ class OVOEnergyAUPlanSensor(CoordinatorEntity, SensorEntity):
     def native_value(self) -> str | None:
         """Return the plan name as the sensor state."""
         if not self.coordinator.data:
+            _LOGGER.debug("Plan sensor: No coordinator data")
             return None
 
         product_agreements = self.coordinator.data.get("product_agreements")
         if not product_agreements:
+            _LOGGER.warning("Plan sensor: No product_agreements in coordinator data. Keys: %s", list(self.coordinator.data.keys()) if self.coordinator.data else "None")
             return "Unknown"
+
+        _LOGGER.debug("Plan sensor: product_agreements keys: %s", list(product_agreements.keys()) if isinstance(product_agreements, dict) else type(product_agreements))
 
         agreements = product_agreements.get("productAgreements", [])
         if not agreements:
+            _LOGGER.warning("Plan sensor: No productAgreements found in data")
             return "No Plan"
 
         # Get the first active product agreement
@@ -1392,6 +1397,7 @@ class OVOEnergyAUPlanSensor(CoordinatorEntity, SensorEntity):
         product = agreement.get("product", {})
         plan_name = product.get("displayName", "Unknown Plan")
 
+        _LOGGER.debug("Plan sensor: Displaying plan name: %s", plan_name)
         return plan_name
 
     @property
