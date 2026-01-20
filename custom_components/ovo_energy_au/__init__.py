@@ -244,6 +244,15 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             interval_data = await self.client.get_interval_data(self.account_id)
             processed_data = self._process_interval_data(interval_data)
 
+            # Fetch product agreements (plan information)
+            try:
+                product_info = await self.client.get_product_agreements(self.account_id)
+                processed_data["product_agreements"] = product_info
+                _LOGGER.debug("Successfully fetched product agreements")
+            except Exception as err:
+                _LOGGER.warning("Failed to fetch product agreements: %s", err)
+                processed_data["product_agreements"] = None
+
             # Fetch hourly data for the last 7 days
             # This ensures we:
             # 1. Work around the API issue where single-day queries return 0 results

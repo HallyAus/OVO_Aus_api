@@ -9,6 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant
@@ -904,6 +905,15 @@ async def async_setup_entry(
             ),
         ])
 
+    # Add diagnostic sensor for plan information
+    sensors.append(
+        OVOEnergyAUPlanSensor(
+            coordinator,
+            "plan_information",
+            "Plan Information",
+        )
+    )
+
     async_add_entities(sensors)
 
 
@@ -1337,4 +1347,137 @@ class OVOEnergyAUDaySensor(CoordinatorEntity, SensorEntity):
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
             "via_device": (DOMAIN, self.coordinator.account_id),
+        }
+
+
+class OVOEnergyAUPlanSensor(CoordinatorEntity, SensorEntity):
+    """Diagnostic sensor displaying plan information from OVO API."""
+
+    def __init__(
+        self,
+        coordinator,
+        sensor_key: str,
+        sensor_name: str,
+    ) -> None:
+        """Initialize the plan sensor."""
+        super().__init__(coordinator)
+        self._sensor_key = sensor_key
+        self._sensor_name = sensor_name
+
+        # Generate unique ID
+        self._attr_unique_id = f"{coordinator.account_id}_{sensor_key}"
+        self._attr_has_entity_name = True
+
+    @property
+    def name(self) -> str:
+        """Return the name of the sensor."""
+        return self._sensor_name
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the plan name as the sensor state."""
+        if not self.coordinator.data:
+            return None
+
+        product_agreements = self.coordinator.data.get("product_agreements")
+        if not product_agreements:
+            return "Unknown"
+
+        agreements = product_agreements.get("productAgreements", [])
+        if not agreements:
+            return "No Plan"
+
+        # Get the first active product agreement
+        agreement = agreements[0]
+        product = agreement.get("product", {})
+        plan_name = product.get("displayName", "Unknown Plan")
+
+        return plan_name
+
+    @property
+    def icon(self) -> str:
+        """Return the icon."""
+        return "mdi:file-document-outline"
+
+    @property
+    def entity_category(self) -> EntityCategory:
+        """Return the entity category."""
+        return EntityCategory.DIAGNOSTIC
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return plan details as attributes for sidebar display."""
+        if not self.coordinator.data:
+            return {}
+
+        product_agreements = self.coordinator.data.get("product_agreements")
+        if not product_agreements:
+            return {"status": "No plan data available"}
+
+        agreements = product_agreements.get("productAgreements", [])
+        if not agreements:
+            return {"status": "No product agreements found"}
+
+        # Get the first active product agreement
+        agreement = agreements[0]
+        product = agreement.get("product", {})
+        unit_rates = product.get("unitRatesCentsPerKWH", {})
+
+        attributes = {
+            "account_id": product_agreements.get("id", "Unknown"),
+            "plan_name": product.get("displayName", "Unknown"),
+            "product_code": product.get("code", "Unknown"),
+            "nmi": agreement.get("nmi", "Unknown"),
+            "agreement_id": agreement.get("id", "Unknown"),
+            "from_date": agreement.get("fromDt", "Unknown"),
+            "to_date": agreement.get("toDt", "Unknown"),
+        }
+
+        # Standing charge
+        standing_charge_cents = product.get("standingChargeCentsPerDay", 0)
+        if standing_charge_cents:
+            attributes["standing_charge_cents_per_day"] = standing_charge_cents
+            attributes["standing_charge_aud_per_day"] = round(standing_charge_cents / 100, 2)
+
+        # Unit rates (convert from cents/kWh to $/kWh for display)
+        rates = {}
+        if unit_rates.get("peak") is not None:
+            rates["peak_cents_kwh"] = unit_rates["peak"]
+            rates["peak_aud_kwh"] = round(unit_rates["peak"] / 100, 4)
+        if unit_rates.get("shoulder") is not None:
+            rates["shoulder_cents_kwh"] = unit_rates["shoulder"]
+            rates["shoulder_aud_kwh"] = round(unit_rates["shoulder"] / 100, 4)
+        if unit_rates.get("offPeak") is not None:
+            rates["off_peak_cents_kwh"] = unit_rates["offPeak"]
+            rates["off_peak_aud_kwh"] = round(unit_rates["offPeak"] / 100, 4)
+        if unit_rates.get("evOffPeak") is not None:
+            rates["ev_off_peak_cents_kwh"] = unit_rates["evOffPeak"]
+            rates["ev_off_peak_aud_kwh"] = round(unit_rates["evOffPeak"] / 100, 4)
+        if unit_rates.get("superOffPeak") is not None:
+            rates["super_off_peak_cents_kwh"] = unit_rates["superOffPeak"]
+            rates["super_off_peak_aud_kwh"] = round(unit_rates["superOffPeak"] / 100, 4)
+        if unit_rates.get("standard") is not None:
+            rates["standard_cents_kwh"] = unit_rates["standard"]
+            rates["standard_aud_kwh"] = round(unit_rates["standard"] / 100, 4)
+        if unit_rates.get("feedInTariff") is not None:
+            rates["feed_in_tariff_cents_kwh"] = unit_rates["feedInTariff"]
+            rates["feed_in_tariff_aud_kwh"] = round(unit_rates["feedInTariff"] / 100, 4)
+        if unit_rates.get("CL1") is not None:
+            rates["cl1_cents_kwh"] = unit_rates["CL1"]
+        if unit_rates.get("CL2") is not None:
+            rates["cl2_cents_kwh"] = unit_rates["CL2"]
+
+        # Add all rates to attributes
+        attributes.update(rates)
+
+        return attributes
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, self.coordinator.account_id)},
+            "name": "OVO Energy AU",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
         }

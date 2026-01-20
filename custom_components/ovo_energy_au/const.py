@@ -273,6 +273,45 @@ fragment UsageV2DataParts on UsageV2Data {
 }
 """
 
+GET_ACCOUNT_INFO_QUERY = """
+query GetAccountInfo($input: GetAccountInfoInput!) {
+  GetAccountInfo(input: $input) {
+    id
+    productAgreements {
+      id
+      fromDt
+      toDt
+      nmi
+      product {
+        code
+        displayName
+        standingChargeCentsPerDay
+        unitRatesCentsPerKWH {
+          standard
+          peak
+          shoulder
+          offPeak
+          evOffPeak
+          superOffPeak
+          feedInTariff
+          CL1
+          CL2
+          block
+          demand {
+            peakDemand
+            __typename
+          }
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+}
+"""
+
 # Error messages
 ERROR_AUTH_FAILED = "Authentication failed. Please check your credentials."
 ERROR_CANNOT_CONNECT = "Cannot connect to OVO Energy API."
