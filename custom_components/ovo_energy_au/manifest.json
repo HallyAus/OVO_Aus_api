@@ -2,6 +2,7 @@
   "domain": "ovo_energy_au",
   "name": "OVO Energy Australia",
   "documentation": "https://github.com/HallyAus/OVO_Aus_api",
+  "issue_tracker": "https://github.com/HallyAus/OVO_Aus_api/issues",
   "requirements": [
     "requests>=2.31.0",
     "python-dateutil>=2.8.2"
@@ -10,6 +11,6 @@
     "@HallyAus"
   ],
   "dependencies": [],
-  "version": "0.1.0",
+  "version": "0.2.1",
   "iot_class": "cloud_polling"
 }
