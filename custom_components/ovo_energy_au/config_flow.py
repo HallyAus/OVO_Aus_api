@@ -43,7 +43,7 @@ STEP_PASSWORD_SCHEMA = vol.Schema(
 STEP_JSON_SCHEMA = vol.Schema(
     {
         vol.Required("oauth_response"): str,
-        vol.Required(CONF_ACCOUNT_ID): str,
+        vol.Optional(CONF_ACCOUNT_ID): str,
     }
 )
 
@@ -142,8 +142,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 id_token = oauth_data.get("id_token")
                 refresh_token = oauth_data.get("refresh_token")
 
+                # Extract account_id from JSON if present, otherwise from form
+                account_id = oauth_data.get("account_id") or user_input.get(CONF_ACCOUNT_ID)
+
                 if not access_token or not id_token:
                     errors["oauth_response"] = "invalid_json_missing_tokens"
+                elif not account_id:
+                    errors[CONF_ACCOUNT_ID] = "missing_account_id"
                 else:
                     # Add Bearer prefix if not present
                     if not access_token.startswith("Bearer "):
@@ -154,7 +159,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_ACCESS_TOKEN: access_token,
                         CONF_ID_TOKEN: id_token,
                         CONF_REFRESH_TOKEN: refresh_token,
-                        CONF_ACCOUNT_ID: user_input[CONF_ACCOUNT_ID],
+                        CONF_ACCOUNT_ID: account_id,
                     }
 
                     # Validate the tokens work
@@ -181,7 +186,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_JSON_SCHEMA,
             errors=errors,
             description_placeholders={
-                "instructions": "1. Open browser DevTools (F12)\n2. Find oauth/token request\n3. Copy the entire Response body"
+                "instructions": "1. Open browser DevTools (F12)\n2. Find oauth/token request in Network tab\n3. Copy the entire Response JSON\n4. Add \"account_id\": \"YOUR_ID\" to the JSON (or enter separately below)"
             }
         )
 
@@ -193,6 +198,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
+                _LOGGER.info("Attempting username/password authentication for account %s", user_input[CONF_ACCOUNT_ID])
+
                 # Create client and authenticate
                 client = OVOEnergyAU(account_id=user_input[CONF_ACCOUNT_ID])
 
@@ -204,6 +211,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
                 if success:
+                    _LOGGER.info("Authentication succeeded, extracting tokens...")
+
                     # Extract tokens from client
                     data = {
                         CONF_ACCESS_TOKEN: client._access_token,
@@ -211,6 +220,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_REFRESH_TOKEN: client._refresh_token,
                         CONF_ACCOUNT_ID: user_input[CONF_ACCOUNT_ID],
                     }
+
+                    _LOGGER.debug("Tokens extracted: access_token=%s..., id_token=%s...",
+                                 data[CONF_ACCESS_TOKEN][:50] if data[CONF_ACCESS_TOKEN] else None,
+                                 data[CONF_ID_TOKEN][:50] if data[CONF_ID_TOKEN] else None)
 
                     # Validate
                     info = await validate_input(self.hass, data)
@@ -222,10 +235,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     client.close()
                     return self.async_create_entry(title=info["title"], data=data)
                 else:
+                    _LOGGER.error("Authentication returned False - credentials invalid")
                     errors["base"] = "invalid_auth"
 
+            except OVOAPIError as err:
+                _LOGGER.error("API error during authentication: %s", err)
+                errors["base"] = "cannot_connect"
             except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.exception("Authentication failed: %s", err)
+                _LOGGER.exception("Unexpected authentication error: %s", err)
                 errors["base"] = "invalid_auth"
 
         return self.async_show_form(
@@ -242,6 +259,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
+                # Add Bearer prefix to access token if not present
+                access_token = user_input[CONF_ACCESS_TOKEN]
+                if not access_token.startswith("Bearer "):
+                    access_token = f"Bearer {access_token}"
+                    user_input[CONF_ACCESS_TOKEN] = access_token
+
                 info = await validate_input(self.hass, user_input)
 
                 # Create a unique ID based on account ID
