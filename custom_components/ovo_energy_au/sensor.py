@@ -380,7 +380,7 @@ async def async_setup_entry(
             SensorDeviceClass.ENERGY,
             None,
             "mdi:chart-bell-curve",
-            lambda data: data.get("hourly", {}).get("peak_4hour_window", {}).get("total_consumption"),
+            lambda data: (peak := data.get("hourly", {}).get("peak_4hour_window")) and peak.get("total_consumption"),
             "Peak Usage",
         ),
 

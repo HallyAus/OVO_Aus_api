@@ -650,6 +650,10 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
         Unlike interval data, we keep ALL hourly entries for graphing.
         """
+        # Safety check - if data is None, return empty structure
+        if data is None:
+            data = {}
+
         processed = {
             "solar_entries": [],
             "grid_entries": [],
