@@ -179,7 +179,24 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 processed_data["hourly"] = self._process_hourly_data(hourly_data)
             except Exception as err:
                 _LOGGER.warning("Failed to fetch hourly data: %s", err)
-                processed_data["hourly"] = {}
+                # Set empty hourly data with default values for all analytics
+                processed_data["hourly"] = {
+                    "solar_entries": [],
+                    "grid_entries": [],
+                    "return_to_grid_entries": [],
+                    "solar_total": 0,
+                    "grid_total": 0,
+                    "return_to_grid_total": 0,
+                    "peak_4hour_window": None,
+                    "time_of_use": {
+                        "peak": {"consumption": 0, "cost": 0, "hours": 0},
+                        "shoulder": {"consumption": 0, "cost": 0, "hours": 0},
+                        "off_peak": {"consumption": 0, "cost": 0, "hours": 0},
+                    },
+                    "free_usage": {"consumption": 0, "cost_saved": 0, "hours": 0},
+                    "ev_usage": {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0},
+                    "hourly_heatmap": {},
+                }
 
             _LOGGER.debug("Successfully processed all data")
             return processed_data
