@@ -181,18 +181,23 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         """Process the interval data (daily/monthly/yearly).
 
         The API returns arrays of historical data:
-        - daily: array of individual day entries (latest = most recent day)
+        - daily: array of individual day entries (latest = most recent day, which is YESTERDAY)
         - monthly: array of individual month entries (latest = current month)
         - yearly: array of individual year entries (latest = current year)
 
-        We only use the LATEST entry from each array.
+        IMPORTANT: Daily data is only available at 6am for the PREVIOUS day.
         """
         processed = {
             "daily": {},
             "monthly": {},
             "yearly": {},
+            "last_3_days": [],
+            "last_7_days": {},
+            "last_month": {},
+            "month_to_date": {},
         }
 
+        # Process daily, monthly, yearly periods
         for period in ["daily", "monthly", "yearly"]:
             if period not in data:
                 continue
@@ -230,24 +235,134 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
                 processed[period]["grid_latest"] = latest_export
 
-        # Add daily breakdown for monthly period (for graphing)
+        # Process daily arrays for historical data
         if "daily" in data and data["daily"]:
             daily_data = data["daily"]
 
-            # Get current month for filtering
+            # Get dates for filtering
             now = dt_util.now()
             current_month = now.month
             current_year = now.year
 
-            # Process solar daily breakdown
+            # Process last 3 days (most recent 3 entries from daily array)
+            all_daily_entries = []
+
+            # Combine solar and export data by date
+            solar_entries = daily_data.get("solar", [])
+            export_entries = daily_data.get("export", [])
+
+            # Create a map of dates to data
+            from datetime import datetime
+            daily_map = {}
+
+            for entry in solar_entries:
+                period_from = entry.get("periodFrom", "")
+                if period_from:
+                    try:
+                        entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+                        date_key = entry_date.strftime("%Y-%m-%d")
+
+                        if date_key not in daily_map:
+                            daily_map[date_key] = {
+                                "date": date_key,
+                                "day_name": entry_date.strftime("%A"),
+                                "day": entry_date.day,
+                                "month": entry_date.month,
+                                "year": entry_date.year,
+                            }
+
+                        daily_map[date_key]["solar_consumption"] = entry.get("consumption", 0)
+                        daily_map[date_key]["solar_charge"] = entry.get("charge", {}).get("value", 0)
+                    except Exception as err:
+                        _LOGGER.debug("Error parsing solar entry: %s", err)
+
+            for entry in export_entries:
+                period_from = entry.get("periodFrom", "")
+                if period_from:
+                    try:
+                        entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+                        date_key = entry_date.strftime("%Y-%m-%d")
+
+                        if date_key not in daily_map:
+                            daily_map[date_key] = {
+                                "date": date_key,
+                                "day_name": entry_date.strftime("%A"),
+                                "day": entry_date.day,
+                                "month": entry_date.month,
+                                "year": entry_date.year,
+                            }
+
+                        charge_type = entry.get("charge", {}).get("type", "DEBIT")
+                        consumption = entry.get("consumption", 0)
+                        charge_value = entry.get("charge", {}).get("value", 0)
+
+                        if charge_type == "CREDIT":
+                            daily_map[date_key]["return_to_grid"] = consumption
+                            daily_map[date_key]["return_to_grid_charge"] = charge_value
+                            daily_map[date_key]["grid_consumption"] = 0
+                            daily_map[date_key]["grid_charge"] = 0
+                        else:
+                            daily_map[date_key]["grid_consumption"] = consumption
+                            daily_map[date_key]["grid_charge"] = charge_value
+                            daily_map[date_key]["return_to_grid"] = 0
+                            daily_map[date_key]["return_to_grid_charge"] = 0
+                    except Exception as err:
+                        _LOGGER.debug("Error parsing export entry: %s", err)
+
+            # Convert to sorted list (newest first)
+            all_daily_entries = sorted(daily_map.values(), key=lambda x: x["date"], reverse=True)
+
+            # Last 3 days (most recent 3)
+            processed["last_3_days"] = all_daily_entries[:3] if len(all_daily_entries) >= 3 else all_daily_entries
+
+            # Last 7 days totals
+            last_7 = all_daily_entries[:7] if len(all_daily_entries) >= 7 else all_daily_entries
+            if last_7:
+                processed["last_7_days"] = {
+                    "solar_consumption": sum(d.get("solar_consumption", 0) for d in last_7),
+                    "solar_charge": sum(d.get("solar_charge", 0) for d in last_7),
+                    "grid_consumption": sum(d.get("grid_consumption", 0) for d in last_7),
+                    "grid_charge": sum(d.get("grid_charge", 0) for d in last_7),
+                    "return_to_grid": sum(d.get("return_to_grid", 0) for d in last_7),
+                    "return_to_grid_charge": sum(d.get("return_to_grid_charge", 0) for d in last_7),
+                    "days": len(last_7),
+                }
+
+            # Month to date (current month entries)
+            mtd_entries = [d for d in all_daily_entries if d["month"] == current_month and d["year"] == current_year]
+            if mtd_entries:
+                processed["month_to_date"] = {
+                    "solar_consumption": sum(d.get("solar_consumption", 0) for d in mtd_entries),
+                    "solar_charge": sum(d.get("solar_charge", 0) for d in mtd_entries),
+                    "grid_consumption": sum(d.get("grid_consumption", 0) for d in mtd_entries),
+                    "grid_charge": sum(d.get("grid_charge", 0) for d in mtd_entries),
+                    "return_to_grid": sum(d.get("return_to_grid", 0) for d in mtd_entries),
+                    "return_to_grid_charge": sum(d.get("return_to_grid_charge", 0) for d in mtd_entries),
+                    "days": len(mtd_entries),
+                }
+
+            # Last month (previous month entries)
+            last_month_num = current_month - 1 if current_month > 1 else 12
+            last_month_year = current_year if current_month > 1 else current_year - 1
+            last_month_entries = [d for d in all_daily_entries if d["month"] == last_month_num and d["year"] == last_month_year]
+            if last_month_entries:
+                processed["last_month"] = {
+                    "solar_consumption": sum(d.get("solar_consumption", 0) for d in last_month_entries),
+                    "solar_charge": sum(d.get("solar_charge", 0) for d in last_month_entries),
+                    "grid_consumption": sum(d.get("grid_consumption", 0) for d in last_month_entries),
+                    "grid_charge": sum(d.get("grid_charge", 0) for d in last_month_entries),
+                    "return_to_grid": sum(d.get("return_to_grid", 0) for d in last_month_entries),
+                    "return_to_grid_charge": sum(d.get("return_to_grid_charge", 0) for d in last_month_entries),
+                    "days": len(last_month_entries),
+                }
+
+            # Monthly daily breakdown (for graphing)
             solar_daily_breakdown = []
             if "solar" in daily_data and daily_data["solar"]:
                 for entry in daily_data["solar"]:
                     period_from = entry.get("periodFrom", "")
                     if period_from:
                         try:
-                            # Parse the date
-                            from datetime import datetime
                             entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
 
                             # Only include current month
@@ -271,7 +386,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                     period_from = entry.get("periodFrom", "")
                     if period_from:
                         try:
-                            from datetime import datetime
                             entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
 
                             # Only include current month
