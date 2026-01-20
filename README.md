@@ -118,8 +118,7 @@ Pre-built custom component with 5 sensors:
 
 - ⚠️ **OAuth Success Rate** - May not work for all Auth0 configurations (fallback to manual tokens available)
 - ⚠️ **Account ID** - May need to be entered manually after OAuth login
-- ⚠️ **Home Assistant YAML Configuration Only** - No UI config flow (can use manual tokens)
-- ⚠️ **Blocking I/O in HA Component** - Should be async
+- ⚠️ **Token Lifespan** - Tokens expire every 5 minutes and need manual refresh in Home Assistant
 - ⚠️ **Only Tested with Solar Accounts** - Non-solar accounts untested
 
 ### 🎯 Roadmap
@@ -128,11 +127,13 @@ Pre-built custom component with 5 sensors:
 - [x] Implement OAuth 2.0 authentication flow with PKCE
 - [x] Automatic token refresh mechanism
 
+**Recently Completed:** ✅
+- [x] Home Assistant config flow (UI setup)
+
 **High Priority:**
 - [ ] Improve OAuth compatibility (test with more account types)
 - [ ] Auto-detect account ID after OAuth login
-- [ ] Home Assistant config flow (UI setup)
-- [ ] Async/await implementation for HA
+- [ ] Automatic token refresh in Home Assistant
 
 **Medium Priority:**
 - [ ] Additional GraphQL queries (billing, account details)
@@ -555,6 +556,16 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 ---
 
 ## Changelog
+
+### [0.2.2] - 2026-01-20
+
+**Home Assistant Config Flow Release**
+- ✅ **NEW:** Home Assistant config flow for UI-based setup
+- ✅ **NEW:** No more YAML configuration required
+- ✅ **NEW:** Add integration directly from Settings > Devices & Services
+- ✅ **FIXED:** Sensors now appear in Developer Tools
+- ✅ Added strings.json for proper UI labels
+- ✅ Improved integration validation
 
 ### [0.2.0] - 2026-01-20
 

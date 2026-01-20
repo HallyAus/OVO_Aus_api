@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "OVO Energy Australia Setup",
+        "description": "Enter your OVO Energy Australia authentication tokens. Note: Tokens expire every 5 minutes and need to be refreshed. See documentation for token extraction instructions.",
+        "data": {
+          "access_token": "Access Token",
+          "id_token": "ID Token",
+          "account_id": "Account ID"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to OVO Energy API",
+      "invalid_auth": "Invalid authentication tokens. Please check your access_token, id_token, and account_id.",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This OVO Energy account is already configured"
+    }
+  }
+}

@@ -93,11 +93,34 @@ id_token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5qSTBO...
 account_id: 30264061
 ```
 
-### Step 4: Configure Integration
+### Step 4: Add Integration via UI
 
-**Option A: configuration.yaml (Simple)**
+**Now you can add the integration through the Home Assistant UI:**
 
-Edit your `configuration.yaml`:
+1. **Go to Settings**
+   - Navigate to **Settings → Devices & Services**
+
+2. **Add Integration**
+   - Click **"+ Add Integration"** in the bottom right
+   - Search for **"OVO Energy Australia"**
+   - Click on it to start setup
+
+3. **Enter Credentials**
+   - **Access Token:** Paste your access_token (with "Bearer " prefix)
+   - **ID Token:** Paste your id_token
+   - **Account ID:** Enter your account ID
+
+4. **Submit**
+   - Click **"Submit"**
+   - The integration will validate your credentials
+
+5. **Done!**
+   - Your sensors should now appear in Developer Tools → States
+   - Look for entities starting with `sensor.ovo_energy_`
+
+---
+
+### Alternative: configuration.yaml (Legacy)
 
 ```yaml
 ovo_energy_au:
