@@ -1,0 +1,235 @@
+# OVO Energy Australia - Monthly Charges Dashboard
+# Similar to the OVO Energy dashboard with daily breakdown graphs
+#
+# Installation:
+# 1. Install ApexCharts card from HACS: https://github.com/RomRider/apexcharts-card
+# 2. Copy this file to your Home Assistant config
+# 3. Add to your dashboard
+
+type: vertical-stack
+cards:
+  # Monthly Summary Cards
+  - type: horizontal-stack
+    cards:
+      - type: statistic
+        entity: sensor.monthly_solar_consumption
+        name: Solar This Month
+        stat_type: total
+        period:
+          calendar:
+            period: month
+
+      - type: statistic
+        entity: sensor.monthly_solar_charge
+        name: Solar Cost
+        stat_type: total
+        period:
+          calendar:
+            period: month
+
+      - type: statistic
+        entity: sensor.monthly_grid_charge
+        name: Grid Cost
+        stat_type: total
+        period:
+          calendar:
+            period: month
+
+  # Daily Solar Consumption Graph (like OVO dashboard)
+  - type: custom:apexcharts-card
+    header:
+      show: true
+      title: Daily Solar Consumption This Month
+      show_states: true
+      colorize_states: true
+    graph_span: 1month
+    span:
+      start: month
+    series:
+      - entity: sensor.monthly_solar_consumption
+        name: Solar kWh
+        type: column
+        color: orange
+        data_generator: |
+          const daily = entity.attributes.daily_breakdown || [];
+          return daily.map(day => {
+            return [new Date(day.date).getTime(), day.consumption];
+          });
+        show:
+          in_header: false
+    apex_config:
+      chart:
+        height: 250px
+      xaxis:
+        type: datetime
+        labels:
+          format: dd
+      yaxis:
+        - title:
+            text: kWh
+      tooltip:
+        x:
+          format: dd MMM yyyy
+
+  # Daily Solar Charge Graph
+  - type: custom:apexcharts-card
+    header:
+      show: true
+      title: Daily Solar Charge This Month
+      show_states: true
+      colorize_states: true
+    graph_span: 1month
+    span:
+      start: month
+    series:
+      - entity: sensor.monthly_solar_charge
+        name: Solar $
+        type: column
+        color: '#4caf50'
+        data_generator: |
+          const daily = entity.attributes.daily_breakdown || [];
+          return daily.map(day => {
+            return [new Date(day.date).getTime(), day.charge];
+          });
+        show:
+          in_header: false
+    apex_config:
+      chart:
+        height: 250px
+      xaxis:
+        type: datetime
+        labels:
+          format: dd
+      yaxis:
+        - title:
+            text: AUD ($)
+          decimalsInFloat: 2
+      tooltip:
+        x:
+          format: dd MMM yyyy
+        y:
+          formatter: 'function(value) { return "$" + value.toFixed(2); }'
+
+  # Daily Grid Charge Graph
+  - type: custom:apexcharts-card
+    header:
+      show: true
+      title: Daily Grid Charge This Month
+      show_states: true
+      colorize_states: true
+    graph_span: 1month
+    span:
+      start: month
+    series:
+      - entity: sensor.monthly_grid_charge
+        name: Grid $
+        type: column
+        color: '#f44336'
+        data_generator: |
+          const daily = entity.attributes.daily_breakdown || [];
+          return daily.map(day => {
+            return [new Date(day.date).getTime(), day.charge];
+          });
+        show:
+          in_header: false
+    apex_config:
+      chart:
+        height: 250px
+      xaxis:
+        type: datetime
+        labels:
+          format: dd
+      yaxis:
+        - title:
+            text: AUD ($)
+          decimalsInFloat: 2
+      tooltip:
+        x:
+          format: dd MMM yyyy
+        y:
+          formatter: 'function(value) { return "$" + value.toFixed(2); }'
+
+  # Combined Consumption Graph
+  - type: custom:apexcharts-card
+    header:
+      show: true
+      title: Daily Solar vs Grid Consumption
+      show_states: true
+      colorize_states: true
+    graph_span: 1month
+    span:
+      start: month
+    series:
+      - entity: sensor.monthly_solar_consumption
+        name: Solar
+        type: column
+        color: orange
+        data_generator: |
+          const daily = entity.attributes.daily_breakdown || [];
+          return daily.map(day => {
+            return [new Date(day.date).getTime(), day.consumption];
+          });
+        show:
+          in_header: false
+
+      - entity: sensor.monthly_grid_consumption
+        name: Grid
+        type: column
+        color: blue
+        data_generator: |
+          const daily = entity.attributes.daily_breakdown || [];
+          return daily.map(day => {
+            return [new Date(day.date).getTime(), day.consumption];
+          });
+        show:
+          in_header: false
+    apex_config:
+      chart:
+        height: 300px
+        stacked: false
+      xaxis:
+        type: datetime
+        labels:
+          format: dd
+      yaxis:
+        - title:
+            text: kWh
+      tooltip:
+        x:
+          format: dd MMM yyyy
+      legend:
+        show: true
+        position: top
+
+  # Statistics Card
+  - type: entities
+    title: Monthly Statistics
+    entities:
+      - entity: sensor.monthly_solar_consumption
+        type: attribute
+        attribute: daily_average
+        name: Avg Daily Solar
+        suffix: kWh
+      - entity: sensor.monthly_solar_consumption
+        type: attribute
+        attribute: daily_max
+        name: Max Daily Solar
+        suffix: kWh
+      - entity: sensor.monthly_solar_charge
+        type: attribute
+        attribute: daily_charge_average
+        name: Avg Daily Solar Cost
+        suffix: AUD
+      - entity: sensor.monthly_solar_consumption
+        type: attribute
+        attribute: days_in_month
+        name: Days Tracked
+      - type: divider
+      - entity: sensor.monthly_solar_consumption
+        name: Total Solar This Month
+      - entity: sensor.monthly_grid_consumption
+        name: Total Grid This Month
+      - entity: sensor.monthly_solar_charge
+        name: Total Solar Charge
+      - entity: sensor.monthly_grid_charge
+        name: Total Grid Charge
