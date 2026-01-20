@@ -2,6 +2,8 @@
 
 Get started with the OVO Energy Australia Python client in 5 minutes.
 
+**NEW:** OAuth 2.0 authentication is now available! You can log in with just your email and password.
+
 ## Prerequisites
 
 - Python 3.11 or higher
@@ -29,11 +31,50 @@ Or install manually:
 pip install requests python-dateutil
 ```
 
-## Getting Your Credentials
+## Authentication Methods
+
+You have two options for authentication:
+
+1. **OAuth Login (Recommended)** - Log in with email and password
+2. **Manual Tokens** - Extract tokens from browser (fallback option)
+
+## Option 1: OAuth Authentication (Recommended)
+
+### Using OAuth Login
+
+```python
+from ovo_australia_client import OVOEnergyAU
+
+# Create client
+client = OVOEnergyAU()
+
+# Login with email and password
+client.authenticate("your.email@example.com", "your_password")
+
+# Set your account ID
+client.account_id = "30264061"  # Your account ID
+
+# Start using the API!
+data = client.get_today_data()
+print(f"Solar today: {sum(p['consumption'] for p in data['solar']):.2f} kWh")
+
+# Tokens refresh automatically every 4 minutes
+client.close()
+```
+
+**Advantages:**
+- ✅ No need to extract tokens manually
+- ✅ Automatic token refresh (no 5-minute expiry hassle)
+- ✅ Simpler to use
+- ✅ More secure (credentials not exposed in code)
+
+**Note:** If OAuth fails (e.g., MFA/2FA enabled), the client will guide you to use manual tokens.
+
+## Option 2: Manual Token Extraction (Fallback)
 
 ### Extract Tokens from Browser
 
-**IMPORTANT:** Until OAuth is implemented, you must manually extract tokens from your browser. Tokens expire every 5 minutes.
+Use this method if OAuth authentication doesn't work for your account.
 
 #### Step-by-Step Instructions
 
