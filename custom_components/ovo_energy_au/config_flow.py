@@ -13,7 +13,22 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN, CONF_ACCOUNT_ID
+from .const import (
+    DOMAIN,
+    CONF_ACCOUNT_ID,
+    CONF_PLAN_TYPE,
+    CONF_PEAK_RATE,
+    CONF_SHOULDER_RATE,
+    CONF_OFF_PEAK_RATE,
+    CONF_EV_RATE,
+    CONF_FLAT_RATE,
+    PLAN_FREE_3,
+    PLAN_EV,
+    PLAN_BASIC,
+    PLAN_ONE,
+    PLAN_NAMES,
+    DEFAULT_RATES,
+)
 from .api import (
     OVOEnergyAUApiClient,
     OVOEnergyAUApiClientAuthenticationError,
@@ -74,6 +89,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self):
+        """Initialize the config flow."""
+        self._auth_data = {}
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -88,18 +107,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input[CONF_PASSWORD]
                 )
 
-                # Store username, password, and account_id
-                data = {
+                # Store authentication data for later
+                self._auth_data = {
                     CONF_USERNAME: user_input[CONF_USERNAME],
                     CONF_PASSWORD: user_input[CONF_PASSWORD],
                     CONF_ACCOUNT_ID: info["account_id"],
+                    "title": info["title"],
                 }
 
                 # Create unique ID based on account ID
                 await self.async_set_unique_id(info["account_id"])
                 self._abort_if_unique_id_configured()
 
-                return self.async_create_entry(title=info["title"], data=data)
+                # Proceed to plan selection step
+                return await self.async_step_plan()
 
             except CannotConnect:
                 errors["base"] = "cannot_connect"
@@ -128,6 +149,85 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 • This ensures your sensors stay online 24/7
 
 Your credentials are only used to access your OVO Energy data through their official API."""
+            }
+        )
+
+    async def async_step_plan(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle plan selection and rate configuration."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # Merge authentication data with plan configuration
+            data = {**self._auth_data}
+            data[CONF_PLAN_TYPE] = user_input[CONF_PLAN_TYPE]
+
+            # Add rate configuration based on plan type
+            plan_type = user_input[CONF_PLAN_TYPE]
+            default_rates = DEFAULT_RATES.get(plan_type, {})
+
+            if plan_type == PLAN_FREE_3:
+                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
+                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
+                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+            elif plan_type == PLAN_EV:
+                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
+                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
+                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+                data[CONF_EV_RATE] = user_input.get(CONF_EV_RATE, default_rates.get("ev", 0.06))
+            elif plan_type == PLAN_BASIC:
+                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
+                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
+                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+            elif plan_type == PLAN_ONE:
+                data[CONF_FLAT_RATE] = user_input.get(CONF_FLAT_RATE, default_rates.get("flat", 0.28))
+
+            return self.async_create_entry(title=self._auth_data["title"], data=data)
+
+        # Build schema based on default rates
+        plan_schema = vol.Schema({
+            vol.Required(CONF_PLAN_TYPE, default=PLAN_BASIC): vol.In({
+                PLAN_FREE_3: PLAN_NAMES[PLAN_FREE_3],
+                PLAN_EV: PLAN_NAMES[PLAN_EV],
+                PLAN_BASIC: PLAN_NAMES[PLAN_BASIC],
+                PLAN_ONE: PLAN_NAMES[PLAN_ONE],
+            }),
+            vol.Optional(CONF_PEAK_RATE, default=0.35): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_SHOULDER_RATE, default=0.25): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_OFF_PEAK_RATE, default=0.18): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_EV_RATE, default=0.06): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            vol.Optional(CONF_FLAT_RATE, default=0.28): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+        })
+
+        return self.async_show_form(
+            step_id="plan",
+            data_schema=plan_schema,
+            errors=errors,
+            description_placeholders={
+                "info": """Select your OVO Energy plan and customize rates (AUD per kWh).
+
+**The Free 3 Plan:**
+• Free electricity from 11:00-14:00 daily (0 c/kWh)
+• Standard TOU rates outside free hours
+• We'll track your free usage and calculate savings!
+
+**The EV Plan:**
+• Super off-peak EV charging 00:00-06:00 (~6 c/kWh)
+• May include free period 11:00-14:00
+• Standard TOU rates for other times
+
+**The Basic Plan:**
+• Standard Time-of-Use pricing
+• Peak: ~15:00-21:00 weekdays
+• Shoulder: Morning and evening periods
+• Off-Peak: Overnight and early morning
+
+**The One Plan:**
+• Flat rate all day (no TOU periods)
+• Single rate for all consumption
+
+**Note:** Rates are customizable. Default values shown are typical NSW/QLD rates."""
             }
         )
 

@@ -8,6 +8,18 @@
           "username": "Email",
           "password": "Password"
         }
+      },
+      "plan": {
+        "title": "Select Your Energy Plan",
+        "description": "Choose your OVO Energy plan and set your electricity rates (AUD per kWh).\n\nRates are used to calculate savings and track free usage periods.",
+        "data": {
+          "plan_type": "Energy Plan",
+          "peak_rate": "Peak Rate ($/kWh)",
+          "shoulder_rate": "Shoulder Rate ($/kWh)",
+          "off_peak_rate": "Off-Peak Rate ($/kWh)",
+          "ev_rate": "EV Charging Rate ($/kWh)",
+          "flat_rate": "Flat Rate ($/kWh)"
+        }
       }
     },
     "error": {

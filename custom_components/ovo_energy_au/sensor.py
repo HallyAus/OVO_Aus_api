@@ -533,6 +533,65 @@ async def async_setup_entry(
             "Time of Use",
         ),
 
+        # Free Usage Tracking (Free 3 & EV Plans)
+        OVOEnergyAUSensor(
+            coordinator,
+            "free_usage_consumption",
+            "Free Period Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:lightning-bolt",
+            lambda data: data.get("hourly", {}).get("free_usage", {}).get("consumption"),
+            "Free Usage",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "free_usage_cost_saved",
+            "Free Period Cost Saved",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:piggy-bank",
+            lambda data: data.get("hourly", {}).get("free_usage", {}).get("cost_saved"),
+            "Free Usage",
+        ),
+
+        # EV Charging Tracking (EV Plan)
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_consumption",
+            "EV Charging Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:ev-station",
+            lambda data: data.get("hourly", {}).get("ev_usage", {}).get("consumption"),
+            "EV Charging",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_cost",
+            "EV Charging Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: data.get("hourly", {}).get("ev_usage", {}).get("cost"),
+            "EV Charging",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "ev_charging_cost_saved",
+            "EV Charging Savings",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:cash-plus",
+            lambda data: data.get("hourly", {}).get("ev_usage", {}).get("cost_saved"),
+            "EV Charging",
+        ),
+
         # Feature 5: Solar Self-Sufficiency Score
         OVOEnergyAUSensor(
             coordinator,
@@ -938,6 +997,29 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
             tou_data = self.coordinator.data.get("hourly", {}).get("time_of_use", {})
             if tou_data:
                 attributes["all_periods"] = tou_data
+
+        # Free Usage Tracking
+        if "free_usage" in self._sensor_key:
+            free_data = self.coordinator.data.get("hourly", {}).get("free_usage", {})
+            if free_data:
+                attributes.update({
+                    "consumption": free_data.get("consumption"),
+                    "cost_saved": free_data.get("cost_saved"),
+                    "hours": free_data.get("hours"),
+                    "period": "11:00-14:00 daily",
+                })
+
+        # EV Charging Tracking
+        if "ev_charging" in self._sensor_key:
+            ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage", {})
+            if ev_data:
+                attributes.update({
+                    "consumption": ev_data.get("consumption"),
+                    "cost": ev_data.get("cost"),
+                    "cost_saved": ev_data.get("cost_saved"),
+                    "hours": ev_data.get("hours"),
+                    "period": "00:00-06:00 daily",
+                })
 
         # Feature 5: Solar Self-Sufficiency
         if self._sensor_key == "self_sufficiency_score":
