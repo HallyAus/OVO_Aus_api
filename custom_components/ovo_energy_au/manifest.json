@@ -5,13 +5,13 @@
   "issue_tracker": "https://github.com/HallyAus/OVO_Aus_api/issues",
   "config_flow": true,
   "requirements": [
-    "requests>=2.31.0",
-    "python-dateutil>=2.8.2"
+    "aiohttp>=3.8.0",
+    "PyJWT>=2.8.0"
   ],
   "codeowners": [
     "@HallyAus"
   ],
   "dependencies": [],
-  "version": "1.0.2",
+  "version": "2.0.0",
   "iot_class": "cloud_polling"
 }

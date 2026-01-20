@@ -1,76 +1,58 @@
-"""OVO Energy Australia integration for Home Assistant."""
+"""The OVO Energy Australia integration."""
+
+from __future__ import annotations
+
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform, CONF_USERNAME, CONF_PASSWORD
-from homeassistant.core import HomeAssistant
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import (
-    DOMAIN,
-    CONF_ACCESS_TOKEN,
-    CONF_ID_TOKEN,
-    CONF_ACCOUNT_ID,
-    CONF_REFRESH_TOKEN,
-    DEFAULT_SCAN_INTERVAL,
-)
-from .ovo_client import OVOEnergyAU, OVOAPIError, OVOTokenExpiredError
+from .api import OVOEnergyAUApiClient, OVOEnergyAUApiClientAuthenticationError
+from .const import CONF_ACCOUNT_ID, DOMAIN, FAST_UPDATE_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR]
-
-
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up the OVO Energy Australia component."""
-    hass.data.setdefault(DOMAIN, {})
-    return True
+PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OVO Energy Australia from a config entry."""
+    hass.data.setdefault(DOMAIN, {})
 
-    # Extract configuration
+    # Create API client
+    session = async_get_clientsession(hass)
     username = entry.data.get(CONF_USERNAME)
     password = entry.data.get(CONF_PASSWORD)
-    access_token = entry.data.get(CONF_ACCESS_TOKEN)
-    id_token = entry.data.get(CONF_ID_TOKEN)
-    refresh_token = entry.data.get(CONF_REFRESH_TOKEN)
     account_id = entry.data.get(CONF_ACCOUNT_ID)
 
-    # Define token update callback
-    def token_update_callback(new_access_token: str, new_id_token: str, new_refresh_token: str):
-        """Update config entry with new tokens."""
-        _LOGGER.info("Updating config entry with refreshed tokens")
-        hass.config_entries.async_update_entry(
-            entry,
-            data={
-                CONF_USERNAME: username,
-                CONF_PASSWORD: password,
-                CONF_ACCESS_TOKEN: new_access_token,
-                CONF_ID_TOKEN: new_id_token,
-                CONF_REFRESH_TOKEN: new_refresh_token,
-                CONF_ACCOUNT_ID: account_id,
-            },
-        )
+    client = OVOEnergyAUApiClient(session, username=username, password=password)
 
-    # Create OVO client
-    client = OVOEnergyAU(
-        account_id=account_id,
-        refresh_token=refresh_token,
-        token_update_callback=token_update_callback
-    )
-    client.set_tokens(access_token, id_token, refresh_token)
+    # Authenticate on setup
+    try:
+        await client.authenticate_with_password(username, password)
 
-    # Create update coordinator
-    coordinator = OVODataUpdateCoordinator(
+        # Fetch account_id if not stored
+        if not account_id:
+            account_id = await client.get_account_id()
+            # Update config entry with account_id
+            hass.config_entries.async_update_entry(
+                entry,
+                data={**entry.data, CONF_ACCOUNT_ID: account_id}
+            )
+    except OVOEnergyAUApiClientAuthenticationError as err:
+        _LOGGER.error("Authentication failed during setup: %s", err)
+        raise ConfigEntryAuthFailed(err) from err
+
+    # Create coordinator
+    coordinator = OVOEnergyAUDataUpdateCoordinator(
         hass,
         client=client,
-        username=username,
-        password=password,
-        entry=entry,
-        update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+        account_id=account_id,
     )
 
     # Fetch initial data
@@ -79,118 +61,112 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Store coordinator
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Set up platforms
+    # Forward entry setup to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Register services
+    async def handle_refresh_data(call: ServiceCall) -> None:
+        """Handle the refresh_data service call."""
+        _LOGGER.info("Manual refresh requested via service call")
+        await coordinator.async_request_refresh()
+
+    hass.services.async_register(DOMAIN, "refresh_data", handle_refresh_data)
 
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-    if unload_ok:
-        coordinator = hass.data[DOMAIN].pop(entry.entry_id)
-        coordinator.client.close()
+    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
 
 
-class OVODataUpdateCoordinator(DataUpdateCoordinator):
-    """Class to manage fetching OVO Energy data."""
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload config entry."""
+    await async_unload_entry(hass, entry)
+    await async_setup_entry(hass, entry)
+
+
+class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
+    """Class to manage fetching OVO Energy Australia data."""
 
     def __init__(
         self,
         hass: HomeAssistant,
-        client: OVOEnergyAU,
-        username: str,
-        password: str,
-        entry: ConfigEntry,
-        update_interval: timedelta,
+        client: OVOEnergyAUApiClient,
+        account_id: str,
     ) -> None:
         """Initialize the coordinator."""
         self.client = client
-        self.username = username
-        self.password = password
-        self.entry = entry
+        self.account_id = account_id
 
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=update_interval,
+            update_interval=FAST_UPDATE_INTERVAL,
         )
 
     async def _async_update_data(self):
         """Fetch data from OVO Energy API."""
         try:
-            _LOGGER.info("Fetching data from OVO Energy API...")
+            _LOGGER.debug("Fetching data from OVO Energy API...")
 
-            # Re-authenticate before each fetch (tokens expire quickly)
-            _LOGGER.debug("Re-authenticating with username/password...")
-            success = await self.hass.async_add_executor_job(
-                self.client.authenticate,
-                self.username,
-                self.password
+            # Get today's date for hourly data
+            today = datetime.now().date()
+            yesterday = today - timedelta(days=1)
+
+            # Fetch interval data (monthly/daily) and hourly data in parallel
+            interval_data = await self.client.get_interval_data(self.account_id)
+            hourly_data = await self.client.get_hourly_data(
+                self.account_id,
+                start_date=yesterday.isoformat(),
+                end_date=today.isoformat()
             )
 
-            if not success:
-                raise UpdateFailed("Re-authentication failed")
-
-            _LOGGER.debug("Re-authentication successful")
-
-            # Run sync client in executor - fetch both today's and interval data
-            today_data = await self.hass.async_add_executor_job(
-                self.client.get_today_data
-            )
-            interval_data = await self.hass.async_add_executor_job(
-                self.client.get_interval_data
-            )
-
-            _LOGGER.debug("Received today's data from API")
-            _LOGGER.debug("Received interval data from API")
+            _LOGGER.debug("Successfully fetched data from API")
 
             # Process and structure the data
-            processed_data = self._process_data(today_data, interval_data)
+            processed_data = self._process_data(interval_data, hourly_data)
 
-            _LOGGER.info("Successfully fetched and processed data")
             return processed_data
 
-        except OVOAPIError as err:
-            _LOGGER.error("Error communicating with OVO Energy API: %s", err)
-            raise UpdateFailed(f"Error communicating with API: {err}") from err
-
+        except OVOEnergyAUApiClientAuthenticationError as err:
+            _LOGGER.error("Authentication error: %s", err)
+            raise ConfigEntryAuthFailed(err) from err
         except Exception as err:
             _LOGGER.exception("Unexpected error fetching OVO Energy data")
-            raise UpdateFailed(f"Unexpected error: {err}") from err
+            raise UpdateFailed(f"Error fetching data: {err}") from err
 
-    def _process_data(self, today_data: dict, interval_data: dict) -> dict:
+    def _process_data(self, interval_data: dict, hourly_data: dict) -> dict:
         """Process raw API data into structured format for sensors."""
-        from datetime import datetime
-
-        # Process today's hourly data
-        solar_data = today_data.get("solar", [])
-        export_data = today_data.get("export", [])
-        savings_data = today_data.get("savings", [])
+        # Process hourly data for today
+        solar_hourly = hourly_data.get("solar", [])
+        export_hourly = hourly_data.get("export", [])
 
         # Calculate totals for today
-        solar_today = sum(point.get("consumption", 0) for point in solar_data)
-        export_today = sum(point.get("consumption", 0) for point in export_data)
+        solar_today = sum(point.get("consumption", 0) for point in solar_hourly)
+        export_today = sum(point.get("consumption", 0) for point in export_hourly)
 
-        # Savings uses amount.value structure
-        savings_today = sum(
-            point.get("amount", {}).get("value", 0) for point in savings_data
+        # Calculate savings for today (solar charge - export charge)
+        solar_charge_today = sum(
+            point.get("charge", {}).get("value", 0) for point in solar_hourly
         )
+        export_charge_today = sum(
+            point.get("charge", {}).get("value", 0) for point in export_hourly
+        )
+        savings_today = solar_charge_today - export_charge_today
 
         # Get current hour values (most recent data point)
-        solar_current = solar_data[-1].get("consumption", 0) if solar_data else 0
-        export_current = export_data[-1].get("consumption", 0) if export_data else 0
+        solar_current = solar_hourly[-1].get("consumption", 0) if solar_hourly else 0
+        export_current = export_hourly[-1].get("consumption", 0) if export_hourly else 0
 
         # Process monthly interval data
         monthly_data = interval_data.get("monthly", {})
         monthly_solar = monthly_data.get("solar", [])
         monthly_export = monthly_data.get("export", [])
-        monthly_savings = monthly_data.get("savings", [])
 
         # Get this month (last element) and last month (second-to-last)
         solar_this_month = monthly_solar[-1].get("consumption", 0) if monthly_solar else 0
@@ -199,14 +175,20 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         export_this_month = monthly_export[-1].get("consumption", 0) if monthly_export else 0
         export_last_month = monthly_export[-2].get("consumption", 0) if len(monthly_export) >= 2 else 0
 
-        savings_this_month = monthly_savings[-1].get("amount", {}).get("value", 0) if monthly_savings else 0
-        savings_last_month = monthly_savings[-2].get("amount", {}).get("value", 0) if len(monthly_savings) >= 2 else 0
+        # Calculate monthly savings
+        solar_charge_this_month = monthly_solar[-1].get("charge", {}).get("value", 0) if monthly_solar else 0
+        solar_charge_last_month = monthly_solar[-2].get("charge", {}).get("value", 0) if len(monthly_solar) >= 2 else 0
+
+        export_charge_this_month = monthly_export[-1].get("charge", {}).get("value", 0) if monthly_export else 0
+        export_charge_last_month = monthly_export[-2].get("charge", {}).get("value", 0) if len(monthly_export) >= 2 else 0
+
+        savings_this_month = solar_charge_this_month - export_charge_this_month
+        savings_last_month = solar_charge_last_month - export_charge_last_month
 
         # Process daily interval data for day-by-day breakdown
         daily_data = interval_data.get("daily", {})
         daily_solar = daily_data.get("solar", [])
         daily_export = daily_data.get("export", [])
-        daily_savings = daily_data.get("savings", [])
 
         # Get current month and last month for filtering
         now = datetime.now()
@@ -234,9 +216,9 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
                             filtered.append({
                                 "date": date.strftime("%Y-%m-%d"),
                                 "consumption": day.get("consumption", 0),
-                                "charge": day.get("charge", {}).get("value", 0) if "charge" in day else day.get("amount", {}).get("value", 0)
+                                "charge": day.get("charge", {}).get("value", 0)
                             })
-                    except:
+                    except Exception:
                         pass
             return sorted(filtered, key=lambda x: x["date"])
 
@@ -247,8 +229,28 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         export_daily_this_month = filter_by_month(daily_export, current_month, current_year)
         export_daily_last_month = filter_by_month(daily_export, last_month, last_month_year)
 
-        savings_daily_this_month = filter_by_month(daily_savings, current_month, current_year)
-        savings_daily_last_month = filter_by_month(daily_savings, last_month, last_month_year)
+        # Calculate savings breakdowns
+        savings_daily_this_month = [
+            {
+                "date": solar["date"],
+                "savings": solar["charge"] - next(
+                    (e["charge"] for e in export_daily_this_month if e["date"] == solar["date"]),
+                    0
+                )
+            }
+            for solar in solar_daily_this_month
+        ]
+
+        savings_daily_last_month = [
+            {
+                "date": solar["date"],
+                "savings": solar["charge"] - next(
+                    (e["charge"] for e in export_daily_last_month if e["date"] == solar["date"]),
+                    0
+                )
+            }
+            for solar in solar_daily_last_month
+        ]
 
         return {
             "solar_current": solar_current,
@@ -268,5 +270,5 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
             "export_daily_last_month": export_daily_last_month,
             "savings_daily_this_month": savings_daily_this_month,
             "savings_daily_last_month": savings_daily_last_month,
-            "last_updated": solar_data[-1].get("periodTo") if solar_data else None,
+            "last_updated": solar_hourly[-1].get("periodTo") if solar_hourly else None,
         }

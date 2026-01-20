@@ -11,9 +11,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN, CONF_ACCESS_TOKEN, CONF_ID_TOKEN, CONF_ACCOUNT_ID, CONF_REFRESH_TOKEN
-from .ovo_client import OVOEnergyAU, OVOAPIError
+from .const import DOMAIN, CONF_ACCOUNT_ID
+from .api import (
+    OVOEnergyAUApiClient,
+    OVOEnergyAUApiClientAuthenticationError,
+    OVOEnergyAUApiClientCommunicationError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,52 +34,39 @@ async def validate_input(hass: HomeAssistant, username: str, password: str) -> d
     """Validate the user input by authenticating and fetching account info.
 
     Returns:
-        dict with title, account_id, access_token, id_token, refresh_token
+        dict with title, account_id
     """
     _LOGGER.info("Authenticating with OVO Energy using username/password")
 
-    # Create client and authenticate
-    client = OVOEnergyAU()
+    # Create async client
+    session = async_get_clientsession(hass)
+    client = OVOEnergyAUApiClient(session, username=username, password=password)
 
     try:
         # Authenticate and get tokens
-        success = await hass.async_add_executor_job(
-            client.authenticate,
-            username,
-            password
-        )
-
-        if not success:
-            raise InvalidAuth("Authentication failed")
+        await client.authenticate_with_password(username, password)
 
         # Get account ID automatically
-        account_id = client.account_id
+        account_id = await client.get_account_id()
         if not account_id:
             raise InvalidAuth("Could not retrieve account ID after authentication")
 
         _LOGGER.info("Successfully authenticated. Account ID: %s", account_id)
 
-        # Test the connection by fetching data
-        _LOGGER.debug("Testing API connection...")
-        await hass.async_add_executor_job(client.get_today_data)
-        _LOGGER.debug("API connection successful")
-
         return {
             "title": f"OVO Energy AU ({account_id})",
             "account_id": account_id,
-            "access_token": client._access_token,
-            "id_token": client._id_token,
-            "refresh_token": client._refresh_token,
         }
 
-    except OVOAPIError as err:
+    except OVOEnergyAUApiClientAuthenticationError as err:
         _LOGGER.error("Failed to authenticate with OVO Energy API: %s", err)
         raise InvalidAuth from err
+    except OVOEnergyAUApiClientCommunicationError as err:
+        _LOGGER.error("Communication error with OVO Energy API: %s", err)
+        raise CannotConnect from err
     except Exception as err:
         _LOGGER.exception("Unexpected exception during validation")
         raise CannotConnect from err
-    finally:
-        client.close()
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -96,14 +88,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input[CONF_PASSWORD]
                 )
 
-                # Store username, password, and tokens
+                # Store username, password, and account_id
                 data = {
                     CONF_USERNAME: user_input[CONF_USERNAME],
                     CONF_PASSWORD: user_input[CONF_PASSWORD],
                     CONF_ACCOUNT_ID: info["account_id"],
-                    CONF_ACCESS_TOKEN: info["access_token"],
-                    CONF_ID_TOKEN: info["id_token"],
-                    CONF_REFRESH_TOKEN: info["refresh_token"],
                 }
 
                 # Create unique ID based on account ID
