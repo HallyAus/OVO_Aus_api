@@ -1,0 +1,259 @@
+# OVO Energy Australia Dashboard Example
+# Copy this to your Home Assistant Lovelace dashboard
+#
+# Required custom cards (install via HACS):
+# - apexcharts-card: https://github.com/RomRider/apexcharts-card
+#
+# To use this dashboard:
+# 1. Go to Settings → Dashboards → Add Dashboard
+# 2. Choose "New dashboard from scratch"
+# 3. Click the 3 dots → Edit Dashboard → Raw configuration editor
+# 4. Paste this YAML
+
+title: OVO Energy
+views:
+  - title: Usage
+    path: usage
+    icon: mdi:solar-power
+    cards:
+      # Summary Cards Row
+      - type: horizontal-stack
+        cards:
+          # This Month Solar
+          - type: custom:mushroom-template-card
+            primary: Solar Generation
+            secondary: This Month
+            icon: mdi:solar-power-variant
+            icon_color: amber
+            badge_icon: mdi:calendar-month
+            entity: sensor.ovo_energy_solar_generation_this_month
+            tap_action:
+              action: more-info
+            layout: vertical
+            multiline_secondary: false
+            fill_container: false
+
+          # This Month Export
+          - type: custom:mushroom-template-card
+            primary: Grid Export
+            secondary: This Month
+            icon: mdi:transmission-tower
+            icon_color: blue
+            badge_icon: mdi:calendar-month
+            entity: sensor.ovo_energy_grid_export_this_month
+            tap_action:
+              action: more-info
+            layout: vertical
+
+          # This Month Savings
+          - type: custom:mushroom-template-card
+            primary: Cost Savings
+            secondary: This Month
+            icon: mdi:currency-usd
+            icon_color: green
+            badge_icon: mdi:calendar-month
+            entity: sensor.ovo_energy_cost_savings_this_month
+            tap_action:
+              action: more-info
+            layout: vertical
+
+      # Monthly Comparison Chart
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Monthly Comparison
+          show_states: true
+          colorize_states: true
+        graph_span: 31d
+        span:
+          end: day
+        series:
+          - entity: sensor.ovo_energy_solar_generation_this_month
+            name: Solar (This Month)
+            type: column
+            color: '#FFA500'
+            data_generator: |
+              return entity.attributes.daily_breakdown.map((day) => {
+                return [new Date(day.date).getTime(), day.consumption];
+              });
+
+          - entity: sensor.ovo_energy_grid_export_this_month
+            name: Export (This Month)
+            type: column
+            color: '#1E90FF'
+            data_generator: |
+              return entity.attributes.daily_breakdown.map((day) => {
+                return [new Date(day.date).getTime(), day.consumption];
+              });
+
+      # Last Month Comparison Chart
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Last Month Breakdown
+          show_states: true
+          colorize_states: true
+        graph_span: 31d
+        span:
+          end: day
+        series:
+          - entity: sensor.ovo_energy_solar_generation_last_month
+            name: Solar (Last Month)
+            type: column
+            color: '#FFA500'
+            opacity: 0.7
+            data_generator: |
+              return entity.attributes.daily_breakdown.map((day) => {
+                return [new Date(day.date).getTime(), day.consumption];
+              });
+
+          - entity: sensor.ovo_energy_grid_export_last_month
+            name: Export (Last Month)
+            type: column
+            color: '#1E90FF'
+            opacity: 0.7
+            data_generator: |
+              return entity.attributes.daily_breakdown.map((day) => {
+                return [new Date(day.date).getTime(), day.consumption];
+              });
+
+      # Savings Breakdown Chart
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Daily Savings Breakdown
+          show_states: true
+          colorize_states: true
+        graph_span: 31d
+        span:
+          end: day
+        series:
+          - entity: sensor.ovo_energy_cost_savings_this_month
+            name: Savings (This Month)
+            type: area
+            color: '#32CD32'
+            data_generator: |
+              return entity.attributes.daily_breakdown.map((day) => {
+                return [new Date(day.date).getTime(), day.charge];
+              });
+
+      # Statistics Cards
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-title-card
+            title: Statistics
+
+          - type: horizontal-stack
+            cards:
+              # Solar Stats
+              - type: custom:mushroom-template-card
+                primary: Solar Generation
+                secondary: |
+                  Avg: {{ state_attr('sensor.ovo_energy_solar_generation_this_month', 'daily_average') }} kWh/day
+                  Max: {{ state_attr('sensor.ovo_energy_solar_generation_this_month', 'daily_max') }} kWh
+                icon: mdi:solar-power
+                icon_color: amber
+                entity: sensor.ovo_energy_solar_generation_this_month
+                multiline_secondary: true
+
+              # Export Stats
+              - type: custom:mushroom-template-card
+                primary: Grid Export
+                secondary: |
+                  Avg: {{ state_attr('sensor.ovo_energy_grid_export_this_month', 'daily_average') }} kWh/day
+                  Max: {{ state_attr('sensor.ovo_energy_grid_export_this_month', 'daily_max') }} kWh
+                icon: mdi:transmission-tower
+                icon_color: blue
+                entity: sensor.ovo_energy_grid_export_this_month
+                multiline_secondary: true
+
+      # Today's Usage
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-title-card
+            title: Today
+
+          - type: horizontal-stack
+            cards:
+              - type: sensor
+                entity: sensor.ovo_energy_solar_generation_today
+                name: Solar Generated
+                icon: mdi:solar-power-variant
+
+              - type: sensor
+                entity: sensor.ovo_energy_grid_export_today
+                name: Grid Export
+                icon: mdi:transmission-tower
+
+              - type: sensor
+                entity: sensor.ovo_energy_cost_savings_today
+                name: Savings
+                icon: mdi:currency-usd
+
+      # Current Hour
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-title-card
+            title: Current Hour
+
+          - type: horizontal-stack
+            cards:
+              - type: sensor
+                entity: sensor.ovo_energy_solar_generation_current_hour
+                name: Solar
+                icon: mdi:solar-power
+
+              - type: sensor
+                entity: sensor.ovo_energy_grid_export_current_hour
+                name: Export
+                icon: mdi:transmission-tower-export
+
+# Alternative: Simplified Dashboard without Mushroom cards
+# If you don't want to install mushroom-card, use this version:
+#
+# title: OVO Energy
+# views:
+#   - title: Usage
+#     cards:
+#       # Monthly Totals
+#       - type: entities
+#         title: This Month
+#         entities:
+#           - entity: sensor.ovo_energy_solar_generation_this_month
+#             name: Solar Generation
+#           - entity: sensor.ovo_energy_grid_export_this_month
+#             name: Grid Export
+#           - entity: sensor.ovo_energy_cost_savings_this_month
+#             name: Cost Savings
+#
+#       - type: entities
+#         title: Last Month
+#         entities:
+#           - entity: sensor.ovo_energy_solar_generation_last_month
+#             name: Solar Generation
+#           - entity: sensor.ovo_energy_grid_export_last_month
+#             name: Grid Export
+#           - entity: sensor.ovo_energy_cost_savings_last_month
+#             name: Cost Savings
+#
+#       # Charts (requires apexcharts-card)
+#       - type: custom:apexcharts-card
+#         header:
+#           title: This Month - Daily Breakdown
+#         series:
+#           - entity: sensor.ovo_energy_solar_generation_this_month
+#             name: Solar
+#             type: column
+#             color: orange
+#             data_generator: |
+#               return entity.attributes.daily_breakdown.map((day) => {
+#                 return [new Date(day.date).getTime(), day.consumption];
+#               });
+#           - entity: sensor.ovo_energy_grid_export_this_month
+#             name: Export
+#             type: column
+#             color: blue
+#             data_generator: |
+#               return entity.attributes.daily_breakdown.map((day) => {
+#                 return [new Date(day.date).getTime(), day.consumption];
+#               });

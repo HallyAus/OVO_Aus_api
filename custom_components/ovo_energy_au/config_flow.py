@@ -36,7 +36,7 @@ STEP_PASSWORD_SCHEMA = vol.Schema(
     {
         vol.Required("username"): str,
         vol.Required("password"): str,
-        vol.Required(CONF_ACCOUNT_ID): str,
+        vol.Optional(CONF_ACCOUNT_ID): str,
     }
 )
 
@@ -198,10 +198,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
-                _LOGGER.info("Attempting username/password authentication for account %s", user_input[CONF_ACCOUNT_ID])
+                _LOGGER.info("Attempting username/password authentication")
 
-                # Create client and authenticate
-                client = OVOEnergyAU(account_id=user_input[CONF_ACCOUNT_ID])
+                # Create client without account_id initially
+                client = OVOEnergyAU()
 
                 # Run authentication in executor
                 success = await self.hass.async_add_executor_job(
@@ -211,29 +211,37 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
                 if success:
-                    _LOGGER.info("Authentication succeeded, extracting tokens...")
+                    _LOGGER.info("Authentication succeeded, extracting tokens and account_id...")
 
-                    # Extract tokens from client
-                    data = {
-                        CONF_ACCESS_TOKEN: client._access_token,
-                        CONF_ID_TOKEN: client._id_token,
-                        CONF_REFRESH_TOKEN: client._refresh_token,
-                        CONF_ACCOUNT_ID: user_input[CONF_ACCOUNT_ID],
-                    }
+                    # Get account_id from user input or extract from client
+                    account_id = user_input.get(CONF_ACCOUNT_ID) or client.account_id
 
-                    _LOGGER.debug("Tokens extracted: access_token=%s..., id_token=%s...",
-                                 data[CONF_ACCESS_TOKEN][:50] if data[CONF_ACCESS_TOKEN] else None,
-                                 data[CONF_ID_TOKEN][:50] if data[CONF_ID_TOKEN] else None)
+                    if not account_id:
+                        _LOGGER.error("Could not determine account_id after authentication")
+                        errors["base"] = "missing_account_id"
+                    else:
+                        # Extract tokens from client
+                        data = {
+                            CONF_ACCESS_TOKEN: client._access_token,
+                            CONF_ID_TOKEN: client._id_token,
+                            CONF_REFRESH_TOKEN: client._refresh_token,
+                            CONF_ACCOUNT_ID: account_id,
+                        }
 
-                    # Validate
-                    info = await validate_input(self.hass, data)
+                        _LOGGER.info("Account ID extracted: %s", account_id)
+                        _LOGGER.debug("Tokens extracted: access_token=%s..., id_token=%s...",
+                                     data[CONF_ACCESS_TOKEN][:50] if data[CONF_ACCESS_TOKEN] else None,
+                                     data[CONF_ID_TOKEN][:50] if data[CONF_ID_TOKEN] else None)
 
-                    # Create entry
-                    await self.async_set_unique_id(data[CONF_ACCOUNT_ID])
-                    self._abort_if_unique_id_configured()
+                        # Validate
+                        info = await validate_input(self.hass, data)
 
-                    client.close()
-                    return self.async_create_entry(title=info["title"], data=data)
+                        # Create entry
+                        await self.async_set_unique_id(data[CONF_ACCOUNT_ID])
+                        self._abort_if_unique_id_configured()
+
+                        client.close()
+                        return self.async_create_entry(title=info["title"], data=data)
                 else:
                     _LOGGER.error("Authentication returned False - credentials invalid")
                     errors["base"] = "invalid_auth"
@@ -248,7 +256,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="password",
             data_schema=STEP_PASSWORD_SCHEMA,
-            errors=errors
+            errors=errors,
+            description_placeholders={
+                "hint": "Account ID will be extracted automatically from your login"
+            }
         )
 
     async def async_step_tokens(

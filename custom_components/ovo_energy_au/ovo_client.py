@@ -404,12 +404,20 @@ class OVOEnergyAU:
         payload = {
             "grant_type": "refresh_token",
             "client_id": self.CLIENT_ID,
-            "refresh_token": self._refresh_token
+            "refresh_token": self._refresh_token,
+            "redirect_uri": "https://my.ovoenergy.com.au?login=oea"
         }
 
         try:
-            _LOGGER.debug("Refreshing tokens...")
-            response = self.session.post(token_url, data=payload, timeout=30)
+            _LOGGER.info("Refreshing tokens...")
+            response = self.session.post(
+                token_url,
+                data=payload,  # URL-encoded form data
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=30
+            )
+
+            _LOGGER.debug("Token refresh response status: %s", response.status_code)
 
             if response.status_code != 200:
                 _LOGGER.error("Token refresh failed with status %s: %s",
@@ -417,6 +425,7 @@ class OVOEnergyAU:
                 return False
 
             token_data = response.json()
+            _LOGGER.debug("Token refresh response data keys: %s", token_data.keys())
 
             # Extract new tokens
             new_access_token = token_data.get("access_token")
@@ -441,6 +450,7 @@ class OVOEnergyAU:
 
             # Notify callback if set
             if self._token_update_callback:
+                _LOGGER.info("Calling token update callback to persist new tokens")
                 self._token_update_callback(
                     new_access_token,
                     new_id_token,
