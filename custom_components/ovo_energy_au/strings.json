@@ -2,45 +2,17 @@
   "config": {
     "step": {
       "user": {
-        "title": "OVO Energy Australia - Choose Setup Method",
-        "description": "How would you like to set up OVO Energy Australia?\n\n**Recommended:** Paste OAuth Response (easiest - just copy/paste JSON)",
-        "data": {
-          "auth_method": "Setup Method"
-        }
-      },
-      "json": {
-        "title": "Paste OAuth Response",
-        "description": "**Easy Setup - Just 3 steps:**\n\n1. Open https://my.ovoenergy.com.au in your browser\n2. Press F12 → Network tab → Login\n3. Find 'oauth/token' request → Response tab → Copy entire JSON\n\nPaste the JSON response below:",
-        "data": {
-          "oauth_response": "OAuth Response (JSON)",
-          "account_id": "Account ID (from Payload tab in any graphql request)"
-        }
-      },
-      "password": {
-        "title": "Username & Password",
-        "description": "Enter your OVO Energy credentials. Tokens will be fetched automatically.",
+        "title": "OVO Energy Australia",
+        "description": "Enter your OVO Energy Australia account credentials.\n\n**What we do with your credentials:**\n• Stored securely in Home Assistant's encrypted storage\n• Used to authenticate with OVO Energy's API every 5 minutes\n• Never shared with third parties\n• Account ID is automatically retrieved after login\n\n**Why we need your password:**\n• OVO's API tokens expire quickly (5 minutes)\n• We re-authenticate using your credentials before each data fetch\n• This ensures your sensors stay online 24/7\n\nYour credentials are only used to access your OVO Energy data through their official API.",
         "data": {
           "username": "Email",
-          "password": "Password",
-          "account_id": "Account ID"
-        }
-      },
-      "tokens": {
-        "title": "Manual Token Entry",
-        "description": "For advanced users. Enter tokens manually.\n\nTokens will be automatically refreshed every 4 minutes.",
-        "data": {
-          "access_token": "Access Token (with 'Bearer ' prefix)",
-          "id_token": "ID Token",
-          "refresh_token": "Refresh Token",
-          "account_id": "Account ID"
+          "password": "Password"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to OVO Energy API",
-      "invalid_auth": "Invalid authentication. Please check your credentials or tokens.",
-      "invalid_json": "Invalid JSON format. Please copy the entire Response body from oauth/token request.",
-      "invalid_json_missing_tokens": "JSON is missing required tokens (access_token or id_token). Make sure you copied the Response from oauth/token request.",
+      "cannot_connect": "Failed to connect to OVO Energy API. Please check your internet connection and try again.",
+      "invalid_auth": "Invalid username or password. Please check your credentials and try again.",
       "unknown": "Unexpected error occurred. Check the logs for details."
     },
     "abort": {
