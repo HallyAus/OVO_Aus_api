@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 # Integration domain
-DOMAIN = "ovoenergy_au"
+DOMAIN = "ovo_energy_au"
 
 # Configuration and options
 CONF_ACCOUNT_ID = "account_id"
