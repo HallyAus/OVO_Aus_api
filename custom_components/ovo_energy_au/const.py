@@ -131,9 +131,9 @@ SENSOR_TYPES = {
         "state_class": "total_increasing",
     },
     "solar_charge": {
-        "name": "Solar Charge",
+        "name": "Solar Feed-in Credit",
         "unit": "$",
-        "icon": "mdi:currency-usd",
+        "icon": "mdi:cash-plus",
         "device_class": "monetary",
         "state_class": "total",
     },

@@ -179,7 +179,24 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 processed_data["hourly"] = self._process_hourly_data(hourly_data)
             except Exception as err:
                 _LOGGER.warning("Failed to fetch hourly data: %s", err)
-                processed_data["hourly"] = {}
+                # Set empty hourly data with default values for all analytics
+                processed_data["hourly"] = {
+                    "solar_entries": [],
+                    "grid_entries": [],
+                    "return_to_grid_entries": [],
+                    "solar_total": 0,
+                    "grid_total": 0,
+                    "return_to_grid_total": 0,
+                    "peak_4hour_window": None,
+                    "time_of_use": {
+                        "peak": {"consumption": 0, "cost": 0, "hours": 0},
+                        "shoulder": {"consumption": 0, "cost": 0, "hours": 0},
+                        "off_peak": {"consumption": 0, "cost": 0, "hours": 0},
+                    },
+                    "free_usage": {"consumption": 0, "cost_saved": 0, "hours": 0},
+                    "ev_usage": {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0},
+                    "hourly_heatmap": {},
+                }
 
             _LOGGER.debug("Successfully processed all data")
             return processed_data
@@ -753,10 +770,42 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             "off_peak": {"consumption": 0, "cost": 0, "hours": 0},
         }
 
-        # Free usage and savings tracking
+        # Free usage and savings tracking (month-to-date)
+        # Filter hourly_timeline to only include entries from current month
+        from datetime import datetime, timezone
+        now_utc = datetime.now(timezone.utc)
+        current_month = now_utc.month
+        current_year = now_utc.year
+
+        # Filter to current month entries for free usage and EV tracking
+        mtd_hourly = [
+            entry for entry in hourly_timeline
+            if entry["timestamp"].month == current_month and entry["timestamp"].year == current_year
+        ]
+
         free_usage = {"consumption": 0, "cost_saved": 0, "hours": 0}
         ev_usage = {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0}
 
+        # Calculate free usage and EV usage from month-to-date entries only
+        for entry in mtd_hourly:
+            timestamp = entry["timestamp"]
+            hour = timestamp.hour
+            consumption = entry["consumption"]
+
+            # Track free period (11:00-14:00) for Free 3 and EV plans
+            if plan_type in ["free_3", "ev"] and 11 <= hour < 14:
+                free_usage["consumption"] += consumption
+                free_usage["hours"] += 1
+                free_usage["cost_saved"] += consumption * shoulder_rate
+
+            # Track EV charging period (00:00-06:00) for EV plan
+            if plan_type == "ev" and 0 <= hour < 6:
+                ev_usage["consumption"] += consumption
+                ev_usage["cost"] += consumption * ev_rate
+                ev_usage["hours"] += 1
+                ev_usage["cost_saved"] += consumption * (off_peak_rate - ev_rate)
+
+        # Now process TOU breakdown across all hourly data (last 7 days)
         for entry in hourly_timeline:
             timestamp = entry["timestamp"]
             hour = timestamp.hour
@@ -770,16 +819,12 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             is_free = False
             is_ev_period = False
 
-            # Plan-specific logic
+            # Plan-specific logic for TOU breakdown
             if plan_type == "free_3":
                 # Free 3 Plan: Free 11:00-14:00 daily, standard TOU otherwise
                 if 11 <= hour < 14:
-                    # Free period
+                    # Free period - don't add to TOU
                     is_free = True
-                    free_usage["consumption"] += consumption
-                    free_usage["hours"] += 1
-                    # Calculate what this WOULD have cost (use shoulder rate as baseline)
-                    free_usage["cost_saved"] += consumption * shoulder_rate
                 else:
                     # Standard TOU periods
                     if is_weekday and 14 <= hour < 21:
@@ -795,19 +840,11 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             elif plan_type == "ev":
                 # EV Plan: EV rate 00:00-06:00, free 11:00-14:00, standard TOU otherwise
                 if 0 <= hour < 6:
-                    # EV charging period
+                    # EV charging period - don't add to TOU
                     is_ev_period = True
-                    ev_usage["consumption"] += consumption
-                    ev_usage["cost"] += consumption * ev_rate
-                    ev_usage["hours"] += 1
-                    # Calculate savings vs off-peak rate
-                    ev_usage["cost_saved"] += consumption * (off_peak_rate - ev_rate)
                 elif 11 <= hour < 14:
-                    # Free period
+                    # Free period - don't add to TOU
                     is_free = True
-                    free_usage["consumption"] += consumption
-                    free_usage["hours"] += 1
-                    free_usage["cost_saved"] += consumption * shoulder_rate
                 else:
                     # Standard TOU periods
                     if is_weekday and 14 <= hour < 21:
