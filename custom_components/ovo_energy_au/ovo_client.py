@@ -231,7 +231,7 @@ class OVOEnergyAU:
             _LOGGER.exception("Unexpected error during authentication: %s", e)
             raise OVOAuthenticationError(f"Authentication failed: {e}")
 
-        def _exchange_code_for_tokens(self, auth_code: str, code_verifier: str) -> bool:
+    def _exchange_code_for_tokens(self, auth_code: str, code_verifier: str) -> bool:
         """Exchange authorization code for tokens"""
         _LOGGER.debug("Exchanging authorization code for tokens")
 
