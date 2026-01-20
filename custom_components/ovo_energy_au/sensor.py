@@ -22,6 +22,12 @@ from .const import (
     SENSOR_SOLAR_TODAY,
     SENSOR_EXPORT_TODAY,
     SENSOR_SAVINGS_TODAY,
+    SENSOR_SOLAR_THIS_MONTH,
+    SENSOR_SOLAR_LAST_MONTH,
+    SENSOR_EXPORT_THIS_MONTH,
+    SENSOR_EXPORT_LAST_MONTH,
+    SENSOR_SAVINGS_THIS_MONTH,
+    SENSOR_SAVINGS_LAST_MONTH,
     UNIT_KWH,
     UNIT_CURRENCY,
 )
@@ -87,6 +93,60 @@ async def async_setup_entry(
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
         ),
+        OVOEnergySensor(
+            coordinator,
+            SENSOR_SOLAR_THIS_MONTH,
+            "Solar Generation (This Month)",
+            "mdi:solar-power-variant",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL_INCREASING,
+        ),
+        OVOEnergySensor(
+            coordinator,
+            SENSOR_SOLAR_LAST_MONTH,
+            "Solar Generation (Last Month)",
+            "mdi:solar-power-variant-outline",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+        ),
+        OVOEnergySensor(
+            coordinator,
+            SENSOR_EXPORT_THIS_MONTH,
+            "Grid Export (This Month)",
+            "mdi:transmission-tower",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL_INCREASING,
+        ),
+        OVOEnergySensor(
+            coordinator,
+            SENSOR_EXPORT_LAST_MONTH,
+            "Grid Export (Last Month)",
+            "mdi:transmission-tower-off",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+        ),
+        OVOEnergySensor(
+            coordinator,
+            SENSOR_SAVINGS_THIS_MONTH,
+            "Cost Savings (This Month)",
+            "mdi:currency-usd",
+            UNIT_CURRENCY,
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+        ),
+        OVOEnergySensor(
+            coordinator,
+            SENSOR_SAVINGS_LAST_MONTH,
+            "Cost Savings (Last Month)",
+            "mdi:currency-usd-off",
+            UNIT_CURRENCY,
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+        ),
     ]
 
     _LOGGER.info("Adding %d OVO Energy sensors", len(sensors))
@@ -143,9 +203,36 @@ class OVOEnergySensor(CoordinatorEntity, SensorEntity):
         if self.coordinator.data is None:
             return {}
 
-        return {
+        attributes = {
             "last_updated": self.coordinator.data.get("last_updated"),
         }
+
+        # Add daily breakdown for monthly sensors
+        daily_breakdown_map = {
+            SENSOR_SOLAR_THIS_MONTH: "solar_daily_this_month",
+            SENSOR_SOLAR_LAST_MONTH: "solar_daily_last_month",
+            SENSOR_EXPORT_THIS_MONTH: "export_daily_this_month",
+            SENSOR_EXPORT_LAST_MONTH: "export_daily_last_month",
+            SENSOR_SAVINGS_THIS_MONTH: "savings_daily_this_month",
+            SENSOR_SAVINGS_LAST_MONTH: "savings_daily_last_month",
+        }
+
+        if self._sensor_type in daily_breakdown_map:
+            daily_key = daily_breakdown_map[self._sensor_type]
+            daily_data = self.coordinator.data.get(daily_key, [])
+
+            if daily_data:
+                attributes["daily_breakdown"] = daily_data
+                attributes["days_count"] = len(daily_data)
+
+                # Add helpful summary stats
+                if daily_data:
+                    consumptions = [d.get("consumption", 0) for d in daily_data]
+                    attributes["daily_average"] = round(sum(consumptions) / len(consumptions), 2) if consumptions else 0
+                    attributes["daily_max"] = round(max(consumptions), 2) if consumptions else 0
+                    attributes["daily_min"] = round(min(consumptions), 2) if consumptions else 0
+
+        return attributes
 
     @property
     def available(self) -> bool:

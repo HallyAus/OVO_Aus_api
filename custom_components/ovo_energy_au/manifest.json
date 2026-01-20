@@ -12,6 +12,6 @@
     "@HallyAus"
   ],
   "dependencies": [],
-  "version": "0.2.4",
+  "version": "0.2.6",
   "iot_class": "cloud_polling"
 }

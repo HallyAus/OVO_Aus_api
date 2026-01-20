@@ -113,15 +113,19 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         try:
             _LOGGER.info("Fetching data from OVO Energy API...")
 
-            # Run sync client in executor
-            data = await self.hass.async_add_executor_job(
+            # Run sync client in executor - fetch both today's and interval data
+            today_data = await self.hass.async_add_executor_job(
                 self.client.get_today_data
             )
+            interval_data = await self.hass.async_add_executor_job(
+                self.client.get_interval_data
+            )
 
-            _LOGGER.info("Received raw data from API: %s", data)
+            _LOGGER.info("Received today's data from API: %s", today_data)
+            _LOGGER.info("Received interval data from API: %s", interval_data)
 
             # Process and structure the data
-            processed_data = self._process_data(data)
+            processed_data = self._process_data(today_data, interval_data)
 
             _LOGGER.info("Processed data for sensors: %s", processed_data)
             return processed_data
@@ -141,11 +145,14 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.exception("Unexpected error fetching OVO Energy data")
             raise UpdateFailed(f"Unexpected error: {err}") from err
 
-    def _process_data(self, raw_data: dict) -> dict:
+    def _process_data(self, today_data: dict, interval_data: dict) -> dict:
         """Process raw API data into structured format for sensors."""
-        solar_data = raw_data.get("solar", [])
-        export_data = raw_data.get("export", [])
-        savings_data = raw_data.get("savings", [])
+        from datetime import datetime
+
+        # Process today's hourly data
+        solar_data = today_data.get("solar", [])
+        export_data = today_data.get("export", [])
+        savings_data = today_data.get("savings", [])
 
         # Calculate totals for today
         solar_today = sum(point.get("consumption", 0) for point in solar_data)
@@ -160,11 +167,87 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         solar_current = solar_data[-1].get("consumption", 0) if solar_data else 0
         export_current = export_data[-1].get("consumption", 0) if export_data else 0
 
+        # Process monthly interval data
+        monthly_data = interval_data.get("monthly", {})
+        monthly_solar = monthly_data.get("solar", [])
+        monthly_export = monthly_data.get("export", [])
+        monthly_savings = monthly_data.get("savings", [])
+
+        # Get this month (last element) and last month (second-to-last)
+        solar_this_month = monthly_solar[-1].get("consumption", 0) if monthly_solar else 0
+        solar_last_month = monthly_solar[-2].get("consumption", 0) if len(monthly_solar) >= 2 else 0
+
+        export_this_month = monthly_export[-1].get("consumption", 0) if monthly_export else 0
+        export_last_month = monthly_export[-2].get("consumption", 0) if len(monthly_export) >= 2 else 0
+
+        savings_this_month = monthly_savings[-1].get("amount", {}).get("value", 0) if monthly_savings else 0
+        savings_last_month = monthly_savings[-2].get("amount", {}).get("value", 0) if len(monthly_savings) >= 2 else 0
+
+        # Process daily interval data for day-by-day breakdown
+        daily_data = interval_data.get("daily", {})
+        daily_solar = daily_data.get("solar", [])
+        daily_export = daily_data.get("export", [])
+        daily_savings = daily_data.get("savings", [])
+
+        # Get current month and last month for filtering
+        now = datetime.now()
+        current_month = now.month
+        current_year = now.year
+
+        # Calculate last month
+        if current_month == 1:
+            last_month = 12
+            last_month_year = current_year - 1
+        else:
+            last_month = current_month - 1
+            last_month_year = current_year
+
+        # Filter daily data into this month and last month
+        def filter_by_month(daily_list, month, year):
+            """Filter daily data by month/year and format for attributes."""
+            filtered = []
+            for day in daily_list:
+                period_from = day.get("periodFrom", "")
+                if period_from:
+                    try:
+                        date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+                        if date.month == month and date.year == year:
+                            filtered.append({
+                                "date": date.strftime("%Y-%m-%d"),
+                                "consumption": day.get("consumption", 0),
+                                "charge": day.get("charge", {}).get("value", 0) if "charge" in day else day.get("amount", {}).get("value", 0)
+                            })
+                    except:
+                        pass
+            return sorted(filtered, key=lambda x: x["date"])
+
+        # Create daily breakdowns
+        solar_daily_this_month = filter_by_month(daily_solar, current_month, current_year)
+        solar_daily_last_month = filter_by_month(daily_solar, last_month, last_month_year)
+
+        export_daily_this_month = filter_by_month(daily_export, current_month, current_year)
+        export_daily_last_month = filter_by_month(daily_export, last_month, last_month_year)
+
+        savings_daily_this_month = filter_by_month(daily_savings, current_month, current_year)
+        savings_daily_last_month = filter_by_month(daily_savings, last_month, last_month_year)
+
         return {
             "solar_current": solar_current,
             "export_current": export_current,
             "solar_today": solar_today,
             "export_today": export_today,
             "savings_today": savings_today,
+            "solar_this_month": solar_this_month,
+            "solar_last_month": solar_last_month,
+            "export_this_month": export_this_month,
+            "export_last_month": export_last_month,
+            "savings_this_month": savings_this_month,
+            "savings_last_month": savings_last_month,
+            "solar_daily_this_month": solar_daily_this_month,
+            "solar_daily_last_month": solar_daily_last_month,
+            "export_daily_this_month": export_daily_this_month,
+            "export_daily_last_month": export_daily_last_month,
+            "savings_daily_this_month": savings_daily_this_month,
+            "savings_daily_last_month": savings_daily_last_month,
             "last_updated": solar_data[-1].get("periodTo") if solar_data else None,
         }
