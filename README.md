@@ -10,9 +10,13 @@
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-green.svg)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/github/license/HallyAus/OVO_Aus_api)](LICENSE)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange.svg?logo=buy-me-a-coffee)](https://buymeacoffee.com/printforge)
 
 **Comprehensive Home Assistant integration for OVO Energy Australia**
+
 Track solar generation, grid consumption, costs, and get powerful analytics to optimize your energy usage.
+
+> *"Use the Force wisely, young Padawan. Monitor your energy, you must."* ⚡ – Yoda (probably)
 
 [Features](#-features) • [Installation](#-installation) • [Sensors](#-sensors) • [Analytics](#-advanced-analytics) • [Support](#-support)
 
