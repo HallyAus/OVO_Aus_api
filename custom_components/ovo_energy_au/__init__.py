@@ -3,7 +3,7 @@ import logging
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+from homeassistant.const import Platform, CONF_USERNAME, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -32,6 +32,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OVO Energy Australia from a config entry."""
 
     # Extract configuration
+    username = entry.data.get(CONF_USERNAME)
+    password = entry.data.get(CONF_PASSWORD)
     access_token = entry.data.get(CONF_ACCESS_TOKEN)
     id_token = entry.data.get(CONF_ID_TOKEN)
     refresh_token = entry.data.get(CONF_REFRESH_TOKEN)
@@ -44,6 +46,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(
             entry,
             data={
+                CONF_USERNAME: username,
+                CONF_PASSWORD: password,
                 CONF_ACCESS_TOKEN: new_access_token,
                 CONF_ID_TOKEN: new_id_token,
                 CONF_REFRESH_TOKEN: new_refresh_token,
@@ -63,6 +67,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = OVODataUpdateCoordinator(
         hass,
         client=client,
+        username=username,
+        password=password,
+        entry=entry,
         update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
     )
 
@@ -96,10 +103,16 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         self,
         hass: HomeAssistant,
         client: OVOEnergyAU,
+        username: str,
+        password: str,
+        entry: ConfigEntry,
         update_interval: timedelta,
     ) -> None:
         """Initialize the coordinator."""
         self.client = client
+        self.username = username
+        self.password = password
+        self.entry = entry
 
         super().__init__(
             hass,
@@ -113,6 +126,19 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
         try:
             _LOGGER.info("Fetching data from OVO Energy API...")
 
+            # Re-authenticate before each fetch (tokens expire quickly)
+            _LOGGER.debug("Re-authenticating with username/password...")
+            success = await self.hass.async_add_executor_job(
+                self.client.authenticate,
+                self.username,
+                self.password
+            )
+
+            if not success:
+                raise UpdateFailed("Re-authentication failed")
+
+            _LOGGER.debug("Re-authentication successful")
+
             # Run sync client in executor - fetch both today's and interval data
             today_data = await self.hass.async_add_executor_job(
                 self.client.get_today_data
@@ -121,21 +147,14 @@ class OVODataUpdateCoordinator(DataUpdateCoordinator):
                 self.client.get_interval_data
             )
 
-            _LOGGER.info("Received today's data from API: %s", today_data)
-            _LOGGER.info("Received interval data from API: %s", interval_data)
+            _LOGGER.debug("Received today's data from API")
+            _LOGGER.debug("Received interval data from API")
 
             # Process and structure the data
             processed_data = self._process_data(today_data, interval_data)
 
-            _LOGGER.info("Processed data for sensors: %s", processed_data)
+            _LOGGER.info("Successfully fetched and processed data")
             return processed_data
-
-        except OVOTokenExpiredError as err:
-            _LOGGER.error(
-                "OVO Energy tokens expired. Please update tokens in configuration. "
-                "Tokens expire every 5 minutes."
-            )
-            raise UpdateFailed(f"Authentication failed: {err}") from err
 
         except OVOAPIError as err:
             _LOGGER.error("Error communicating with OVO Energy API: %s", err)
