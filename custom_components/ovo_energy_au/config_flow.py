@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import DOMAIN, CONF_ACCESS_TOKEN, CONF_ID_TOKEN, CONF_ACCOUNT_ID
+from .const import DOMAIN, CONF_ACCESS_TOKEN, CONF_ID_TOKEN, CONF_ACCOUNT_ID, CONF_REFRESH_TOKEN
 from .ovo_client import OVOEnergyAU, OVOAPIError
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,6 +20,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_ACCESS_TOKEN): str,
         vol.Required(CONF_ID_TOKEN): str,
+        vol.Required(CONF_REFRESH_TOKEN): str,
         vol.Required(CONF_ACCOUNT_ID): str,
     }
 )
@@ -33,8 +34,15 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     _LOGGER.debug("Validating OVO Energy credentials for account %s", data[CONF_ACCOUNT_ID])
 
     # Create client and test authentication
-    client = OVOEnergyAU(account_id=data[CONF_ACCOUNT_ID])
-    client.set_tokens(data[CONF_ACCESS_TOKEN], data[CONF_ID_TOKEN])
+    client = OVOEnergyAU(
+        account_id=data[CONF_ACCOUNT_ID],
+        refresh_token=data.get(CONF_REFRESH_TOKEN)
+    )
+    client.set_tokens(
+        data[CONF_ACCESS_TOKEN],
+        data[CONF_ID_TOKEN],
+        data.get(CONF_REFRESH_TOKEN)
+    )
 
     try:
         # Test the connection by fetching data

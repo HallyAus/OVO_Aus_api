@@ -3,10 +3,11 @@
     "step": {
       "user": {
         "title": "OVO Energy Australia Setup",
-        "description": "Enter your OVO Energy Australia authentication tokens. Note: Tokens expire every 5 minutes and need to be refreshed. See documentation for token extraction instructions.",
+        "description": "Enter your OVO Energy Australia authentication tokens. Tokens will be automatically refreshed every 4 minutes. See documentation for token extraction instructions.",
         "data": {
-          "access_token": "Access Token",
+          "access_token": "Access Token (with 'Bearer ' prefix)",
           "id_token": "ID Token",
+          "refresh_token": "Refresh Token",
           "account_id": "Account ID"
         }
       }
