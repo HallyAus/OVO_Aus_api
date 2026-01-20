@@ -248,8 +248,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
-        errors = {}
-
         if user_input is not None:
             # Update config entry with new plan settings
             data = dict(self.config_entry.data)
@@ -292,7 +290,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             # Reload the integration to apply changes
             await self.hass.config_entries.async_reload(self.config_entry.entry_id)
 
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data={})
 
         # Get current plan settings or use defaults
         current_plan = self.config_entry.data.get(CONF_PLAN_TYPE, PLAN_BASIC)
@@ -320,31 +318,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=options_schema,
-            description_placeholders={
-                "info": """Update your OVO Energy plan and rates (AUD per kWh).
-
-**The Free 3 Plan:**
-• Free electricity from 11:00-14:00 daily (0 c/kWh)
-• Standard TOU rates outside free hours
-• We'll track your free usage and calculate savings!
-
-**The EV Plan:**
-• Super off-peak EV charging 00:00-06:00 (~6 c/kWh)
-• May include free period 11:00-14:00
-• Standard TOU rates for other times
-
-**The Basic Plan:**
-• Standard Time-of-Use pricing
-• Peak: ~15:00-21:00 weekdays
-• Shoulder: Morning and evening periods
-• Off-Peak: Overnight and early morning
-
-**The One Plan:**
-• Flat rate all day (no TOU periods)
-• Single rate for all consumption
-
-**Note:** Changes will reload the integration and apply immediately."""
-            }
         )
 
 
