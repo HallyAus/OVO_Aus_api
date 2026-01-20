@@ -19,6 +19,7 @@ import jwt
 from .const import (
     API_BASE_URL,
     AUTH_BASE_URL,
+    GET_ACCOUNT_INFO_QUERY,
     GET_CONTACT_INFO_QUERY,
     GET_HOURLY_DATA_QUERY,
     GET_INTERVAL_DATA_QUERY,
@@ -648,6 +649,87 @@ class OVOEnergyAUApiClient:
                     raise OVOEnergyAUApiClientError("Invalid response from API")
 
                 return data["data"]["GetHourlyData"]
+        except OVOEnergyAUApiClientAuthenticationError:
+            raise
+        except aiohttp.ClientResponseError as err:
+            if err.status == 401:
+                raise OVOEnergyAUApiClientAuthenticationError(
+                    "Authentication failed"
+                ) from err
+            raise OVOEnergyAUApiClientCommunicationError(
+                f"Error communicating with API: {err}"
+            ) from err
+        except aiohttp.ContentTypeError as err:
+            raise OVOEnergyAUApiClientAuthenticationError(
+                "Token expired or invalid - API returned HTML instead of JSON"
+            ) from err
+        except aiohttp.ClientError as err:
+            raise OVOEnergyAUApiClientCommunicationError(
+                f"Error communicating with API: {err}"
+            ) from err
+
+    async def get_product_agreements(self, account_id: str) -> dict[str, Any]:
+        """Get product agreements (plan information) for an account.
+
+        Returns plan details including:
+        - displayName: Name of the plan (e.g., "The EV Plan")
+        - standingChargeCentsPerDay: Daily standing charge in cents
+        - unitRatesCentsPerKWH: Dictionary of rates in cents per kWh
+            - peak, offPeak, shoulder, evOffPeak, superOffPeak, feedInTariff, etc.
+        - fromDt/toDt: Agreement validity period
+        - nmi: National Meter Identifier
+        """
+        await self._ensure_authenticated()
+
+        headers = {
+            "accept": "*/*",
+            "authorization": f"Bearer {self._access_token}",
+            "content-type": "application/json",
+            "myovo-id-token": self._id_token,
+            "origin": API_BASE_URL,
+            "referer": f"{API_BASE_URL}/usage",
+        }
+
+        payload = {
+            "operationName": "GetAccountInfo",
+            "variables": {
+                "input": {
+                    "accountId": account_id
+                }
+            },
+            "query": GET_ACCOUNT_INFO_QUERY
+        }
+
+        try:
+            async with self._session.post(
+                GRAPHQL_URL,
+                json=payload,
+                headers=headers,
+            ) as response:
+                response.raise_for_status()
+
+                # Check content type before trying to parse JSON
+                content_type = response.headers.get('Content-Type', '')
+                if 'application/json' not in content_type:
+                    _LOGGER.error(
+                        "API returned HTML instead of JSON (Content-Type: %s). "
+                        "This usually indicates expired or invalid tokens.",
+                        content_type
+                    )
+                    raise OVOEnergyAUApiClientAuthenticationError(
+                        "Token expired or invalid - please re-authenticate"
+                    )
+
+                data = await response.json()
+
+                if "errors" in data:
+                    error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
+                    raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
+
+                if "data" not in data or "GetAccountInfo" not in data["data"]:
+                    raise OVOEnergyAUApiClientError("Invalid response from API")
+
+                return data["data"]["GetAccountInfo"]
         except OVOEnergyAUApiClientAuthenticationError:
             raise
         except aiohttp.ClientResponseError as err:

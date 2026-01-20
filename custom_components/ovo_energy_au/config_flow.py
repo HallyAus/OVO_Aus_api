@@ -100,48 +100,76 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._detected_rates = None
 
     async def _detect_plan_from_api(self, username: str, password: str, account_id: str) -> None:
-        """Fetch hourly data and detect plan/rates."""
+        """Fetch product agreements and detect plan/rates from API."""
         try:
-            # Import the coordinator's analyzer
-            from . import OVOEnergyAUDataUpdateCoordinator
-
             # Create client and authenticate
             session = async_get_clientsession(self.hass)
             client = OVOEnergyAUApiClient(session, username=username, password=password)
             await client.authenticate_with_password(username, password)
 
-            # Fetch last 3 days of hourly data for analysis
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=3)
+            # Fetch product agreements (plan information)
+            account_info = await client.get_product_agreements(account_id)
 
-            hourly_data = await client.get_hourly_data(
-                account_id,
-                start_date.strftime("%Y-%m-%d"),
-                end_date.strftime("%Y-%m-%d")
+            # Extract product agreements
+            product_agreements = account_info.get("productAgreements", [])
+            if not product_agreements:
+                _LOGGER.warning("No product agreements found for account %s", account_id)
+                return
+
+            # Use the first active product agreement
+            agreement = product_agreements[0]
+            product = agreement.get("product", {})
+
+            # Extract plan name and rates
+            plan_name = product.get("displayName", "")
+            unit_rates = product.get("unitRatesCentsPerKWH", {})
+            standing_charge = product.get("standingChargeCentsPerDay", 0)
+
+            _LOGGER.info(
+                "Found plan: %s, standing charge: %.2f cents/day",
+                plan_name,
+                standing_charge
             )
 
-            # Analyze the data to detect plan and rates
-            if hourly_data:
-                detection = OVOEnergyAUDataUpdateCoordinator.analyze_plan_and_rates(hourly_data)
+            # Map API plan name to our internal plan type
+            plan_type = PLAN_BASIC  # Default fallback
+            if "EV" in plan_name.upper():
+                plan_type = PLAN_EV
+            elif "FREE 3" in plan_name.upper() or "FREE3" in plan_name.upper():
+                plan_type = PLAN_FREE_3
+            elif "ONE" in plan_name.upper():
+                plan_type = PLAN_ONE
 
-                # Only use detection if confidence is reasonable
-                if detection["confidence"] >= 60:
-                    self._detected_plan = detection["plan_type"]
-                    self._detected_rates = detection["rates"]
-                    _LOGGER.info(
-                        "Auto-detected plan: %s (confidence: %d%%), rates: %s",
-                        detection["plan_type"],
-                        detection["confidence"],
-                        detection["rates"]
-                    )
-                else:
-                    _LOGGER.info(
-                        "Low confidence detection (%d%%), using defaults",
-                        detection["confidence"]
-                    )
+            # Convert cents/kWh to $/kWh (divide by 100)
+            detected_rates = {}
+            if unit_rates.get("peak") is not None:
+                detected_rates["peak"] = unit_rates["peak"] / 100
+            if unit_rates.get("shoulder") is not None:
+                detected_rates["shoulder"] = unit_rates["shoulder"] / 100
+            if unit_rates.get("offPeak") is not None:
+                detected_rates["off_peak"] = unit_rates["offPeak"] / 100
+            if unit_rates.get("evOffPeak") is not None:
+                detected_rates["ev"] = unit_rates["evOffPeak"] / 100
+            if unit_rates.get("superOffPeak") is not None and unit_rates["superOffPeak"] > 0:
+                # Super off-peak is the free period on some plans
+                detected_rates["free"] = unit_rates["superOffPeak"] / 100
+            if unit_rates.get("standard") is not None:
+                detected_rates["flat"] = unit_rates["standard"] / 100
+            if unit_rates.get("feedInTariff") is not None:
+                detected_rates["feed_in"] = unit_rates["feedInTariff"] / 100
+
+            self._detected_plan = plan_type
+            self._detected_rates = detected_rates
+
+            _LOGGER.info(
+                "Auto-detected plan: %s (%s), rates: %s",
+                PLAN_NAMES.get(plan_type, plan_type),
+                plan_name,
+                detected_rates
+            )
 
         except Exception as err:
-            _LOGGER.error("Failed to detect plan: %s", err)
+            _LOGGER.error("Failed to detect plan from API: %s", err)
             # Detection failure is not fatal, continue with defaults
 
     async def async_step_user(
