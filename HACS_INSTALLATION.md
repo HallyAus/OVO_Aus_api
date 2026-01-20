@@ -68,30 +68,54 @@ For advanced users.
 2. **Open DevTools**
    - Press **F12** (or Right-click → Inspect)
    - Go to **Network** tab
+   - **Important:** Clear the network log before logging in!
 
 3. **Log in to OVO**
-   - Enter your credentials
-   - Click **"Usage"** in the menu
+   - Enter your credentials and log in
 
-4. **Extract Tokens**
+4. **Find the Token Request**
+   - In Network tab, type **"oauth/token"** in the filter box
+   - Find the request to `login.ovoenergy.com.au/oauth/token`
+   - Click on this request
+
+5. **Extract Refresh Token**
+   - Go to **Response** tab
+   - Find and copy the **entire response** - it contains:
+     - `access_token` → Copy this value
+     - `id_token` → Copy this value
+     - `refresh_token` → **Copy this value (IMPORTANT!)**
+
+   **Example response:**
+   ```json
+   {
+     "access_token": "eyJhbGci...",
+     "id_token": "eyJhbGci...",
+     "refresh_token": "v1.MiPOTL0dZea9m-p56WOAW...",
+     "expires_in": 300
+   }
+   ```
+
+6. **Get Access Token with Bearer Prefix**
+   - The `access_token` you copied doesn't have "Bearer " prefix
+   - You'll add "Bearer " in front when entering it in Home Assistant
+
+7. **Get Account ID**
+   - After logging in, click **"Usage"** in the menu
    - In Network tab, type **"graphql"** in the filter box
    - Click on any **graphql** request
-   - Go to **Headers** tab
-   - Find and copy:
-     - `authorization` header → **access_token** (includes "Bearer ")
-     - `myovo-id-token` header → **id_token**
-
-5. **Get Account ID**
-   - In the same request, go to **Payload** tab
+   - Go to **Payload** tab
    - Find `accountId` in the variables
    - Copy the number (e.g., "30264061")
 
-**Example tokens:**
+**What you need:**
 ```
 access_token: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5q...
 id_token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5qSTBO...
+refresh_token: v1.MiPOTL0dZea9m-p56WOAW98kE17cLg6Mgpn1wAv5ZLpYhrJRUuRic...
 account_id: 30264061
 ```
+
+⚠️ **IMPORTANT:** The `refresh_token` enables automatic token refresh! Without it, you'll need to manually update tokens every 5 minutes.
 
 ### Step 4: Add Integration via UI
 
