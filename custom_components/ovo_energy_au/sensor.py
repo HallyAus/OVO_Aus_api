@@ -227,10 +227,14 @@ class OVOEnergySensor(CoordinatorEntity, SensorEntity):
 
                 # Add helpful summary stats
                 if daily_data:
-                    consumptions = [d.get("consumption", 0) for d in daily_data]
-                    attributes["daily_average"] = round(sum(consumptions) / len(consumptions), 2) if consumptions else 0
-                    attributes["daily_max"] = round(max(consumptions), 2) if consumptions else 0
-                    attributes["daily_min"] = round(min(consumptions), 2) if consumptions else 0
+                    # For savings sensors, use "savings" key, otherwise use "consumption"
+                    if self._sensor_type in [SENSOR_SAVINGS_THIS_MONTH, SENSOR_SAVINGS_LAST_MONTH]:
+                        values = [d.get("savings", 0) for d in daily_data]
+                    else:
+                        values = [d.get("consumption", 0) for d in daily_data]
+                    attributes["daily_average"] = round(sum(values) / len(values), 2) if values else 0
+                    attributes["daily_max"] = round(max(values), 2) if values else 0
+                    attributes["daily_min"] = round(min(values), 2) if values else 0
 
         return attributes
 
