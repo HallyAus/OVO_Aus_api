@@ -101,206 +101,137 @@ class OVOEnergyAU:
 
     def authenticate(self, username: str, password: str) -> bool:
         """
-        Authenticate with OVO Energy Australia using OAuth 2.0
+        Authenticate with OVO Energy Australia using OAuth 2.0 PKCE flow
 
-        This method attempts multiple authentication strategies:
-        1. Resource Owner Password Credentials (ROPC) grant
-        2. Password realm grant (Auth0 specific)
-        3. Database connection authentication
-
-        Args:
-            username: OVO account email
-            password: OVO account password
-
-        Returns:
-            True if authentication successful
-
-        Raises:
-            OVOAuthenticationError: If authentication fails
+        Based on working implementation from Mattallmighty/HA-OvoEnergyAU
         """
-        _LOGGER.info("Attempting authentication for user: %s", username)
+        import re
+        import html as html_module
 
-        # Try multiple authentication strategies
-        strategies = [
-            self._auth_ropc,
-            self._auth_password_realm,
-            self._auth_database_connection
-        ]
-
-        for strategy in strategies:
-            try:
-                result = strategy(username, password)
-                if result:
-                    _LOGGER.info("Authentication successful!")
-                    return True
-            except Exception as e:
-                _LOGGER.debug("Strategy %s failed: %s", strategy.__name__, e)
-                continue
-
-        # If all strategies failed
-        raise OVOAuthenticationError(
-            "Authentication failed. Please verify your credentials. "
-            "If the issue persists, you may need to use set_tokens() with "
-            "manually extracted tokens from the browser."
-        )
-
-    def _auth_ropc(self, username: str, password: str) -> bool:
-        """Try Resource Owner Password Credentials (ROPC) grant"""
-        _LOGGER.debug("Trying ROPC grant")
-
-        token_url = f"{self.AUTH0_DOMAIN}/oauth/token"
-
-        payload = {
-            "grant_type": "password",
-            "username": username,
-            "password": password,
-            "client_id": self.CLIENT_ID,
-            "scope": "openid profile email offline_access",
-            "audience": "https://api.ovoenergy.com.au"
-        }
+        _LOGGER.info("Authenticating with OVO Energy using PKCE flow for user: %s", username)
 
         try:
-            response = requests.post(
-                token_url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=30
-            )
+            # Step 1: Generate PKCE parameters
+            code_verifier = _generate_code_verifier()
+            code_challenge = _generate_code_challenge(code_verifier)
+            state = secrets.token_urlsafe(32)
+            nonce = secrets.token_urlsafe(32)
 
-            if response.status_code == 200:
-                tokens = response.json()
-                return self._process_tokens(tokens)
+            # Step 2: Initial authorization request to establish session
+            auth_params = {
+                "client_id": self.CLIENT_ID,
+                "response_type": "code",
+                "redirect_uri": "https://my.ovoenergy.com.au?login=oea",
+                "scope": "openid profile email offline_access",
+                "audience": "https://login.ovoenergy.com.au/api",
+                "code_challenge": code_challenge,
+                "code_challenge_method": "S256",
+                "state": state,
+                "nonce": nonce,
+                "connection": "prod-myovo-auth"  # CRITICAL: This is the key!
+            }
 
-            _LOGGER.debug("ROPC failed with status %s: %s", response.status_code, response.text)
-            return False
+            auth_url = f"{self.AUTH0_DOMAIN}/authorize?" + urlencode(auth_params)
 
-        except Exception as e:
-            _LOGGER.debug("ROPC exception: %s", e)
-            return False
-
-    def _auth_password_realm(self, username: str, password: str) -> bool:
-        """Try password realm grant (Auth0 specific)"""
-        _LOGGER.debug("Trying password realm grant")
-
-        token_url = f"{self.AUTH0_DOMAIN}/oauth/token"
-
-        payload = {
-            "grant_type": "http://auth0.com/oauth/grant-type/password-realm",
-            "username": username,
-            "password": password,
-            "client_id": self.CLIENT_ID,
-            "realm": "Username-Password-Authentication",
-            "scope": "openid profile email offline_access"
-        }
-
-        try:
-            response = requests.post(
-                token_url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=30
-            )
-
-            if response.status_code == 200:
-                tokens = response.json()
-                return self._process_tokens(tokens)
-
-            _LOGGER.debug("Password realm failed with status %s: %s", response.status_code, response.text)
-            return False
-
-        except Exception as e:
-            _LOGGER.debug("Password realm exception: %s", e)
-            return False
-
-    def _auth_database_connection(self, username: str, password: str) -> bool:
-        """Try Auth0 database connection login"""
-        _LOGGER.debug("Trying database connection authentication")
-
-        login_url = f"{self.AUTH0_DOMAIN}/usernamepassword/login"
-
-        payload = {
-            "client_id": self.CLIENT_ID,
-            "username": username,
-            "password": password,
-            "credential_type": "http://auth0.com/oauth/grant-type/password-realm",
-            "realm": "Username-Password-Authentication",
-            "scope": "openid profile email offline_access"
-        }
-
-        try:
             session = requests.Session()
-            response = session.post(
-                login_url,
-                json=payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "Auth0-Client": base64.b64encode(json.dumps({
-                        "name": "auth0.js",
-                        "version": "9.20.0"
-                    }).encode()).decode()
-                },
-                timeout=30,
-                allow_redirects=False
+            auth_response = session.get(auth_url, allow_redirects=False, timeout=30)
+
+            _LOGGER.debug("Authorization request status: %s", auth_response.status_code)
+
+            # Extract state from the response
+            auth_state = state
+            if auth_response.status_code == 302 and 'location' in auth_response.headers:
+                location = auth_response.headers['location']
+                parsed = urlparse(location)
+                query = parse_qs(parsed.query)
+                if 'state' in query:
+                    auth_state = query['state'][0]
+
+            # Step 3: Submit credentials to login endpoint
+            login_payload = {
+                "client_id": self.CLIENT_ID,
+                "username": username,
+                "password": password,
+                "credential_type": "http://auth0.com/oauth/grant-type/password-realm",
+                "realm": "prod-myovo-auth",  # CRITICAL: Must match connection!
+                "connection": "prod-myovo-auth",
+                "state": auth_state
+            }
+
+            _LOGGER.debug("Submitting credentials to login endpoint")
+            login_response = session.post(
+                f"{self.AUTH0_DOMAIN}/usernamepassword/login",
+                json=login_payload,
+                headers={"Content-Type": "application/json"},
+                timeout=30
             )
 
-            if response.status_code in [200, 302]:
-                try:
-                    data = response.json()
-                    if "access_token" in data or "id_token" in data:
-                        return self._process_tokens(data)
-                except:
-                    pass
+            _LOGGER.debug("Login response status: %s", login_response.status_code)
 
-                if response.status_code == 302 or "location" in response.headers:
-                    location = response.headers.get("location", response.json().get("login_ticket"))
-                    if location:
-                        return self._complete_oauth_flow(session, location, username, password)
+            if login_response.status_code != 200:
+                _LOGGER.error("Login failed with status %s: %s",
+                            login_response.status_code, login_response.text[:500])
+                raise OVOAuthenticationError(f"Login failed: {login_response.status_code}")
 
-            _LOGGER.debug("Database connection failed with status %s", response.status_code)
-            return False
+            # Step 4: Parse HTML form from response
+            html_content = login_response.text
 
-        except Exception as e:
-            _LOGGER.debug("Database connection exception: %s", e)
-            return False
+            # Extract form action URL using regex
+            form_action_match = re.search(r'<form[^>]*action="([^"]*)"', html_content)
+            if not form_action_match:
+                _LOGGER.error("Could not find form action in login response")
+                raise OVOAuthenticationError("Invalid response from login endpoint")
 
-    def _complete_oauth_flow(self, session: requests.Session, state_or_ticket: str,
-                            username: str, password: str) -> bool:
-        """Complete the OAuth flow after initial login"""
-        _LOGGER.debug("Attempting to complete OAuth flow")
+            form_action = html_module.unescape(form_action_match.group(1))
+            _LOGGER.debug("Form action URL: %s", form_action)
 
-        code_verifier = _generate_code_verifier()
-        code_challenge = _generate_code_challenge(code_verifier)
+            # Extract all hidden input fields
+            form_data = {}
+            for match in re.finditer(r'<input[^>]*type="hidden"[^>]*name="([^"]*)"[^>]*value="([^"]*)"', html_content):
+                field_name = html_module.unescape(match.group(1))
+                field_value = html_module.unescape(match.group(2))
+                form_data[field_name] = field_value
 
-        auth_params = {
-            "client_id": self.CLIENT_ID,
-            "response_type": "code",
-            "redirect_uri": "https://my.ovoenergy.com.au/login/callback",
-            "scope": "openid profile email offline_access",
-            "code_challenge": code_challenge,
-            "code_challenge_method": "S256",
-            "state": secrets.token_urlsafe(32)
-        }
+            _LOGGER.debug("Found %d hidden form fields", len(form_data))
 
-        try:
-            auth_url = f"{self.AUTH0_DOMAIN}/authorize?{urlencode(auth_params)}"
-            response = session.get(auth_url, allow_redirects=True, timeout=30)
+            # Step 5: Submit form to callback and extract authorization code
+            _LOGGER.debug("Submitting form to callback")
+            form_response = session.post(
+                form_action,
+                data=form_data,
+                allow_redirects=True,
+                timeout=30
+            )
 
-            for resp in [response] + list(getattr(response, 'history', [])):
+            # Look for authorization code in URL of final redirect
+            auth_code = None
+            for resp in [form_response] + list(getattr(form_response, 'history', [])):
                 if "code=" in resp.url:
                     parsed = urlparse(resp.url)
                     query_params = parse_qs(parsed.query)
                     if "code" in query_params:
                         auth_code = query_params["code"][0]
-                        return self._exchange_code_for_tokens(auth_code, code_verifier)
+                        _LOGGER.debug("Authorization code found in redirect")
+                        break
 
-            _LOGGER.debug("No authorization code found in OAuth flow")
-            return False
+            if not auth_code:
+                _LOGGER.error("No authorization code found in OAuth flow")
+                # Log the final URL for debugging
+                _LOGGER.error("Final URL: %s", form_response.url)
+                raise OVOAuthenticationError("Failed to obtain authorization code")
 
+            _LOGGER.debug("Exchanging authorization code for tokens...")
+
+            # Exchange code for tokens
+            return self._exchange_code_for_tokens(auth_code, code_verifier)
+
+        except OVOAuthenticationError:
+            raise
         except Exception as e:
-            _LOGGER.debug("OAuth flow completion exception: %s", e)
-            return False
+            _LOGGER.exception("Unexpected error during authentication: %s", e)
+            raise OVOAuthenticationError(f"Authentication failed: {e}")
 
-    def _exchange_code_for_tokens(self, auth_code: str, code_verifier: str) -> bool:
+        def _exchange_code_for_tokens(self, auth_code: str, code_verifier: str) -> bool:
         """Exchange authorization code for tokens"""
         _LOGGER.debug("Exchanging authorization code for tokens")
 
