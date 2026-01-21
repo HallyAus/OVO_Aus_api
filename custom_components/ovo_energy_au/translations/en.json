@@ -32,7 +32,7 @@
     "step": {
       "init": {
         "title": "Update Energy Plan Settings",
-        "description": "Modify your electricity plan and rates. Changes take effect immediately and update all cost calculations.\n\n**Current Plan:** {plan_name}\n\n**Tip:** If you've switched plans with OVO, update your selection here to ensure accurate cost tracking and savings calculations.",
+        "description": "Modify your electricity plan and rates. Changes take effect immediately and update all cost calculations.\n\n**Tip:** If you've switched plans with OVO, update your selection here to ensure accurate cost tracking and savings calculations.",
         "data": {
           "plan_type": "Energy Plan",
           "peak_rate": "Peak Rate ($/kWh)",
