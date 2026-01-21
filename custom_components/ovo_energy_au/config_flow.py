@@ -200,7 +200,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(info["account_id"])
                 self._abort_if_unique_id_configured()
 
-                # Try to detect plan and rates from API data
+                # Auto-detect plan and rates from API data
                 # Reuse the already-authenticated client to avoid double authentication
                 try:
                     await self._detect_plan_from_api(
@@ -208,11 +208,24 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         info["account_id"]
                     )
                 except Exception as err:
-                    _LOGGER.warning("Could not auto-detect plan: %s", err)
-                    # Continue anyway with defaults
+                    _LOGGER.warning("Could not auto-detect plan: %s. Using defaults.", err)
+                    # Set defaults if detection fails
+                    self._detected_plan = PLAN_BASIC
+                    self._detected_rates = {}
 
-                # Proceed to plan selection step
-                return await self.async_step_plan()
+                # Create entry with auto-detected plan data (no manual selection)
+                data = {**self._auth_data}
+                data[CONF_PLAN_TYPE] = self._detected_plan or PLAN_BASIC
+
+                # Use detected rates or defaults
+                detected_rates = self._detected_rates or {}
+                data[CONF_PEAK_RATE] = detected_rates.get("peak", 0.35)
+                data[CONF_SHOULDER_RATE] = detected_rates.get("shoulder", 0.25)
+                data[CONF_OFF_PEAK_RATE] = detected_rates.get("off_peak", 0.18)
+                data[CONF_EV_RATE] = detected_rates.get("ev", 0.08)
+                data[CONF_FLAT_RATE] = detected_rates.get("flat", 0.28)
+
+                return self.async_create_entry(title=self._auth_data["title"], data=data)
 
             except CannotConnect:
                 errors["base"] = "cannot_connect"
@@ -227,65 +240,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_SCHEMA,
             errors=errors,
         )
-
-    async def async_step_plan(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Handle plan selection and rate configuration."""
-        errors: dict[str, str] = {}
-
-        if user_input is not None:
-            # Merge authentication data with plan configuration
-            data = {**self._auth_data}
-            data[CONF_PLAN_TYPE] = user_input[CONF_PLAN_TYPE]
-
-            # Add rate configuration based on plan type
-            plan_type = user_input[CONF_PLAN_TYPE]
-            default_rates = DEFAULT_RATES.get(plan_type, {})
-
-            if plan_type == PLAN_FREE_3:
-                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
-                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
-                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
-            elif plan_type == PLAN_EV:
-                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
-                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
-                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
-                data[CONF_EV_RATE] = user_input.get(CONF_EV_RATE, default_rates.get("ev", 0.06))
-            elif plan_type == PLAN_BASIC:
-                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
-                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
-                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
-            elif plan_type == PLAN_ONE:
-                data[CONF_FLAT_RATE] = user_input.get(CONF_FLAT_RATE, default_rates.get("flat", 0.28))
-
-            return self.async_create_entry(title=self._auth_data["title"], data=data)
-
-        # Use detected plan and rates as defaults if available
-        default_plan = self._detected_plan if self._detected_plan else PLAN_BASIC
-        default_rates = self._detected_rates if self._detected_rates else {}
-
-        # Build schema with smart defaults
-        plan_schema = vol.Schema({
-            vol.Required(CONF_PLAN_TYPE, default=default_plan): vol.In({
-                PLAN_FREE_3: PLAN_NAMES[PLAN_FREE_3],
-                PLAN_EV: PLAN_NAMES[PLAN_EV],
-                PLAN_BASIC: PLAN_NAMES[PLAN_BASIC],
-                PLAN_ONE: PLAN_NAMES[PLAN_ONE],
-            }),
-            vol.Optional(CONF_PEAK_RATE, default=default_rates.get("peak", 0.35)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_SHOULDER_RATE, default=default_rates.get("shoulder", 0.25)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_OFF_PEAK_RATE, default=default_rates.get("off_peak", 0.18)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_EV_RATE, default=default_rates.get("ev", 0.06)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_FLAT_RATE, default=default_rates.get("flat", 0.28)): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-        })
-
-        return self.async_show_form(
-            step_id="plan",
-            data_schema=plan_schema,
-            errors=errors,
-        )
-
 
     @staticmethod
     @callback
