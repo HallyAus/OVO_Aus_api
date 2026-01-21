@@ -208,7 +208,7 @@ async def async_setup_entry(
             None,  # Not a total, just current value
             "mdi:solar-power",
             lambda data: data.get("hourly", {}).get("solar_total"),
-            "Hourly Data",
+            "Hourly Data (Last 7 Days)",
         ),
         OVOEnergyAUSensor(
             coordinator,
@@ -219,7 +219,7 @@ async def async_setup_entry(
             None,  # Not a total, just current value
             "mdi:transmission-tower",
             lambda data: data.get("hourly", {}).get("grid_total"),
-            "Hourly Data",
+            "Hourly Data (Last 7 Days)",
         ),
         OVOEnergyAUSensor(
             coordinator,
@@ -230,7 +230,7 @@ async def async_setup_entry(
             None,  # Not a total, just current value
             "mdi:transmission-tower-export",
             lambda data: data.get("hourly", {}).get("return_to_grid_total"),
-            "Hourly Data",
+            "Hourly Data (Last 7 Days)",
         ),
         # Last Week Total
         OVOEnergyAUSensor(
@@ -534,168 +534,133 @@ async def async_setup_entry(
             "Time of Use",
         ),
 
-        # Free Usage Tracking (Free 3 & EV Plans)
+        # Super Off-Peak Tracking (Free 3 & EV Plans - 11am-2pm free period)
         OVOEnergyAUSensor(
             coordinator,
-            "free_usage_consumption",
-            "Free Period Consumption",
+            "super_off_peak_consumption",
+            "Super Off-Peak Consumption",
             UnitOfEnergy.KILO_WATT_HOUR,
             SensorDeviceClass.ENERGY,
             SensorStateClass.TOTAL,
             "mdi:lightning-bolt",
             lambda data: data.get("hourly", {}).get("free_usage", {}).get("consumption"),
-            "Free Usage",
+            "Super Off-Peak",
         ),
         OVOEnergyAUSensor(
             coordinator,
-            "free_usage_cost_saved",
-            "Free Period Cost Saved",
+            "super_off_peak_cost_saved",
+            "Super Off-Peak Cost Saved",
             "AUD",
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
             "mdi:piggy-bank",
             lambda data: data.get("hourly", {}).get("free_usage", {}).get("cost_saved"),
-            "Free Usage",
+            "Super Off-Peak",
         ),
 
-        # EV Charging Tracking (EV Plan)
+        # EV Off-Peak - Weekly (Last 7 Days)
         OVOEnergyAUSensor(
             coordinator,
-            "ev_charging_consumption",
-            "EV Charging Consumption",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-            "mdi:ev-station",
-            lambda data: data.get("hourly", {}).get("ev_usage", {}).get("consumption"),
-            "EV Charging",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_charging_cost",
-            "EV Charging Cost",
-            "AUD",
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
-            "mdi:currency-usd",
-            lambda data: data.get("hourly", {}).get("ev_usage", {}).get("cost"),
-            "EV Charging",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_charging_cost_saved",
-            "EV Charging Savings",
-            "AUD",
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
-            "mdi:cash-plus",
-            lambda data: data.get("hourly", {}).get("ev_usage", {}).get("cost_saved"),
-            "EV Charging",
-        ),
-
-        # EV Charging - Weekly (Last 7 Days)
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_charging_weekly_consumption",
-            "EV Charging Consumption (Weekly)",
+            "ev_off_peak_weekly_consumption",
+            "EV Off-Peak Consumption (Weekly)",
             UnitOfEnergy.KILO_WATT_HOUR,
             SensorDeviceClass.ENERGY,
             SensorStateClass.TOTAL,
             "mdi:ev-station",
             lambda data: data.get("hourly", {}).get("ev_usage_weekly", {}).get("consumption"),
-            "EV Charging - Weekly",
+            "EV Off-Peak - Weekly",
         ),
         OVOEnergyAUSensor(
             coordinator,
-            "ev_charging_weekly_cost",
-            "EV Charging Cost (Weekly)",
+            "ev_off_peak_weekly_cost",
+            "EV Off-Peak Cost (Weekly)",
             "AUD",
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
             "mdi:currency-usd",
             lambda data: data.get("hourly", {}).get("ev_usage_weekly", {}).get("cost"),
-            "EV Charging - Weekly",
+            "EV Off-Peak - Weekly",
         ),
         OVOEnergyAUSensor(
             coordinator,
-            "ev_charging_weekly_savings",
-            "EV Charging Savings (Weekly)",
+            "ev_off_peak_weekly_savings",
+            "EV Off-Peak Savings (Weekly)",
             "AUD",
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
             "mdi:cash-plus",
             lambda data: data.get("hourly", {}).get("ev_usage_weekly", {}).get("cost_saved"),
-            "EV Charging - Weekly",
+            "EV Off-Peak - Weekly",
         ),
 
-        # EV Charging - Monthly (Month to Date)
+        # EV Off-Peak - Monthly (Month to Date)
         OVOEnergyAUSensor(
             coordinator,
-            "ev_charging_monthly_consumption",
-            "EV Charging Consumption (Monthly)",
+            "ev_off_peak_monthly_consumption",
+            "EV Off-Peak Consumption (Monthly)",
             UnitOfEnergy.KILO_WATT_HOUR,
             SensorDeviceClass.ENERGY,
             SensorStateClass.TOTAL,
             "mdi:ev-station",
             lambda data: data.get("hourly", {}).get("ev_usage_monthly", {}).get("consumption"),
-            "EV Charging - Monthly",
+            "EV Off-Peak - Monthly",
         ),
         OVOEnergyAUSensor(
             coordinator,
-            "ev_charging_monthly_cost",
-            "EV Charging Cost (Monthly)",
+            "ev_off_peak_monthly_cost",
+            "EV Off-Peak Cost (Monthly)",
             "AUD",
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
             "mdi:currency-usd",
             lambda data: data.get("hourly", {}).get("ev_usage_monthly", {}).get("cost"),
-            "EV Charging - Monthly",
+            "EV Off-Peak - Monthly",
         ),
         OVOEnergyAUSensor(
             coordinator,
-            "ev_charging_monthly_savings",
-            "EV Charging Savings (Monthly)",
+            "ev_off_peak_monthly_savings",
+            "EV Off-Peak Savings (Monthly)",
             "AUD",
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
             "mdi:cash-plus",
             lambda data: data.get("hourly", {}).get("ev_usage_monthly", {}).get("cost_saved"),
-            "EV Charging - Monthly",
+            "EV Off-Peak - Monthly",
         ),
 
-        # EV Charging - Yearly (Year to Date)
+        # EV Off-Peak - Yearly (Year to Date)
         OVOEnergyAUSensor(
             coordinator,
-            "ev_charging_yearly_consumption",
-            "EV Charging Consumption (Yearly)",
+            "ev_off_peak_yearly_consumption",
+            "EV Off-Peak Consumption (Yearly)",
             UnitOfEnergy.KILO_WATT_HOUR,
             SensorDeviceClass.ENERGY,
             SensorStateClass.TOTAL,
             "mdi:ev-station",
             lambda data: data.get("hourly", {}).get("ev_usage_yearly", {}).get("consumption"),
-            "EV Charging - Yearly",
+            "EV Off-Peak - Yearly",
         ),
         OVOEnergyAUSensor(
             coordinator,
-            "ev_charging_yearly_cost",
-            "EV Charging Cost (Yearly)",
+            "ev_off_peak_yearly_cost",
+            "EV Off-Peak Cost (Yearly)",
             "AUD",
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
             "mdi:currency-usd",
             lambda data: data.get("hourly", {}).get("ev_usage_yearly", {}).get("cost"),
-            "EV Charging - Yearly",
+            "EV Off-Peak - Yearly",
         ),
         OVOEnergyAUSensor(
             coordinator,
-            "ev_charging_yearly_savings",
-            "EV Charging Savings (Yearly)",
+            "ev_off_peak_yearly_savings",
+            "EV Off-Peak Savings (Yearly)",
             "AUD",
             SensorDeviceClass.MONETARY,
             SensorStateClass.TOTAL,
             "mdi:cash-plus",
             lambda data: data.get("hourly", {}).get("ev_usage_yearly", {}).get("cost_saved"),
-            "EV Charging - Yearly",
+            "EV Off-Peak - Yearly",
         ),
 
         # Feature 5: Solar Self-Sufficiency Score
@@ -1113,33 +1078,33 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
             if tou_data:
                 attributes["all_periods"] = tou_data
 
-        # Free Usage Tracking
-        if "free_usage" in self._sensor_key:
+        # Super Off-Peak Tracking (Free 3 & EV Plans - 11am-2pm)
+        if "super_off_peak" in self._sensor_key:
             free_data = self.coordinator.data.get("hourly", {}).get("free_usage", {})
             if free_data:
                 attributes.update({
                     "consumption": free_data.get("consumption"),
                     "cost_saved": free_data.get("cost_saved"),
                     "hours": free_data.get("hours"),
-                    "period": "11:00-14:00 daily",
+                    "period": "11:00-14:00 daily (Super Off-Peak)",
                 })
 
-        # EV Charging Tracking
-        if "ev_charging" in self._sensor_key:
+        # EV Off-Peak Tracking (00:00-06:00 daily)
+        if "ev_off_peak" in self._sensor_key:
             # Determine which period based on sensor key
             if "weekly" in self._sensor_key:
                 ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage_weekly", {})
-                period_label = "Last 7 days, 00:00-06:00 daily"
+                period_label = "Last 7 days, 00:00-06:00 daily (EV Off-Peak)"
             elif "monthly" in self._sensor_key:
                 ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage_monthly", {})
-                period_label = "Month to date, 00:00-06:00 daily"
+                period_label = "Month to date, 00:00-06:00 daily (EV Off-Peak)"
             elif "yearly" in self._sensor_key:
                 ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage_yearly", {})
-                period_label = "Year to date, 00:00-06:00 daily"
+                period_label = "Year to date, 00:00-06:00 daily (EV Off-Peak)"
             else:
                 # Default (backward compatibility)
                 ev_data = self.coordinator.data.get("hourly", {}).get("ev_usage", {})
-                period_label = "Month to date, 00:00-06:00 daily"
+                period_label = "Month to date, 00:00-06:00 daily (EV Off-Peak)"
 
             if ev_data:
                 attributes.update({
