@@ -36,6 +36,21 @@ Track solar generation, grid consumption, costs, and get powerful analytics to o
 
 ---
 
+## 🎁 New to OVO Energy? Get $120-$180 Credit!
+
+Not an OVO customer yet? Sign up using this referral link and we'll both get credit:
+
+**👉 [www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
+
+**Referral Benefits:**
+- ✅ **$120 credit** paid over 12 months on standard plans
+- ✅ **$180 credit** paid over 12 months if you choose The EV Plan
+- ✅ Both you and I receive the credit - it's a win-win!
+
+*Join the OVO community and start tracking your energy with this integration!*
+
+---
+
 ## ✨ Features
 
 ### 🚀 **NEW in v3.0.0** - Intelligent Auto-Configuration
