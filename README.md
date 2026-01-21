@@ -6,7 +6,7 @@
 
 <br/><br/>
 
-[![Version](https://img.shields.io/badge/version-2.6.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-green.svg)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
@@ -37,6 +37,12 @@ Track solar generation, grid consumption, costs, and get powerful analytics to o
 ---
 
 ## ✨ Features
+
+### 🚀 **NEW in v3.0.0** - Intelligent Auto-Configuration
+- **Zero Manual Setup** - Plan and rates automatically detected from OVO API
+- **Real-Time Plan Info** - Diagnostic sensor shows your current plan details, rates, and NMI
+- **Accurate Pricing** - Uses your actual rates from OVO (peak, shoulder, off-peak, EV, feed-in tariff)
+- **Simplified Setup** - Just enter email and password, everything else is automatic
 
 ### 📊 **80+ Sensors** - Complete Energy Monitoring
 - **Yesterday's Data** - Daily consumption and cost (updated at 6am)
@@ -80,6 +86,14 @@ All sensors grouped logically in Home Assistant:
 ## 🚀 Installation
 
 ### HACS (Recommended)
+
+#### Auto-Install with HACS
+
+Click the button below to automatically open this repository in HACS:
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=HallyAus&repository=OVO_Aus_api&category=integration)
+
+#### Manual HACS Installation
 
 1. Open HACS in Home Assistant
 2. Click on "Integrations"
@@ -402,17 +416,21 @@ cards:
 
 ## 🔧 Configuration
 
-### OAuth Authentication Setup
+### Automatic Setup (v3.0.0+)
 
-The integration uses OAuth 2.0 for secure authentication:
+The integration handles everything automatically:
 
 1. Add the integration via Settings → Devices & Services
 2. Enter your OVO Energy Australia email and password
 3. The integration automatically:
-   - Authenticates via OAuth
-   - Extracts tokens
-   - Sets up automatic token refresh
+   - Authenticates via OAuth 2.0
    - Fetches your account ID
+   - **Detects your energy plan** (The EV Plan, The Free 3 Plan, etc.)
+   - **Extracts all your rates** from OVO API (peak, shoulder, off-peak, EV, feed-in tariff)
+   - Sets up automatic token refresh
+   - Creates 80+ sensors with accurate pricing
+
+**No manual plan selection or rate entry required!** Everything is fetched directly from OVO's API.
 
 ### Manual Configuration (Advanced)
 
@@ -463,6 +481,12 @@ A: Monthly projections are based on your current daily average. Accuracy improve
 **Q: Can I track multiple OVO accounts?**
 A: Yes! Add the integration multiple times with different credentials.
 
+**Q: How does automatic plan detection work?**
+A: The integration queries OVO's GraphQL API to fetch your product agreements, which contain your plan name and all energy rates. This happens automatically during setup.
+
+**Q: Can I change my plan or rates manually?**
+A: Yes! Go to Settings → Devices & Services → OVO Energy Australia → Configure. You can adjust your plan type and rates in the options flow if needed.
+
 ---
 
 ## 🐛 Troubleshooting
@@ -512,6 +536,35 @@ A: Yes! Add the integration multiple times with different credentials.
 ---
 
 ## 📝 Changelog
+
+### [3.0.0] - 2026-01-21
+
+**Intelligent Auto-Configuration Release** 🎉
+
+**Major Changes:**
+- 🚀 **Automatic Plan Detection** - No more manual plan selection during setup
+- 💰 **Auto-Detected Rates** - All energy rates fetched directly from OVO API
+- 📊 **Plan Information Sensor** - New diagnostic sensor displaying your current plan, rates, and NMI
+- ✨ **Simplified Setup** - Just enter email and password, everything else is automatic
+- 🎯 **Accurate Pricing** - Uses your actual rates from OVO (peak, shoulder, off-peak, EV, feed-in tariff)
+
+**Breaking Changes:**
+- Removed manual plan selection step from config flow
+- Plan type and rates are now auto-detected from GraphQL API
+- Users can still customize rates via integration options if needed
+
+**Technical Improvements:**
+- Added `GetProductAgreements` GraphQL query for plan data
+- Enhanced config flow with `_detect_plan_from_api()` method
+- Automatic rate conversion from cents/kWh to $/kWh
+- Smart plan mapping (EV Plan, Free 3 Plan, Basic Plan, One Plan)
+- Reuse authenticated client to prevent double authentication
+
+**What This Means:**
+- Setup is now 2 steps instead of 3+ steps
+- No guessing your rates or plan type
+- Always uses your current OVO plan information
+- Better accuracy for cost calculations
 
 ### [2.4.0] - 2026-01-20
 

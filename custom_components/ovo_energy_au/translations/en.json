@@ -3,22 +3,10 @@
     "step": {
       "user": {
         "title": "Connect to OVO Energy Australia",
-        "description": "Sign in with your OVO Energy Australia account to track energy usage, costs, and solar generation.\n\n**Privacy & Security:**\n• Credentials stored securely in Home Assistant's encrypted storage\n• Used only to access your energy data via OVO's official API\n• Never shared with third parties or external services\n• Account ID automatically detected after authentication\n\n**Why your password is required:**\n• OVO API tokens expire every 5 minutes for security\n• Automatic re-authentication keeps sensors updating 24/7\n• No manual intervention needed after initial setup\n\n**What you'll get:**\n• Real-time energy usage and cost tracking\n• Solar generation and feed-in credit monitoring\n• Time-of-Use breakdown (Peak/Shoulder/Off-Peak)\n• Free usage period tracking (11:00-14:00)\n• EV charging cost analysis (00:00-06:00)\n• 80+ sensors with daily, monthly, and yearly data",
+        "description": "Sign in with your OVO Energy Australia account to track energy usage, costs, and solar generation.\n\n**✨ New in v3.0.0: Automatic Plan Detection!**\n• Your energy plan and rates are automatically detected from OVO's API\n• No manual plan selection or rate entry required\n• Setup is quick and accurate - just enter your credentials below\n\n**Privacy & Security:**\n• Credentials stored securely in Home Assistant's encrypted storage\n• Used only to access your energy data via OVO's official API\n• Never shared with third parties or external services\n• Account ID and plan information automatically detected\n\n**Why your password is required:**\n• OVO API tokens expire every 5 minutes for security\n• Automatic re-authentication keeps sensors updating 24/7\n• No manual intervention needed after initial setup\n\n**What you'll get:**\n• 80+ sensors with your actual OVO plan rates\n• Real-time energy usage and cost tracking\n• Solar generation and feed-in credit monitoring\n• Time-of-Use breakdown (Peak/Shoulder/Off-Peak)\n• Plan information sensor with your current rates and NMI",
         "data": {
           "username": "Email Address",
           "password": "Password"
-        }
-      },
-      "plan": {
-        "title": "Configure Your Energy Plan",
-        "description": "Select your OVO Energy plan and customize rates. Your plan and rates have been auto-detected from your actual usage data!\n\n**Available Plans:**\n\n**🌞 The Free 3 Plan**\n• Free electricity: 11:00-14:00 daily (0¢/kWh)\n• Standard Time-of-Use rates outside free hours\n• Perfect for utilizing solar during midday\n\n**⚡ The EV Plan**\n• Super off-peak: 00:00-06:00 (~8¢/kWh)\n• Free period: 11:00-14:00 (0¢/kWh)\n• Standard TOU rates other times\n• Ideal for overnight EV charging\n\n**📊 The Basic Plan**\n• Peak: 14:00-21:00 weekdays (~37¢/kWh)\n• Shoulder: Morning/evening periods (~37¢/kWh)\n• Off-Peak: Overnight hours (~37¢/kWh)\n• Standard Time-of-Use pricing\n\n**💡 The One Plan**\n• Single flat rate all day (~28¢/kWh)\n• No time-based pricing\n• Simplified billing\n\n**Note:** Default rates shown are from your OVO account. You can adjust them below and change anytime via Configure.",
-        "data": {
-          "plan_type": "Energy Plan",
-          "peak_rate": "Peak Rate ($/kWh)",
-          "shoulder_rate": "Shoulder Rate ($/kWh)",
-          "off_peak_rate": "Off-Peak Rate ($/kWh)",
-          "ev_rate": "EV Off-Peak Rate ($/kWh)",
-          "flat_rate": "Flat Rate ($/kWh)"
         }
       },
       "reauth_confirm": {
