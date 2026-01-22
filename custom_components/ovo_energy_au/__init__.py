@@ -26,6 +26,29 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
+def _classify_rate_type(charge_type: str, period_from: str) -> str:
+    """Classify charge type into EV_OFFPEAK, FREE_3, or OTHER.
+
+    Args:
+        charge_type: The API charge type (PEAK, OFF_PEAK, SHOULDER, FREE, DEBIT, CREDIT)
+        period_from: ISO timestamp string for the period start
+
+    Returns:
+        One of: "EV_OFFPEAK", "FREE_3", "OTHER"
+    """
+    if charge_type == "FREE":
+        return "FREE_3"
+    elif charge_type == "OFF_PEAK":
+        # Check if it's EV off-peak hours (00:00-06:00)
+        try:
+            hour = datetime.fromisoformat(period_from.replace('Z', '+00:00')).hour
+            if 0 <= hour < 6:
+                return "EV_OFFPEAK"
+        except Exception:
+            pass
+    return "OTHER"
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OVO Energy Australia from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -356,17 +379,30 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
             period_data = data[period]
 
-            # Process solar data - use only the LATEST entry
+            # Initialize rate breakdown for this period
+            rate_breakdown = {
+                "ev_offpeak_consumption": 0,
+                "ev_offpeak_charge": 0,
+                "free_3_consumption": 0,
+                "free_3_charge": 0,
+                "other_consumption": 0,
+                "other_charge": 0,
+            }
+
+            # For monthly period, track daily breakdown for charts
+            daily_breakdown_map = {} if period == "monthly" else None
+
+            # Process solar data - use only the LATEST entry for backward compatibility
             if "solar" in period_data and period_data["solar"]:
                 latest_solar = period_data["solar"][-1]
                 processed[period]["solar_consumption"] = latest_solar.get("consumption", 0)
                 processed[period]["solar_charge"] = latest_solar.get("charge", {}).get("value", 0)
                 processed[period]["solar_latest"] = latest_solar
 
-            # Process export data - use only the LATEST entry
+            # Process export data - process ALL entries for rate breakdown
             if "export" in period_data and period_data["export"]:
+                # Keep latest for backward compatibility
                 latest_export = period_data["export"][-1]
-
                 charge_type = latest_export.get("charge", {}).get("type", "DEBIT")
                 consumption = latest_export.get("consumption", 0)
                 charge_value = latest_export.get("charge", {}).get("value", 0)
@@ -386,6 +422,62 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                     processed[period]["return_to_grid_charge"] = 0
 
                 processed[period]["grid_latest"] = latest_export
+
+                # NEW: Process ALL export entries for rate breakdown
+                for entry in period_data["export"]:
+                    entry_charge_type = entry.get("charge", {}).get("type", "DEBIT")
+                    entry_consumption = entry.get("consumption", 0)
+                    entry_charge = entry.get("charge", {}).get("value", 0)
+                    period_from = entry.get("periodFrom", "")
+
+                    # Skip CREDIT entries (solar export)
+                    if entry_charge_type == "CREDIT":
+                        continue
+
+                    # Classify rate type
+                    rate_type = _classify_rate_type(entry_charge_type, period_from)
+
+                    # Aggregate by rate type
+                    if rate_type == "EV_OFFPEAK":
+                        rate_breakdown["ev_offpeak_consumption"] += entry_consumption
+                        rate_breakdown["ev_offpeak_charge"] += entry_charge
+                    elif rate_type == "FREE_3":
+                        rate_breakdown["free_3_consumption"] += entry_consumption
+                        rate_breakdown["free_3_charge"] += entry_charge
+                    else:  # OTHER
+                        rate_breakdown["other_consumption"] += entry_consumption
+                        rate_breakdown["other_charge"] += entry_charge
+
+                    # For monthly, track daily breakdown
+                    if period == "monthly" and period_from:
+                        try:
+                            entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+                            date_key = entry_date.strftime("%Y-%m-%d")
+
+                            if date_key not in daily_breakdown_map:
+                                daily_breakdown_map[date_key] = {
+                                    "date": date_key,
+                                    "day": entry_date.day,
+                                    "ev_offpeak": {"consumption": 0, "charge": 0},
+                                    "free_3": {"consumption": 0, "charge": 0},
+                                    "other": {"consumption": 0, "charge": 0},
+                                }
+
+                            rate_key = rate_type.lower()
+                            daily_breakdown_map[date_key][rate_key]["consumption"] += entry_consumption
+                            daily_breakdown_map[date_key][rate_key]["charge"] += entry_charge
+                        except Exception as err:
+                            _LOGGER.debug("Error parsing entry date for rate breakdown: %s", err)
+
+            # Add rate breakdown to processed data
+            processed[period]["rate_breakdown"] = rate_breakdown
+
+            # Add daily breakdown array for monthly period
+            if period == "monthly" and daily_breakdown_map:
+                processed[period]["rate_daily_breakdown"] = sorted(
+                    daily_breakdown_map.values(),
+                    key=lambda x: x["date"]
+                )
 
         # Process daily arrays for historical data
         if "daily" in data and data["daily"]:
