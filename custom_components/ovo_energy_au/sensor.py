@@ -242,7 +242,6 @@ async def async_setup_entry(
             "mdi:ev-station",
             lambda data: data.get("monthly", {}).get("rate_breakdown", {}).get("ev_offpeak_consumption", 0),
             "This Month",
-            lambda data: {"rate_daily_breakdown": data.get("monthly", {}).get("rate_daily_breakdown", [])},
         ),
         OVOEnergyAUSensor(
             coordinator,
@@ -254,7 +253,6 @@ async def async_setup_entry(
             "mdi:currency-usd",
             lambda data: data.get("monthly", {}).get("rate_breakdown", {}).get("ev_offpeak_charge", 0),
             "This Month",
-            lambda data: {"rate_daily_breakdown": data.get("monthly", {}).get("rate_daily_breakdown", [])},
         ),
         OVOEnergyAUSensor(
             coordinator,
@@ -266,7 +264,6 @@ async def async_setup_entry(
             "mdi:solar-power",
             lambda data: data.get("monthly", {}).get("rate_breakdown", {}).get("free_3_consumption", 0),
             "This Month",
-            lambda data: {"rate_daily_breakdown": data.get("monthly", {}).get("rate_daily_breakdown", [])},
         ),
         OVOEnergyAUSensor(
             coordinator,
@@ -278,7 +275,6 @@ async def async_setup_entry(
             "mdi:currency-usd",
             lambda data: data.get("monthly", {}).get("rate_breakdown", {}).get("free_3_charge", 0),
             "This Month",
-            lambda data: {"rate_daily_breakdown": data.get("monthly", {}).get("rate_daily_breakdown", [])},
         ),
         OVOEnergyAUSensor(
             coordinator,
@@ -290,7 +286,6 @@ async def async_setup_entry(
             "mdi:lightning-bolt",
             lambda data: data.get("monthly", {}).get("rate_breakdown", {}).get("other_consumption", 0),
             "This Month",
-            lambda data: {"rate_daily_breakdown": data.get("monthly", {}).get("rate_daily_breakdown", [])},
         ),
         OVOEnergyAUSensor(
             coordinator,
@@ -302,7 +297,6 @@ async def async_setup_entry(
             "mdi:currency-usd",
             lambda data: data.get("monthly", {}).get("rate_breakdown", {}).get("other_charge", 0),
             "This Month",
-            lambda data: {"rate_daily_breakdown": data.get("monthly", {}).get("rate_daily_breakdown", [])},
         ),
         # This Year
         OVOEnergyAUSensor(
@@ -1240,6 +1234,13 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
                     breakdown = period_data["return_daily_breakdown"]
                     attributes["daily_breakdown"] = breakdown
                     attributes["days_in_month"] = len(breakdown)
+
+                # Rate breakdown daily attributes for monthly rate sensors
+                elif period == "monthly" and any(rate_type in self._sensor_key for rate_type in ["ev_offpeak", "free_3", "other"]):
+                    if "rate_daily_breakdown" in period_data:
+                        breakdown = period_data["rate_daily_breakdown"]
+                        attributes["rate_daily_breakdown"] = breakdown
+                        attributes["days_in_month"] = len(breakdown)
 
         # ====================
         # ADVANCED ANALYTICS ATTRIBUTES
