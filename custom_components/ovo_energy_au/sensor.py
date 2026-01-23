@@ -104,6 +104,10 @@ def _calculate_rate_breakdown_with_counterfactuals(
     period_data = data.get(period, {})
     rate_breakdown = period_data.get("rate_breakdown", {})
 
+    # Extract solar data
+    solar_kwh = period_data.get("solar_consumption", 0) or 0
+    solar_credit = abs(period_data.get("solar_charge", 0) or 0)
+
     # Extract rate data
     ev_offpeak_kwh = rate_breakdown.get("EV_OFFPEAK", {}).get("consumption", 0)
     ev_offpeak_cost = rate_breakdown.get("EV_OFFPEAK", {}).get("charge", 0)
@@ -156,6 +160,9 @@ def _calculate_rate_breakdown_with_counterfactuals(
         "other_kwh": round(other_kwh, 3),
         "other_cost": round(other_cost, 2),
         "other_unit_rate": round(other_unit_rate, 4) if other_unit_rate > 0 else 0,
+
+        "solar_kwh": round(solar_kwh, 3),
+        "solar_credit": round(solar_credit, 2),
 
         "total_kwh": round(total_kwh, 3),
         "total_cost": round(total_cost, 2),
@@ -838,16 +845,20 @@ async def async_setup_entry(
                 )
             )
 
-            # Cost sensor (AUD)
+            # Cost/Savings sensor (AUD)
+            # For FREE_3, show savings instead of cost
+            sensor_name = f"{rate_type.replace('_', ' ').title()} Savings" if rate_type == "FREE_3" else f"{rate_type.replace('_', ' ').title()} Cost"
+            sensor_icon = "mdi:piggy-bank" if rate_type == "FREE_3" else "mdi:currency-usd"
+
             sensors.append(
                 OVOEnergyAUDayRateSensor(
                     coordinator,
                     f"day_{day_num}_grid_rate_{rate_type.lower()}_charge",
-                    f"{rate_type.replace('_', ' ').title()} Cost",
+                    sensor_name,
                     "AUD",
                     SensorDeviceClass.MONETARY,
                     SensorStateClass.TOTAL,
-                    "mdi:currency-usd",
+                    sensor_icon,
                     idx,
                     rate_type,
                     "grid_rates_aud",
@@ -1544,13 +1555,48 @@ class OVOEnergyAUDayRateSensor(CoordinatorEntity, SensorEntity):
             return None
 
         last_3_days = self.coordinator.data.get("last_3_days", [])
-        if self._day_index < len(last_3_days):
-            day_data = last_3_days[self._day_index]
-            rates_dict = day_data.get(self._metric_key, {})
-            # Return 0 if rate type not present (stable entity count)
-            return round(float(rates_dict.get(self._rate_type, 0)), 2)
+        if self._day_index >= len(last_3_days):
+            return 0
 
-        return 0
+        day_data = last_3_days[self._day_index]
+
+        # Special handling for FREE_3 savings calculation
+        if self._rate_type == "FREE_3" and self._metric_key == "grid_rates_aud":
+            return self._calculate_free3_savings(day_data)
+
+        # Standard behavior for other rates
+        rates_dict = day_data.get(self._metric_key, {})
+        # Return 0 if rate type not present (stable entity count)
+        return round(float(rates_dict.get(self._rate_type, 0)), 2)
+
+    def _calculate_free3_savings(self, day_data: dict) -> float:
+        """Calculate savings for FREE_3 consumption vs OTHER rate.
+
+        Savings = FREE_3 kWh × OTHER rate per kWh
+        Falls back to shoulder_rate if OTHER data unavailable.
+        """
+        grid_rates_kwh = day_data.get("grid_rates_kwh", {})
+        grid_rates_aud = day_data.get("grid_rates_aud", {})
+
+        # Get FREE_3 consumption
+        free3_kwh = grid_rates_kwh.get("FREE_3", 0)
+        if free3_kwh <= 0:
+            return 0
+
+        # Calculate OTHER rate per kWh
+        other_kwh = grid_rates_kwh.get("OTHER", 0)
+        other_aud = grid_rates_aud.get("OTHER", 0)
+
+        if other_kwh > 0 and other_aud > 0:
+            # Use actual OTHER rate from the day
+            other_rate = other_aud / other_kwh
+        else:
+            # Fallback to configured shoulder rate
+            other_rate = self.coordinator.plan_config.get("shoulder_rate", 0.25)
+
+        # Calculate and return savings
+        savings = free3_kwh * other_rate
+        return round(savings, 2)
 
     @property
     def native_unit_of_measurement(self) -> str:

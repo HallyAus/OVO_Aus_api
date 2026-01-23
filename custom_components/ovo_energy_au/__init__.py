@@ -438,6 +438,8 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
         # All Time Aggregation (from all monthly data since plan began)
         all_time_rates = {}
+        all_time_solar_consumption = 0
+        all_time_solar_charge = 0
         months_included = 0
         earliest_date = None
         latest_date = None
@@ -482,9 +484,20 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                     all_time_rates[rate_type]["consumption"] += float(consumption)
                     all_time_rates[rate_type]["charge"] += abs(float(charge_value))
 
+            # Aggregate solar data from all monthly entries
+            all_monthly_solar = data["monthly"].get("solar", [])
+            for solar_entry in all_monthly_solar:
+                if isinstance(solar_entry, dict):
+                    all_time_solar_consumption += solar_entry.get("consumption", 0)
+                    charge_obj = solar_entry.get("charge", {})
+                    if isinstance(charge_obj, dict):
+                        all_time_solar_charge += abs(charge_obj.get("value", 0))
+
             # Store all-time data
             processed["all_time"] = {
                 "rate_breakdown": all_time_rates,
+                "solar_consumption": round(all_time_solar_consumption, 3),
+                "solar_charge": round(all_time_solar_charge, 2),
                 "periodFrom": earliest_date,
                 "periodTo": latest_date,
                 "months_included": months_included
@@ -494,6 +507,8 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         else:
             processed["all_time"] = {
                 "rate_breakdown": {},
+                "solar_consumption": 0,
+                "solar_charge": 0,
                 "periodFrom": None,
                 "periodTo": None,
                 "months_included": 0
