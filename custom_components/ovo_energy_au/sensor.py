@@ -20,6 +20,19 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+# Rate types allowlist (stable entity count)
+RATE_TYPES = ["PEAK", "SHOULDER", "OFFPEAK", "EV_OFFPEAK", "OTHER", "FREE_3"]
+
+# Icon mapping for rate types
+RATE_TYPE_ICONS = {
+    "PEAK": "mdi:arrow-up-bold",
+    "SHOULDER": "mdi:minus",
+    "OFFPEAK": "mdi:arrow-down-bold",
+    "EV_OFFPEAK": "mdi:ev-station",
+    "FREE_3": "mdi:gift",
+    "OTHER": "mdi:chart-bar",
+}
+
 
 def _get_rate_value(data: dict, period: str, rate_type: str, metric: str) -> float | None:
     """Extract rate breakdown value safely.
@@ -921,6 +934,40 @@ async def async_setup_entry(
             ),
         ])
 
+        # Add rate breakdown sensors for this day
+        for rate_type in RATE_TYPES:
+            # Consumption sensor (kWh)
+            sensors.append(
+                OVOEnergyAUDayRateSensor(
+                    coordinator,
+                    f"day_{day_num}_grid_rate_{rate_type.lower()}_consumption",
+                    f"{rate_type.replace('_', ' ').title()} Consumption",
+                    UnitOfEnergy.KILO_WATT_HOUR,
+                    SensorDeviceClass.ENERGY,
+                    SensorStateClass.TOTAL,
+                    RATE_TYPE_ICONS.get(rate_type, "mdi:flash"),
+                    idx,
+                    rate_type,
+                    "grid_rates_kwh",
+                )
+            )
+
+            # Cost sensor (AUD)
+            sensors.append(
+                OVOEnergyAUDayRateSensor(
+                    coordinator,
+                    f"day_{day_num}_grid_rate_{rate_type.lower()}_charge",
+                    f"{rate_type.replace('_', ' ').title()} Cost",
+                    "AUD",
+                    SensorDeviceClass.MONETARY,
+                    SensorStateClass.TOTAL,
+                    "mdi:currency-usd",
+                    idx,
+                    rate_type,
+                    "grid_rates_aud",
+                )
+            )
+
     # ====================
     # RATE BREAKDOWN SENSORS (API-based from rates[] array)
     # ====================
@@ -1460,6 +1507,131 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
         return {
             "identifiers": {(DOMAIN, f"{self.coordinator.account_id}_{self._device_category}")},
             "name": f"OVO Energy AU - {self._device_category}",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+            "via_device": (DOMAIN, self.coordinator.account_id),
+        }
+
+
+class OVOEnergyAUDayRateSensor(CoordinatorEntity, SensorEntity):
+    """Sensor for a specific rate type on a specific day."""
+
+    def __init__(
+        self,
+        coordinator,
+        sensor_key: str,
+        sensor_name: str,
+        unit: str,
+        device_class: SensorDeviceClass | None,
+        state_class: SensorStateClass | None,
+        icon: str,
+        day_index: int,
+        rate_type: str,
+        metric_key: str,  # "grid_rates_kwh" or "grid_rates_aud"
+    ) -> None:
+        super().__init__(coordinator)
+        self._sensor_key = sensor_key
+        self._sensor_name = sensor_name
+        self._unit = unit
+        self._device_class = device_class
+        self._state_class = state_class
+        self._icon = icon
+        self._day_index = day_index
+        self._rate_type = rate_type
+        self._metric_key = metric_key
+
+        self._attr_unique_id = f"{coordinator.account_id}_{sensor_key}"
+        self._attr_has_entity_name = True
+
+    @property
+    def name(self) -> str:
+        """Return name with day and date."""
+        if not self.coordinator.data:
+            return self._sensor_name
+
+        last_3_days = self.coordinator.data.get("last_3_days", [])
+        if self._day_index < len(last_3_days):
+            day_data = last_3_days[self._day_index]
+            day_name = day_data.get("day_name", "")
+            date = day_data.get("date", "")
+
+            if date:
+                try:
+                    from datetime import datetime
+                    dt = datetime.strptime(date, "%Y-%m-%d")
+                    date_formatted = dt.strftime("%d %b")
+                    if day_name:
+                        return f"{day_name} {date_formatted} - {self._sensor_name}"
+                except:
+                    pass
+
+        return self._sensor_name
+
+    @property
+    def native_value(self) -> float | None:
+        """Return consumption or charge for this rate type."""
+        if not self.coordinator.data:
+            return None
+
+        last_3_days = self.coordinator.data.get("last_3_days", [])
+        if self._day_index < len(last_3_days):
+            day_data = last_3_days[self._day_index]
+            rates_dict = day_data.get(self._metric_key, {})
+            # Return 0 if rate type not present (stable entity count)
+            return round(float(rates_dict.get(self._rate_type, 0)), 2)
+
+        return 0
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return self._unit
+
+    @property
+    def device_class(self) -> SensorDeviceClass | None:
+        return self._device_class
+
+    @property
+    def state_class(self) -> SensorStateClass | None:
+        return self._state_class
+
+    @property
+    def icon(self) -> str:
+        return self._icon
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return attributes including periodFrom, periodTo, rate_type."""
+        attributes = {}
+
+        if not self.coordinator.data:
+            return attributes
+
+        last_3_days = self.coordinator.data.get("last_3_days", [])
+        if self._day_index < len(last_3_days):
+            day_data = last_3_days[self._day_index]
+
+            attributes["periodFrom"] = day_data.get("periodFrom")
+            attributes["periodTo"] = day_data.get("periodTo")
+            attributes["rate_type"] = self._rate_type
+            attributes["source"] = "ovo_graphql"
+
+            # Calculate percentOfTotal
+            rates_dict = day_data.get(self._metric_key, {})
+            if rates_dict:
+                total = sum(rates_dict.values())
+                if total > 0 and self._rate_type in rates_dict:
+                    attributes["percentOfTotal"] = round(
+                        (rates_dict[self._rate_type] / total) * 100, 2
+                    )
+
+        return attributes
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, f"{self.coordinator.account_id}_3 Day Snapshot")},
+            "name": "OVO Energy AU - 3 Day Snapshot",
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
             "via_device": (DOMAIN, self.coordinator.account_id),

@@ -491,6 +491,10 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                                 "day": entry_date.day,
                                 "month": entry_date.month,
                                 "year": entry_date.year,
+                                "periodFrom": entry.get("periodFrom"),
+                                "periodTo": entry.get("periodTo"),
+                                "grid_rates_kwh": {},
+                                "grid_rates_aud": {},
                             }
 
                         charge_type = entry.get("charge", {}).get("type", "DEBIT")
@@ -507,6 +511,27 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                             daily_map[date_key]["grid_charge"] = charge_value
                             daily_map[date_key]["return_to_grid"] = 0
                             daily_map[date_key]["return_to_grid_charge"] = 0
+
+                        # Extract rates breakdown
+                        rates_list = entry.get("rates", [])
+                        if rates_list and isinstance(rates_list, list):
+                            for rate_entry in rates_list:
+                                if not isinstance(rate_entry, dict):
+                                    continue
+
+                                rate_type = rate_entry.get("type")
+                                if not rate_type:
+                                    continue
+
+                                consumption = rate_entry.get("consumption", 0)
+                                charge_obj = rate_entry.get("charge", {})
+                                charge_value = abs(charge_obj.get("value", 0)) if isinstance(charge_obj, dict) else 0
+
+                                # Accumulate by rate type
+                                daily_map[date_key]["grid_rates_kwh"][rate_type] = \
+                                    daily_map[date_key]["grid_rates_kwh"].get(rate_type, 0) + consumption
+                                daily_map[date_key]["grid_rates_aud"][rate_type] = \
+                                    daily_map[date_key]["grid_rates_aud"].get(rate_type, 0) + charge_value
                     except Exception as err:
                         _LOGGER.debug("Error parsing export entry: %s", err)
 
