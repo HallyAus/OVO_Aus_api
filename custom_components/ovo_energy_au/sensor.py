@@ -21,6 +21,57 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
+def _get_rate_value(data: dict, period: str, rate_type: str, metric: str) -> float | None:
+    """Extract rate breakdown value safely.
+
+    Args:
+        data: Coordinator data dict
+        period: "daily", "monthly", or "yearly"
+        rate_type: "EV_OFFPEAK", "FREE_3", or "OTHER"
+        metric: "consumption", "charge", or "percent"
+
+    Returns:
+        Value if available, None otherwise
+    """
+    if not data:
+        return None
+
+    period_data = data.get(period, {})
+    rate_breakdown = period_data.get("rate_breakdown", {})
+    rate_data = rate_breakdown.get(rate_type, {})
+
+    if not rate_data.get("available"):
+        return None
+
+    return rate_data.get(metric)
+
+
+def _calculate_free_savings(data: dict, period: str, coordinator) -> float | None:
+    """Calculate savings from free period.
+
+    Estimates what would have been charged at shoulder rate.
+    """
+    if not data:
+        return None
+
+    # Get FREE_3 consumption
+    free_consumption = _get_rate_value(data, period, "FREE_3", "consumption")
+    if not free_consumption:
+        return None
+
+    # Estimate rate from OTHER consumption (if available)
+    other_charge = _get_rate_value(data, period, "OTHER", "charge")
+    other_consumption = _get_rate_value(data, period, "OTHER", "consumption")
+
+    if other_charge and other_consumption and other_consumption > 0:
+        estimated_rate = other_charge / other_consumption
+        return round(free_consumption * estimated_rate, 2)
+
+    # Fallback to configured shoulder rate
+    shoulder_rate = coordinator.plan_config.get("shoulder_rate", 0.25)
+    return round(free_consumption * shoulder_rate, 2)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -869,6 +920,220 @@ async def async_setup_entry(
                 "grid_charge",
             ),
         ])
+
+    # ====================
+    # RATE BREAKDOWN SENSORS (API-based from rates[] array)
+    # ====================
+
+    # Daily Rate Breakdown (Yesterday)
+    sensors.extend([
+        OVOEnergyAUSensor(
+            coordinator,
+            "daily_ev_offpeak_consumption",
+            "EV Off-Peak Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:ev-station",
+            lambda data: _get_rate_value(data, "daily", "EV_OFFPEAK", "consumption"),
+            "Rate Breakdown - Yesterday",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "daily_ev_offpeak_cost",
+            "EV Off-Peak Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: _get_rate_value(data, "daily", "EV_OFFPEAK", "charge"),
+            "Rate Breakdown - Yesterday",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "daily_free_3_consumption",
+            "Free Period Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:gift",
+            lambda data: _get_rate_value(data, "daily", "FREE_3", "consumption"),
+            "Rate Breakdown - Yesterday",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "daily_free_3_savings",
+            "Free Period Savings",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:piggy-bank",
+            lambda data: _calculate_free_savings(data, "daily", coordinator),
+            "Rate Breakdown - Yesterday",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "daily_other_consumption",
+            "Other Rates Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:chart-bar",
+            lambda data: _get_rate_value(data, "daily", "OTHER", "consumption"),
+            "Rate Breakdown - Yesterday",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "daily_other_cost",
+            "Other Rates Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: _get_rate_value(data, "daily", "OTHER", "charge"),
+            "Rate Breakdown - Yesterday",
+        ),
+    ])
+
+    # Monthly Rate Breakdown (This Month)
+    sensors.extend([
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_ev_offpeak_consumption",
+            "EV Off-Peak Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:ev-station",
+            lambda data: _get_rate_value(data, "monthly", "EV_OFFPEAK", "consumption"),
+            "Rate Breakdown - This Month",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_ev_offpeak_cost",
+            "EV Off-Peak Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: _get_rate_value(data, "monthly", "EV_OFFPEAK", "charge"),
+            "Rate Breakdown - This Month",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_free_3_consumption",
+            "Free Period Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:gift",
+            lambda data: _get_rate_value(data, "monthly", "FREE_3", "consumption"),
+            "Rate Breakdown - This Month",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_free_3_savings",
+            "Free Period Savings",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:piggy-bank",
+            lambda data: _calculate_free_savings(data, "monthly", coordinator),
+            "Rate Breakdown - This Month",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_other_consumption",
+            "Other Rates Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:chart-bar",
+            lambda data: _get_rate_value(data, "monthly", "OTHER", "consumption"),
+            "Rate Breakdown - This Month",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "monthly_other_cost",
+            "Other Rates Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: _get_rate_value(data, "monthly", "OTHER", "charge"),
+            "Rate Breakdown - This Month",
+        ),
+    ])
+
+    # Yearly Rate Breakdown (This Year)
+    sensors.extend([
+        OVOEnergyAUSensor(
+            coordinator,
+            "yearly_ev_offpeak_consumption",
+            "EV Off-Peak Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:ev-station",
+            lambda data: _get_rate_value(data, "yearly", "EV_OFFPEAK", "consumption"),
+            "Rate Breakdown - This Year",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "yearly_ev_offpeak_cost",
+            "EV Off-Peak Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: _get_rate_value(data, "yearly", "EV_OFFPEAK", "charge"),
+            "Rate Breakdown - This Year",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "yearly_free_3_consumption",
+            "Free Period Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:gift",
+            lambda data: _get_rate_value(data, "yearly", "FREE_3", "consumption"),
+            "Rate Breakdown - This Year",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "yearly_free_3_savings",
+            "Free Period Savings",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:piggy-bank",
+            lambda data: _calculate_free_savings(data, "yearly", coordinator),
+            "Rate Breakdown - This Year",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "yearly_other_consumption",
+            "Other Rates Consumption",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:chart-bar",
+            lambda data: _get_rate_value(data, "yearly", "OTHER", "consumption"),
+            "Rate Breakdown - This Year",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "yearly_other_cost",
+            "Other Rates Cost",
+            "AUD",
+            SensorDeviceClass.MONETARY,
+            SensorStateClass.TOTAL,
+            "mdi:currency-usd",
+            lambda data: _get_rate_value(data, "yearly", "OTHER", "charge"),
+            "Rate Breakdown - This Year",
+        ),
+    ])
 
     # Add diagnostic sensor for plan information
     sensors.append(

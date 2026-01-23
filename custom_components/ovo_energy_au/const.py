@@ -193,17 +193,13 @@ query GetIntervalData($input: GetIntervalDataInput!) {
   GetIntervalData(input: $input) {
     daily {
       ...UsageV2DataParts
-      __typename
     }
     monthly {
       ...UsageV2DataParts
-      __typename
     }
     yearly {
       ...UsageV2DataParts
-      __typename
     }
-    __typename
   }
 }
 
@@ -216,9 +212,7 @@ fragment UsageV2DataParts on UsageV2Data {
     charge {
       value
       type
-      __typename
     }
-    __typename
   }
   export {
     periodFrom
@@ -228,11 +222,17 @@ fragment UsageV2DataParts on UsageV2Data {
     charge {
       value
       type
-      __typename
     }
-    __typename
+    rates {
+      type
+      charge {
+        value
+        type
+      }
+      consumption
+      percentOfTotal
+    }
   }
-  __typename
 }
 """
 
@@ -240,7 +240,6 @@ GET_HOURLY_DATA_QUERY = """
 query GetHourlyData($input: GetHourlyDataInput!) {
   GetHourlyData(input: $input) {
     ...UsageV2DataParts
-    __typename
   }
 }
 
@@ -253,9 +252,7 @@ fragment UsageV2DataParts on UsageV2Data {
     charge {
       value
       type
-      __typename
     }
-    __typename
   }
   export {
     periodFrom
@@ -265,11 +262,17 @@ fragment UsageV2DataParts on UsageV2Data {
     charge {
       value
       type
-      __typename
     }
-    __typename
+    rates {
+      type
+      charge {
+        value
+        type
+      }
+      consumption
+      percentOfTotal
+    }
   }
-  __typename
 }
 """
 
