@@ -438,7 +438,7 @@ class OVOEnergyAUApiClient:
 
         headers = {
             "accept": "*/*",
-            "authorization": f"Bearer {self._access_token}",
+            "authorization": self._access_token,
             "content-type": "application/json",
             "myovo-id-token": self._id_token,
             "origin": API_BASE_URL,
@@ -533,7 +533,7 @@ class OVOEnergyAUApiClient:
 
         headers = {
             "accept": "*/*",
-            "authorization": f"Bearer {self._access_token}",
+            "authorization": self._access_token,
             "content-type": "application/json",
             "myovo-id-token": self._id_token,
             "origin": API_BASE_URL,
@@ -616,7 +616,7 @@ class OVOEnergyAUApiClient:
 
         headers = {
             "accept": "*/*",
-            "authorization": f"Bearer {self._access_token}",
+            "authorization": self._access_token,
             "content-type": "application/json",
             "myovo-id-token": self._id_token,
             "origin": API_BASE_URL,
@@ -701,7 +701,7 @@ class OVOEnergyAUApiClient:
 
         headers = {
             "accept": "*/*",
-            "authorization": f"Bearer {self._access_token}",
+            "authorization": self._access_token,
             "content-type": "application/json",
             "myovo-id-token": self._id_token,
             "origin": API_BASE_URL,

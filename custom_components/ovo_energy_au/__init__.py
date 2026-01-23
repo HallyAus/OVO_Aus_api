@@ -387,6 +387,55 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
                 processed[period]["grid_latest"] = latest_export
 
+                # Extract rate breakdown from API (if available)
+                rates_breakdown = {}
+                try:
+                    if "rates" in latest_export and isinstance(latest_export.get("rates"), list):
+                        for rate_entry in latest_export["rates"]:
+                            if not isinstance(rate_entry, dict):
+                                _LOGGER.warning("%s: Malformed rate entry (not dict): %s", period, rate_entry)
+                                continue
+
+                            rate_type = rate_entry.get("type")
+                            if not rate_type:
+                                _LOGGER.warning("%s: Rate entry missing type: %s", period, rate_entry)
+                                continue
+
+                            consumption = rate_entry.get("consumption", 0)
+                            charge_obj = rate_entry.get("charge", {})
+                            charge_value = charge_obj.get("value", 0) if isinstance(charge_obj, dict) else 0
+                            percent = rate_entry.get("percentOfTotal", 0)
+
+                            rates_breakdown[rate_type] = {
+                                "consumption": float(consumption),
+                                "charge": abs(float(charge_value)),
+                                "percent": round(float(percent) * 100, 2),
+                                "available": True
+                            }
+
+                        # Validation: Check if rates sum to total
+                        total_rate_consumption = sum(r["consumption"] for r in rates_breakdown.values())
+                        total_consumption = latest_export.get("consumption", 0)
+
+                        if abs(total_rate_consumption - total_consumption) > 0.1:
+                            _LOGGER.warning(
+                                "%s: Rate breakdown sum (%.2f kWh) != total (%.2f kWh). Diff: %.2f kWh",
+                                period, total_rate_consumption, total_consumption,
+                                abs(total_rate_consumption - total_consumption)
+                            )
+
+                        _LOGGER.debug("%s: Processed %d rate types: %s",
+                                     period, len(rates_breakdown), list(rates_breakdown.keys()))
+                    else:
+                        _LOGGER.debug("%s: No rate breakdown available", period)
+
+                except Exception as err:
+                    _LOGGER.error("Error processing rate breakdown for %s: %s", period, err)
+                    rates_breakdown = {}
+
+                # Store rate breakdown
+                processed[period]["rate_breakdown"] = rates_breakdown
+
         # Process daily arrays for historical data
         if "daily" in data and data["daily"]:
             daily_data = data["daily"]
@@ -806,6 +855,60 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             len(processed["grid_entries"]),
             len(processed["return_to_grid_entries"])
         )
+
+        # Aggregate hourly data by rate type
+        hourly_rates_aggregation = {}
+        try:
+            # Process all export entries (grid consumption, not solar export/CREDIT)
+            for entry in processed["grid_entries"]:
+                rates_list = entry.get("rates", [])
+
+                if not rates_list or not isinstance(rates_list, list):
+                    # No rate breakdown for this hour, skip
+                    continue
+
+                for rate_entry in rates_list:
+                    if not isinstance(rate_entry, dict):
+                        continue
+
+                    rate_type = rate_entry.get("type")
+                    if not rate_type:
+                        continue
+
+                    # Initialize aggregation for this rate type
+                    if rate_type not in hourly_rates_aggregation:
+                        hourly_rates_aggregation[rate_type] = {
+                            "consumption": 0,
+                            "charge": 0,
+                            "hours": 0
+                        }
+
+                    # Aggregate
+                    consumption = rate_entry.get("consumption", 0)
+                    charge_obj = rate_entry.get("charge", {})
+                    charge_value = abs(charge_obj.get("value", 0)) if isinstance(charge_obj, dict) else 0
+
+                    hourly_rates_aggregation[rate_type]["consumption"] += consumption
+                    hourly_rates_aggregation[rate_type]["charge"] += charge_value
+                    hourly_rates_aggregation[rate_type]["hours"] += 1
+
+            # Round values
+            for rate_type in hourly_rates_aggregation:
+                hourly_rates_aggregation[rate_type]["consumption"] = round(
+                    hourly_rates_aggregation[rate_type]["consumption"], 2
+                )
+                hourly_rates_aggregation[rate_type]["charge"] = round(
+                    hourly_rates_aggregation[rate_type]["charge"], 2
+                )
+
+            _LOGGER.debug("Hourly rate aggregation: %s", hourly_rates_aggregation)
+
+        except Exception as err:
+            _LOGGER.error("Error aggregating hourly rates: %s", err)
+            hourly_rates_aggregation = {}
+
+        # Store hourly rate aggregation
+        processed["hourly_rates_breakdown"] = hourly_rates_aggregation
 
         # ====================
         # HOURLY ANALYTICS
