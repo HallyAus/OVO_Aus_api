@@ -1034,6 +1034,13 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
                     attributes["daily_breakdown"] = breakdown
                     attributes["days_in_month"] = len(breakdown)
 
+                # Rate breakdown daily attributes for monthly rate sensors
+                elif period == "monthly" and any(rate_type in self._sensor_key for rate_type in ["ev_offpeak", "free_3", "other"]):
+                    if "rate_daily_breakdown" in period_data:
+                        breakdown = period_data["rate_daily_breakdown"]
+                        attributes["rate_daily_breakdown"] = breakdown
+                        attributes["days_in_month"] = len(breakdown)
+
         # ====================
         # ADVANCED ANALYTICS ATTRIBUTES
         # ====================
