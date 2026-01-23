@@ -6,7 +6,7 @@
 
 <br/><br/>
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-green.svg)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
@@ -52,6 +52,12 @@ Not an OVO customer yet? Sign up using this referral link and we'll both get cre
 ---
 
 ## ✨ Features
+
+### 🚀 **NEW in v3.1.0** - Enhanced Solar & Rate Breakdown
+- **Solar Feed-In Tracking** - Solar kWh and credit now included in all Rate Breakdown sensors
+- **FREE_3 Savings Display** - 3 Day Snapshot now shows meaningful savings instead of $0 cost
+- **Complete Energy Picture** - All time periods (Yesterday, This Month, This Year, All Time) include solar data
+- **Smart Savings Calculation** - FREE_3 savings calculated using actual OTHER rate with fallback
 
 ### 🚀 **NEW in v3.0.0** - Intelligent Auto-Configuration
 - **Zero Manual Setup** - Plan and rates automatically detected from OVO API
@@ -551,6 +557,37 @@ A: Yes! Go to Settings → Devices & Services → OVO Energy Australia → Confi
 ---
 
 ## 📝 Changelog
+
+### [3.1.0] - 2026-01-23
+
+**Enhanced Solar & Rate Breakdown Release** ☀️
+
+**Major Changes:**
+- ☀️ **Solar Feed-In Data in Rate Breakdown** - All Rate Breakdown sensors now include solar_kwh and solar_credit attributes
+- 💰 **FREE_3 Savings Display** - 3 Day Snapshot FREE_3 sensors now show meaningful savings instead of $0 cost
+- 📊 **All-Time Solar Aggregation** - Proper solar data aggregation across all monthly entries for All Time period
+- 🧮 **Smart Savings Calculation** - FREE_3 savings calculated as: FREE_3 kWh × OTHER rate (with fallback to shoulder_rate)
+
+**What's New:**
+- Rate Breakdown sensors (Yesterday, This Month, This Year, All Time) now expose:
+  - `solar_kwh` - Solar consumption in kWh
+  - `solar_credit` - Solar feed-in credit in AUD
+- 3 Day Snapshot FREE_3 sensors changed from "Cost" to "Savings":
+  - Display name: "Free 3 Savings" (was "Free 3 Cost")
+  - Icon: mdi:piggy-bank (was mdi:currency-usd)
+  - Value: Actual savings calculation instead of $0
+- Entity IDs remain unchanged for backward compatibility
+
+**Technical Details:**
+- Added solar aggregation logic in `_process_interval_data()` for all_time period
+- Enhanced `_calculate_rate_breakdown_with_counterfactuals()` to include solar data
+- New `_calculate_free3_savings()` method in `OVOEnergyAUDayRateSensor` class
+- Savings calculation: FREE_3 consumption × (OTHER cost / OTHER consumption) or shoulder_rate fallback
+
+**Benefits:**
+- Complete solar feed-in tracking across all time periods
+- Better understanding of FREE_3 plan benefits with actual savings values
+- Comprehensive energy cost analysis including solar credits
 
 ### [3.0.0] - 2026-01-21
 
