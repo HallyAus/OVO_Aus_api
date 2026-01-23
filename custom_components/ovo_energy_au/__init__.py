@@ -436,6 +436,69 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 # Store rate breakdown
                 processed[period]["rate_breakdown"] = rates_breakdown
 
+        # All Time Aggregation (from all monthly data since plan began)
+        all_time_rates = {}
+        months_included = 0
+        earliest_date = None
+        latest_date = None
+
+        if "monthly" in data and data["monthly"]:
+            all_monthly_entries = data["monthly"].get("export", [])
+
+            for entry in all_monthly_entries:
+                months_included += 1
+
+                # Track date range
+                period_from = entry.get("periodFrom")
+                period_to = entry.get("periodTo")
+                if period_from:
+                    if not earliest_date or period_from < earliest_date:
+                        earliest_date = period_from
+                if period_to:
+                    if not latest_date or period_to > latest_date:
+                        latest_date = period_to
+
+                # Aggregate rates
+                rates = entry.get("rates", [])
+                for rate_entry in rates:
+                    if not isinstance(rate_entry, dict):
+                        continue
+
+                    rate_type = rate_entry.get("type")
+                    if not rate_type:
+                        continue
+
+                    consumption = rate_entry.get("consumption", 0)
+                    charge_obj = rate_entry.get("charge", {})
+                    charge_value = charge_obj.get("value", 0) if isinstance(charge_obj, dict) else 0
+
+                    if rate_type not in all_time_rates:
+                        all_time_rates[rate_type] = {
+                            "consumption": 0,
+                            "charge": 0,
+                            "available": True
+                        }
+
+                    all_time_rates[rate_type]["consumption"] += float(consumption)
+                    all_time_rates[rate_type]["charge"] += abs(float(charge_value))
+
+            # Store all-time data
+            processed["all_time"] = {
+                "rate_breakdown": all_time_rates,
+                "periodFrom": earliest_date,
+                "periodTo": latest_date,
+                "months_included": months_included
+            }
+            _LOGGER.debug("All-time: Aggregated %d months, %d rate types: %s",
+                         months_included, len(all_time_rates), list(all_time_rates.keys()))
+        else:
+            processed["all_time"] = {
+                "rate_breakdown": {},
+                "periodFrom": None,
+                "periodTo": None,
+                "months_included": 0
+            }
+
         # Process daily arrays for historical data
         if "daily" in data and data["daily"]:
             daily_data = data["daily"]

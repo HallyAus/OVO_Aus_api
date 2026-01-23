@@ -85,6 +85,90 @@ def _calculate_free_savings(data: dict, period: str, coordinator) -> float | Non
     return round(free_consumption * shoulder_rate, 2)
 
 
+def _calculate_rate_breakdown_with_counterfactuals(
+    data: dict,
+    period: str
+) -> dict:
+    """Calculate rate breakdown with counterfactual costs and savings.
+
+    Args:
+        data: Coordinator data dict
+        period: "daily", "monthly", "yearly", or "all_time"
+
+    Returns:
+        Dict with all breakdown metrics including counterfactuals
+    """
+    if not data:
+        return {}
+
+    period_data = data.get(period, {})
+    rate_breakdown = period_data.get("rate_breakdown", {})
+
+    # Extract rate data
+    ev_offpeak_kwh = rate_breakdown.get("EV_OFFPEAK", {}).get("consumption", 0)
+    ev_offpeak_cost = rate_breakdown.get("EV_OFFPEAK", {}).get("charge", 0)
+
+    # Aggregate all FREE types
+    free_kwh = sum(
+        entry.get("consumption", 0)
+        for rate_type, entry in rate_breakdown.items()
+        if "FREE" in rate_type and entry.get("available")
+    )
+    free_cost = sum(
+        entry.get("charge", 0)
+        for rate_type, entry in rate_breakdown.items()
+        if "FREE" in rate_type and entry.get("available")
+    )
+
+    other_kwh = rate_breakdown.get("OTHER", {}).get("consumption", 0)
+    other_cost = rate_breakdown.get("OTHER", {}).get("charge", 0)
+
+    # Calculate OTHER unit rate (baseline for counterfactuals)
+    other_unit_rate = other_cost / other_kwh if other_kwh > 0 else 0
+
+    # Calculate counterfactuals
+    ev_offpeak_cost_if_other = ev_offpeak_kwh * other_unit_rate if other_unit_rate > 0 else 0
+    ev_offpeak_savings = max(0, ev_offpeak_cost_if_other - ev_offpeak_cost)
+
+    free_cost_if_other = free_kwh * other_unit_rate if other_unit_rate > 0 else 0
+    free_savings = max(0, free_cost_if_other - free_cost)
+
+    total_kwh = ev_offpeak_kwh + free_kwh + other_kwh
+    total_cost = ev_offpeak_cost + free_cost + other_cost
+    total_savings = ev_offpeak_savings + free_savings
+
+    # Build result dict
+    result = {
+        "periodFrom": period_data.get("periodFrom"),
+        "periodTo": period_data.get("periodTo"),
+        "source": "ovo_graphql",
+
+        "ev_offpeak_kwh": round(ev_offpeak_kwh, 3),
+        "ev_offpeak_cost": round(ev_offpeak_cost, 2),
+        "ev_offpeak_cost_if_other": round(ev_offpeak_cost_if_other, 2),
+        "ev_offpeak_savings_vs_other": round(ev_offpeak_savings, 2),
+
+        "free_kwh": round(free_kwh, 3),
+        "free_cost": round(free_cost, 2),
+        "free_cost_if_other": round(free_cost_if_other, 2),
+        "free_savings_vs_other": round(free_savings, 2),
+
+        "other_kwh": round(other_kwh, 3),
+        "other_cost": round(other_cost, 2),
+        "other_unit_rate": round(other_unit_rate, 4) if other_unit_rate > 0 else 0,
+
+        "total_kwh": round(total_kwh, 3),
+        "total_cost": round(total_cost, 2),
+        "total_savings_vs_other": round(total_savings, 2),
+    }
+
+    # Add period-specific metadata
+    if period == "all_time":
+        result["months_included"] = period_data.get("months_included", 0)
+
+    return result
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -261,40 +345,6 @@ async def async_setup_entry(
             "mdi:currency-usd",
             lambda data: data.get("yearly", {}).get("grid_charge"),
             "This Year",
-        ),
-        # Hourly Data (Last 7 Days)
-        OVOEnergyAUSensor(
-            coordinator,
-            "hourly_solar_consumption",
-            "Solar Consumption",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            None,  # Not a total, just current value
-            "mdi:solar-power",
-            lambda data: data.get("hourly", {}).get("solar_total"),
-            "Hourly Data (Last 7 Days)",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "hourly_grid_consumption",
-            "Grid Consumption",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            None,  # Not a total, just current value
-            "mdi:transmission-tower",
-            lambda data: data.get("hourly", {}).get("grid_total"),
-            "Hourly Data (Last 7 Days)",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "hourly_return_to_grid",
-            "Return to Grid",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            None,  # Not a total, just current value
-            "mdi:transmission-tower-export",
-            lambda data: data.get("hourly", {}).get("return_to_grid_total"),
-            "Hourly Data (Last 7 Days)",
         ),
         # Last Week Total
         OVOEnergyAUSensor(
@@ -561,170 +611,6 @@ async def async_setup_entry(
             "mdi:calendar-weekend",
             lambda data: data.get("weekend_analysis", {}).get("avg_cost"),
             "Weekday vs Weekend",
-        ),
-
-        # Feature 4: Time-of-Use Cost Breakdown
-        OVOEnergyAUSensor(
-            coordinator,
-            "tou_peak_consumption",
-            "Peak Period Consumption",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-            "mdi:chart-timeline-variant",
-            lambda data: data.get("hourly", {}).get("time_of_use", {}).get("peak", {}).get("consumption"),
-            "Time of Use",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "tou_shoulder_consumption",
-            "Shoulder Period Consumption",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-            "mdi:chart-timeline-variant",
-            lambda data: data.get("hourly", {}).get("time_of_use", {}).get("shoulder", {}).get("consumption"),
-            "Time of Use",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "tou_off_peak_consumption",
-            "Off-Peak Period Consumption",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-            "mdi:chart-timeline-variant",
-            lambda data: data.get("hourly", {}).get("time_of_use", {}).get("off_peak", {}).get("consumption"),
-            "Time of Use",
-        ),
-
-        # Super Off-Peak Tracking (Free 3 & EV Plans - 11am-2pm free period)
-        OVOEnergyAUSensor(
-            coordinator,
-            "super_off_peak_consumption",
-            "Super Off-Peak Consumption",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-            "mdi:lightning-bolt",
-            lambda data: data.get("hourly", {}).get("free_usage", {}).get("consumption"),
-            "Super Off-Peak",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "super_off_peak_cost_saved",
-            "Super Off-Peak Cost Saved",
-            "AUD",
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
-            "mdi:piggy-bank",
-            lambda data: data.get("hourly", {}).get("free_usage", {}).get("cost_saved"),
-            "Super Off-Peak",
-        ),
-
-        # EV Off-Peak - Weekly (Last 7 Days)
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_off_peak_weekly_consumption",
-            "EV Off-Peak Consumption (Weekly)",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-            "mdi:ev-station",
-            lambda data: data.get("hourly", {}).get("ev_usage_weekly", {}).get("consumption"),
-            "EV Off-Peak - Weekly",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_off_peak_weekly_cost",
-            "EV Off-Peak Cost (Weekly)",
-            "AUD",
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
-            "mdi:currency-usd",
-            lambda data: data.get("hourly", {}).get("ev_usage_weekly", {}).get("cost"),
-            "EV Off-Peak - Weekly",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_off_peak_weekly_savings",
-            "EV Off-Peak Savings (Weekly)",
-            "AUD",
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
-            "mdi:cash-plus",
-            lambda data: data.get("hourly", {}).get("ev_usage_weekly", {}).get("cost_saved"),
-            "EV Off-Peak - Weekly",
-        ),
-
-        # EV Off-Peak - Monthly (Month to Date)
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_off_peak_monthly_consumption",
-            "EV Off-Peak Consumption (Monthly)",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-            "mdi:ev-station",
-            lambda data: data.get("hourly", {}).get("ev_usage_monthly", {}).get("consumption"),
-            "EV Off-Peak - Monthly",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_off_peak_monthly_cost",
-            "EV Off-Peak Cost (Monthly)",
-            "AUD",
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
-            "mdi:currency-usd",
-            lambda data: data.get("hourly", {}).get("ev_usage_monthly", {}).get("cost"),
-            "EV Off-Peak - Monthly",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_off_peak_monthly_savings",
-            "EV Off-Peak Savings (Monthly)",
-            "AUD",
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
-            "mdi:cash-plus",
-            lambda data: data.get("hourly", {}).get("ev_usage_monthly", {}).get("cost_saved"),
-            "EV Off-Peak - Monthly",
-        ),
-
-        # EV Off-Peak - Yearly (Year to Date)
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_off_peak_yearly_consumption",
-            "EV Off-Peak Consumption (Yearly)",
-            UnitOfEnergy.KILO_WATT_HOUR,
-            SensorDeviceClass.ENERGY,
-            SensorStateClass.TOTAL,
-            "mdi:ev-station",
-            lambda data: data.get("hourly", {}).get("ev_usage_yearly", {}).get("consumption"),
-            "EV Off-Peak - Yearly",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_off_peak_yearly_cost",
-            "EV Off-Peak Cost (Yearly)",
-            "AUD",
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
-            "mdi:currency-usd",
-            lambda data: data.get("hourly", {}).get("ev_usage_yearly", {}).get("cost"),
-            "EV Off-Peak - Yearly",
-        ),
-        OVOEnergyAUSensor(
-            coordinator,
-            "ev_off_peak_yearly_savings",
-            "EV Off-Peak Savings (Yearly)",
-            "AUD",
-            SensorDeviceClass.MONETARY,
-            SensorStateClass.TOTAL,
-            "mdi:cash-plus",
-            lambda data: data.get("hourly", {}).get("ev_usage_yearly", {}).get("cost_saved"),
-            "EV Off-Peak - Yearly",
         ),
 
         # Feature 5: Solar Self-Sufficiency Score
@@ -1182,6 +1068,30 @@ async def async_setup_entry(
         ),
     ])
 
+    # Rate Breakdown with Counterfactual Calculations
+    sensors.extend([
+        OVOEnergyAURateBreakdownSensor(
+            coordinator,
+            "daily",
+            "Yesterday",
+        ),
+        OVOEnergyAURateBreakdownSensor(
+            coordinator,
+            "monthly",
+            "This Month",
+        ),
+        OVOEnergyAURateBreakdownSensor(
+            coordinator,
+            "yearly",
+            "This Year",
+        ),
+        OVOEnergyAURateBreakdownSensor(
+            coordinator,
+            "all_time",
+            "All Time",
+        ),
+    ])
+
     # Add diagnostic sensor for plan information
     sensors.append(
         OVOEnergyAUPlanSensor(
@@ -1507,6 +1417,66 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
         return {
             "identifiers": {(DOMAIN, f"{self.coordinator.account_id}_{self._device_category}")},
             "name": f"OVO Energy AU - {self._device_category}",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+            "via_device": (DOMAIN, self.coordinator.account_id),
+        }
+
+
+class OVOEnergyAURateBreakdownSensor(CoordinatorEntity, SensorEntity):
+    """Rate breakdown sensor with counterfactual cost calculations."""
+
+    def __init__(
+        self,
+        coordinator,
+        period: str,
+        period_label: str,
+    ):
+        """Initialize the sensor.
+
+        Args:
+            coordinator: The data coordinator
+            period: Data period ("daily", "monthly", "yearly", "all_time")
+            period_label: Display name ("Yesterday", "This Month", etc.)
+        """
+        super().__init__(coordinator)
+        self._period = period
+        self._period_label = period_label
+        self._attr_name = f"OVO Energy AU Rate Breakdown - {period_label}"
+        self._attr_unique_id = f"{coordinator.account_id}_rate_breakdown_{period}"
+        self._attr_device_class = SensorDeviceClass.ENERGY
+        self._attr_state_class = SensorStateClass.TOTAL
+        self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+        self._attr_icon = "mdi:cash-multiple"
+
+    @property
+    def name(self) -> str:
+        """Return the name of the sensor."""
+        return self._attr_name
+
+    @property
+    def native_value(self) -> float | None:
+        """Return total consumption for the period."""
+        breakdown = _calculate_rate_breakdown_with_counterfactuals(
+            self.coordinator.data,
+            self._period
+        )
+        return breakdown.get("total_kwh") if breakdown else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return all rate breakdown data as attributes."""
+        return _calculate_rate_breakdown_with_counterfactuals(
+            self.coordinator.data,
+            self._period
+        ) or {}
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, f"{self.coordinator.account_id}_Rate Breakdown")},
+            "name": "OVO Energy AU - Rate Breakdown",
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
             "via_device": (DOMAIN, self.coordinator.account_id),
