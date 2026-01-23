@@ -452,6 +452,23 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             solar_entries = daily_data.get("solar", [])
             export_entries = daily_data.get("export", [])
 
+            # DEBUG: Log export_entries structure
+            _LOGGER.warning("DEBUG: export_entries count: %d", len(export_entries))
+            if export_entries:
+                sample = export_entries[0]
+                _LOGGER.warning("DEBUG: First export entry keys: %s", list(sample.keys()))
+                _LOGGER.warning("DEBUG: Has 'rates' field: %s", "rates" in sample)
+                if "rates" in sample:
+                    rates_sample = sample.get("rates")
+                    _LOGGER.warning("DEBUG: rates is list: %s, count: %d",
+                                   isinstance(rates_sample, list),
+                                   len(rates_sample) if isinstance(rates_sample, list) else 0)
+                    if rates_sample:
+                        _LOGGER.warning("DEBUG: First rate entry: %s", rates_sample[0])
+                _LOGGER.warning("DEBUG: Sample periodFrom: %s, periodTo: %s",
+                               sample.get("periodFrom"), sample.get("periodTo"))
+                _LOGGER.warning("DEBUG: Sample charge type: %s", sample.get("charge", {}).get("type"))
+
             # Create a map of dates to data
             from datetime import datetime
             daily_map = {}
@@ -514,7 +531,12 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
                         # Extract rates breakdown
                         rates_list = entry.get("rates", [])
+                        # DEBUG: Log per-entry rate extraction
+                        _LOGGER.warning("DEBUG: date=%s, charge_type=%s, has_rates=%s, rates_count=%d",
+                                       date_key, charge_type, "rates" in entry,
+                                       len(rates_list) if rates_list else 0)
                         if rates_list and isinstance(rates_list, list):
+                            _LOGGER.warning("DEBUG: Processing %d rate entries for %s", len(rates_list), date_key)
                             for rate_entry in rates_list:
                                 if not isinstance(rate_entry, dict):
                                     continue
@@ -532,6 +554,12 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                                     daily_map[date_key]["grid_rates_kwh"].get(rate_type, 0) + consumption
                                 daily_map[date_key]["grid_rates_aud"][rate_type] = \
                                     daily_map[date_key]["grid_rates_aud"].get(rate_type, 0) + charge_value
+
+                                # DEBUG: Log accumulation
+                                _LOGGER.warning("DEBUG: Accumulated %s for %s: kwh=%.2f, aud=%.2f",
+                                               rate_type, date_key,
+                                               daily_map[date_key]["grid_rates_kwh"][rate_type],
+                                               daily_map[date_key]["grid_rates_aud"][rate_type])
                     except Exception as err:
                         _LOGGER.debug("Error parsing export entry: %s", err)
 
@@ -540,6 +568,16 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Last 3 days (most recent 3) - reversed to show oldest to newest
             processed["last_3_days"] = list(reversed(all_daily_entries[:3])) if len(all_daily_entries) >= 3 else list(reversed(all_daily_entries))
+
+            # DEBUG: Log final last_3_days structure
+            _LOGGER.warning("DEBUG: last_3_days count: %d", len(processed["last_3_days"]))
+            for idx, day_data in enumerate(processed["last_3_days"]):
+                _LOGGER.warning("DEBUG: Day %d (%s): periodFrom=%s, grid_rates_kwh=%s, grid_rates_aud=%s",
+                               idx,
+                               day_data.get("date"),
+                               day_data.get("periodFrom"),
+                               dict(day_data.get("grid_rates_kwh", {})),
+                               dict(day_data.get("grid_rates_aud", {})))
 
             # Last 7 days totals
             last_7 = all_daily_entries[:7] if len(all_daily_entries) >= 7 else all_daily_entries
