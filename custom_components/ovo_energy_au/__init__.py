@@ -514,6 +514,13 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                                 "grid_rates_aud": {},
                             }
 
+                        # Ensure rate dictionaries exist even if solar_entries created the date
+                        if "grid_rates_kwh" not in daily_map[date_key]:
+                            daily_map[date_key]["grid_rates_kwh"] = {}
+                            daily_map[date_key]["grid_rates_aud"] = {}
+                            daily_map[date_key]["periodFrom"] = entry.get("periodFrom")
+                            daily_map[date_key]["periodTo"] = entry.get("periodTo")
+
                         charge_type = entry.get("charge", {}).get("type", "DEBIT")
                         consumption = entry.get("consumption", 0)
                         charge_value = entry.get("charge", {}).get("value", 0)
