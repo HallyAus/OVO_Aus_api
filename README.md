@@ -59,7 +59,7 @@ Not an OVO customer yet? Sign up using this referral link and we'll both get cre
 - **Accurate Pricing** - Uses your actual rates from OVO (peak, shoulder, off-peak, EV, feed-in tariff)
 - **Simplified Setup** - Just enter email and password, everything else is automatic
 
-### 📊 **98+ Sensors** - Complete Energy Monitoring
+### 📊 **80+ Sensors** - Complete Energy Monitoring
 - **Yesterday's Data** - Daily consumption and cost (updated at 6am)
 - **This Month** - Current billing period totals
 - **This Year** - Year-to-date tracking
@@ -357,61 +357,6 @@ Understand your solar export economics and ROI.
 
 ---
 
-### 11. Rate Breakdown Analysis (New in v3.1.0)
-
-Track consumption and costs across different rate types to optimize energy usage timing.
-
-**Rate Types:**
-- **EV Off-Peak** (00:00-06:00) - Super off-peak EV charging period
-- **Free Period** (11:00-14:00) - Free 3 plan customers pay $0 during this time
-- **Other Rates** - Peak and shoulder periods (all other times)
-
-**Sensors (18 total - 6 per period):**
-
-**Daily** (Yesterday):
-- `sensor.daily_ev_offpeak_consumption` - EV off-peak consumption
-- `sensor.daily_ev_offpeak_charge` - EV off-peak cost
-- `sensor.daily_free_3_consumption` - Free period consumption
-- `sensor.daily_free_3_charge` - Free period cost
-- `sensor.daily_other_consumption` - Other rates consumption
-- `sensor.daily_other_charge` - Other rates cost
-
-**Monthly** (This Month):
-- `sensor.monthly_ev_offpeak_consumption` - EV off-peak consumption
-- `sensor.monthly_ev_offpeak_charge` - EV off-peak cost
-- `sensor.monthly_free_3_consumption` - Free period consumption
-- `sensor.monthly_free_3_charge` - Free period cost
-- `sensor.monthly_other_consumption` - Other rates consumption
-- `sensor.monthly_other_charge` - Other rates cost
-
-**Yearly** (This Year):
-- `sensor.yearly_ev_offpeak_consumption` - EV off-peak consumption
-- `sensor.yearly_ev_offpeak_charge` - EV off-peak cost
-- `sensor.yearly_free_3_consumption` - Free period consumption
-- `sensor.yearly_free_3_charge` - Free period cost
-- `sensor.yearly_other_consumption` - Other rates consumption
-- `sensor.yearly_other_charge` - Other rates cost
-
-**Attributes:**
-- Monthly sensors include `rate_daily_breakdown` array for visualization
-- Daily breakdown shows consumption and cost by rate type for each day
-
-**Dashboard:**
-A complete rate breakdown dashboard is available at `dashboard_rate_breakdown.yaml` featuring:
-- Stacked column charts showing daily consumption by rate type
-- Color-coded visualization (Blue: EV Off-Peak, Green: Free Period, Red: Other)
-- Monthly cost breakdown by rate type
-- Yearly totals and comparisons
-
-**Installation:**
-1. Install ApexCharts card from HACS: https://github.com/RomRider/apexcharts-card
-2. Copy `dashboard_rate_breakdown.yaml` to your Home Assistant config
-3. Follow the installation instructions in the file header
-
-**Use Case:** Identify opportunities to shift consumption to cheaper rate periods. Free 3 customers can maximize usage during 11:00-14:00. EV plan customers can optimize overnight charging.
-
----
-
 ## 🎨 Dashboard Examples
 
 ### Energy Overview Card
@@ -498,7 +443,7 @@ The integration handles everything automatically:
    - **Detects your energy plan** (The EV Plan, The Free 3 Plan, etc.)
    - **Extracts all your rates** from OVO API (peak, shoulder, off-peak, EV, feed-in tariff)
    - Sets up automatic token refresh
-   - Creates 98+ sensors with accurate pricing
+   - Creates 80+ sensors with accurate pricing
 
 **No manual plan selection or rate entry required!** Everything is fetched directly from OVO's API.
 
