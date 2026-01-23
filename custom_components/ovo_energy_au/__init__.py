@@ -464,8 +464,8 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             # Convert to sorted list (newest first)
             all_daily_entries = sorted(daily_map.values(), key=lambda x: x["date"], reverse=True)
 
-            # Last 3 days (most recent 3)
-            processed["last_3_days"] = all_daily_entries[:3] if len(all_daily_entries) >= 3 else all_daily_entries
+            # Last 3 days (most recent 3) - reversed to show oldest to newest
+            processed["last_3_days"] = list(reversed(all_daily_entries[:3])) if len(all_daily_entries) >= 3 else list(reversed(all_daily_entries))
 
             # Last 7 days totals
             last_7 = all_daily_entries[:7] if len(all_daily_entries) >= 7 else all_daily_entries
