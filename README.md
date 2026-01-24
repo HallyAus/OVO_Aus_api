@@ -747,7 +747,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 
 ## 🙏 Credits
 
-**Developed by:** HallyAus with Claude (Sonnet 4.5)
+**Developed by:** HallyAus
 **License:** MIT
 **Status:** Active Development
 
