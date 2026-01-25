@@ -238,8 +238,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Fetch data from OVO Energy API."""
         try:
-            _LOGGER.debug("Fetching data from OVO Energy API...")
-
             # Fetch interval data (daily/monthly/yearly)
             interval_data = await self.client.get_interval_data(self.account_id)
             processed_data = self._process_interval_data(interval_data)
@@ -248,7 +246,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             try:
                 product_info = await self.client.get_product_agreements(self.account_id)
                 processed_data["product_agreements"] = product_info
-                _LOGGER.debug("Successfully fetched product agreements: %s", product_info.get("id") if product_info else "None")
             except Exception as err:
                 _LOGGER.error("Failed to fetch product agreements: %s", err, exc_info=True)
                 processed_data["product_agreements"] = None
@@ -281,11 +278,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
                 if not has_solar and not has_export:
                     _LOGGER.info("No hourly data found in range %s to %s", query_start, query_end)
-                else:
-                    _LOGGER.debug(
-                        "Successfully fetched hourly data (range query: %s to %s)",
-                        query_start, query_end
-                    )
 
                 # Process hourly data
                 processed_data["hourly"] = self._process_hourly_data(hourly_data)
@@ -313,7 +305,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                     "hourly_heatmap": {},
                 }
 
-            _LOGGER.debug("Successfully processed all data")
             return processed_data
 
         except OVOEnergyAUApiClientAuthenticationError as err:
@@ -424,11 +415,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                                 abs(total_rate_consumption - total_consumption)
                             )
 
-                        _LOGGER.debug("%s: Processed %d rate types: %s",
-                                     period, len(rates_breakdown), list(rates_breakdown.keys()))
-                    else:
-                        _LOGGER.debug("%s: No rate breakdown available", period)
-
                 except Exception as err:
                     _LOGGER.error("Error processing rate breakdown for %s: %s", period, err)
                     rates_breakdown = {}
@@ -502,8 +488,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 "periodTo": latest_date,
                 "months_included": months_included
             }
-            _LOGGER.debug("All-time: Aggregated %d months, %d rate types: %s",
-                         months_included, len(all_time_rates), list(all_time_rates.keys()))
         else:
             processed["all_time"] = {
                 "rate_breakdown": {},
@@ -570,7 +554,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                         daily_map[date_key]["solar_consumption"] = entry.get("consumption", 0)
                         daily_map[date_key]["solar_charge"] = entry.get("charge", {}).get("value", 0)
                     except Exception as err:
-                        _LOGGER.debug("Error parsing solar entry: %s", err)
+                        pass
 
             for entry in export_entries:
                 period_from = entry.get("periodFrom", "")
@@ -646,23 +630,13 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                                                daily_map[date_key]["grid_rates_kwh"][rate_type],
                                                daily_map[date_key]["grid_rates_aud"][rate_type])
                     except Exception as err:
-                        _LOGGER.debug("Error parsing export entry: %s", err)
+                        pass
 
             # Convert to sorted list (newest first)
             all_daily_entries = sorted(daily_map.values(), key=lambda x: x["date"], reverse=True)
 
             # Last 3 days (most recent 3) - reversed to show oldest to newest
             processed["last_3_days"] = list(reversed(all_daily_entries[:3])) if len(all_daily_entries) >= 3 else list(reversed(all_daily_entries))
-
-            # DEBUG: Log final last_3_days structure
-            _LOGGER.warning("DEBUG: last_3_days count: %d", len(processed["last_3_days"]))
-            for idx, day_data in enumerate(processed["last_3_days"]):
-                _LOGGER.warning("DEBUG: Day %d (%s): periodFrom=%s, grid_rates_kwh=%s, grid_rates_aud=%s",
-                               idx,
-                               day_data.get("date"),
-                               day_data.get("periodFrom"),
-                               dict(day_data.get("grid_rates_kwh", {})),
-                               dict(day_data.get("grid_rates_aud", {})))
 
             # Last 7 days totals
             last_7 = all_daily_entries[:7] if len(all_daily_entries) >= 7 else all_daily_entries
@@ -724,7 +698,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                                     "read_type": entry.get("readType", ""),
                                 })
                         except Exception as err:
-                            _LOGGER.debug("Error parsing solar daily entry: %s", err)
                             continue
 
             # Process export daily breakdown
@@ -758,7 +731,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                                 else:
                                     grid_daily_breakdown.append(daily_entry)
                         except Exception as err:
-                            _LOGGER.debug("Error parsing export daily entry: %s", err)
                             continue
 
             # Add to monthly data
@@ -972,13 +944,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             "return_to_grid_total": 0,
         }
 
-        raw_solar_count = len(data.get("solar", []) or [])
-        raw_export_count = len(data.get("export", []) or [])
-        _LOGGER.debug(
-            "Processing hourly data: %d raw solar entries, %d raw export entries",
-            raw_solar_count, raw_export_count
-        )
-
         # Process solar entries
         for entry in data.get("solar", []) or []:
             processed["solar_entries"].append(entry)
@@ -996,13 +961,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             else:
                 processed["grid_entries"].append(entry)
                 processed["grid_total"] += consumption
-
-        _LOGGER.debug(
-            "Processed hourly: %d solar, %d grid, %d return entries",
-            len(processed["solar_entries"]),
-            len(processed["grid_entries"]),
-            len(processed["return_to_grid_entries"])
-        )
 
         # Aggregate hourly data by rate type
         hourly_rates_aggregation = {}
@@ -1048,8 +1006,6 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 hourly_rates_aggregation[rate_type]["charge"] = round(
                     hourly_rates_aggregation[rate_type]["charge"], 2
                 )
-
-            _LOGGER.debug("Hourly rate aggregation: %s", hourly_rates_aggregation)
 
         except Exception as err:
             _LOGGER.error("Error aggregating hourly rates: %s", err)

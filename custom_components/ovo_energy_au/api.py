@@ -131,11 +131,6 @@ class OVOEnergyAUApiClient:
                 self._token_expires_at = self._token_created_at + timedelta(hours=1)
 
         token_lifetime = (self._token_expires_at - self._token_created_at).total_seconds()
-        _LOGGER.debug(
-            "Tokens set, expires at: %s (lifetime: %.0f seconds)",
-            self._token_expires_at,
-            token_lifetime
-        )
 
     async def exchange_code_for_tokens(
         self,
@@ -233,8 +228,6 @@ class OVOEnergyAUApiClient:
         state = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').rstrip('=')
         nonce = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').rstrip('=')
 
-        _LOGGER.debug("Starting Auth0 authentication flow")
-
         try:
             # Step 1: Initial authorize request to get auth state
             authorize_params = {
@@ -262,8 +255,6 @@ class OVOEnergyAUApiClient:
                     auth_state = query_params.get('state', [state])[0]
                 else:
                     auth_state = state
-
-            _LOGGER.debug("Got auth state, submitting credentials")
 
             # Step 2: Submit username/password to login endpoint
             login_payload = {
@@ -299,11 +290,8 @@ class OVOEnergyAUApiClient:
 
                 # Auth0 Universal Login returns HTML form that needs to be submitted
                 text = await response.text()
-                _LOGGER.debug("Login response received, length: %d", len(text))
 
             # Step 3: Parse the HTML form response and extract hidden fields
-            _LOGGER.debug("Parsing form response")
-
             # Extract form action URL
             action_match = re.search(r'action="([^"]+)"', text)
             if not action_match:
@@ -329,10 +317,7 @@ class OVOEnergyAUApiClient:
                     "No hidden fields found in login response"
                 )
 
-            _LOGGER.debug("Found %d form fields", len(form_data))
-
             # Step 4: Submit the form to the callback URL
-            _LOGGER.debug("Submitting form to callback")
             async with self._session.post(
                 form_action,
                 data=form_data,
@@ -343,9 +328,6 @@ class OVOEnergyAUApiClient:
                 final_url = str(response.url)
                 parsed = urlparse(final_url)
                 query_params = parse_qs(parsed.query)
-
-                _LOGGER.debug("Callback URL: %s", final_url)
-                _LOGGER.debug("Query params: %s", list(query_params.keys()))
 
                 # Check for Auth0 error responses
                 if 'error' in query_params:
@@ -367,8 +349,6 @@ class OVOEnergyAUApiClient:
                         "Could not extract authorization code from callback. "
                         "Check credentials or try again."
                     )
-
-                _LOGGER.debug("Got authorization code, exchanging for tokens")
 
             # Step 5: Exchange authorization code for tokens
             token_data = await self.exchange_code_for_tokens(
@@ -393,30 +373,24 @@ class OVOEnergyAUApiClient:
         if not self._access_token:
             # If we have credentials, try to authenticate
             if self._username and self._password:
-                _LOGGER.debug("No access token, authenticating with credentials")
                 await self.authenticate_with_password(self._username, self._password)
                 return
             raise OVOEnergyAUApiClientAuthenticationError("Not authenticated")
 
         # Use should_refresh which includes 5-minute buffer for proactive refresh
         if self.should_refresh:
-            _LOGGER.debug("Token expiring soon, refreshing...")
-            
             # Prefer full re-authentication if we have credentials
             # This is more reliable than refresh tokens which seem to expire/invalidate after 24h
             if self._username and self._password:
                 try:
-                    _LOGGER.debug("Performing full re-authentication with password")
                     await self.authenticate_with_password(self._username, self._password)
-                    _LOGGER.debug("Re-authentication successful")
                     return
                 except Exception as err:
                     _LOGGER.warning("Re-authentication failed: %s. Falling back to refresh token.", err)
-            
+
             # Fallback to refresh token if no credentials or re-auth failed
             if self._refresh_token:
                 await self.refresh_tokens()
-                _LOGGER.debug("Token refreshed successfully")
 
     async def get_contact_info(self) -> dict[str, Any]:
         """Get contact information and account details."""
@@ -720,8 +694,6 @@ class OVOEnergyAUApiClient:
             "query": GET_ACCOUNT_INFO_QUERY
         }
 
-        _LOGGER.debug("Fetching product agreements for account %s with system: KALUZA", account_id)
-
         try:
             async with self._session.post(
                 GRAPHQL_URL,
@@ -743,7 +715,6 @@ class OVOEnergyAUApiClient:
                     )
 
                 data = await response.json()
-                _LOGGER.debug("GetAccountInfo response data keys: %s", list(data.keys()))
 
                 if "errors" in data:
                     error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
