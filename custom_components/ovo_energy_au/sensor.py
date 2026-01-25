@@ -1154,13 +1154,11 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
     def native_value(self) -> float | None:
         """Return the state of the sensor."""
         if not self.coordinator.data:
-            _LOGGER.debug("Sensor %s: coordinator.data is None", self._sensor_key)
             return None
 
         try:
             value = self._value_fn(self.coordinator.data)
             if value is None:
-                _LOGGER.debug("Sensor %s: value_fn returned None", self._sensor_key)
                 return None
 
             # Round to 2 decimal places
@@ -1802,15 +1800,11 @@ class OVOEnergyAUPlanSensor(CoordinatorEntity, SensorEntity):
     def native_value(self) -> str | None:
         """Return the plan name as the sensor state."""
         if not self.coordinator.data:
-            _LOGGER.debug("Plan sensor: No coordinator data")
             return None
 
         product_agreements = self.coordinator.data.get("product_agreements")
         if not product_agreements or not isinstance(product_agreements, dict):
-            _LOGGER.debug("Plan sensor: No valid product_agreements in coordinator data (got: %s)", type(product_agreements).__name__ if product_agreements else "None")
             return "Unknown"
-
-        _LOGGER.debug("Plan sensor: product_agreements keys: %s", list(product_agreements.keys()))
 
         agreements = product_agreements.get("productAgreements", [])
         if not agreements:
@@ -1822,7 +1816,6 @@ class OVOEnergyAUPlanSensor(CoordinatorEntity, SensorEntity):
         product = agreement.get("product", {})
         plan_name = product.get("displayName", "Unknown Plan")
 
-        _LOGGER.debug("Plan sensor: Displaying plan name: %s", plan_name)
         return plan_name
 
     @property

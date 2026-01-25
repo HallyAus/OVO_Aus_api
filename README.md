@@ -6,7 +6,7 @@
 
 <br/><br/>
 
-[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-3.1.1-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-green.svg)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
@@ -557,6 +557,21 @@ A: Yes! Go to Settings → Devices & Services → OVO Energy Australia → Confi
 ---
 
 ## 📝 Changelog
+
+### [3.1.1] - 2026-01-25
+
+**Code Cleanup Release** 🧹
+
+**Changes:**
+- 🧹 **Removed Debug Logging** - Cleaned up extensive debug logging statements across all modules
+- 🔧 **Code Maintenance** - Improved code readability and reduced log noise
+- ⚡ **Performance** - Minor performance improvements from reduced logging overhead
+
+**Technical Details:**
+- Removed debug logging from sensor.py (sensor value and plan sensor debug statements)
+- Removed debug logging from __init__.py (rate breakdown, hourly processing, and data fetching debug statements)
+- Removed debug logging from api.py (authentication flow and API request debug statements)
+- Retained error and warning logs for troubleshooting
 
 ### [3.1.0] - 2026-01-23
 
