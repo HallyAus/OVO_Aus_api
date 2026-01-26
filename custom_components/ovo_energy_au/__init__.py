@@ -447,7 +447,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                         latest_date = period_to
 
                 # Aggregate rates
-                rates = entry.get("rates", [])
+                rates = entry.get("rates") or []
                 for rate_entry in rates:
                     if not isinstance(rate_entry, dict):
                         continue
@@ -599,7 +599,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                             daily_map[date_key]["return_to_grid_charge"] = 0
 
                         # Extract rates breakdown
-                        rates_list = entry.get("rates", [])
+                        rates_list = entry.get("rates") or []
                         # DEBUG: Log per-entry rate extraction
                         _LOGGER.warning("DEBUG: date=%s, charge_type=%s, has_rates=%s, rates_count=%d",
                                        date_key, charge_type, "rates" in entry,
@@ -965,7 +965,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             # Process all export entries (grid consumption, not solar export/CREDIT)
             for entry in processed["grid_entries"]:
-                rates_list = entry.get("rates", [])
+                rates_list = entry.get("rates") or []
 
                 if not rates_list or not isinstance(rates_list, list):
                     # No rate breakdown for this hour, skip
