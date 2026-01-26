@@ -431,7 +431,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         latest_date = None
 
         if "monthly" in data and data["monthly"]:
-            all_monthly_entries = data["monthly"].get("export", [])
+            all_monthly_entries = data["monthly"].get("export") or []
 
             for entry in all_monthly_entries:
                 months_included += 1
@@ -471,7 +471,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                     all_time_rates[rate_type]["charge"] += abs(float(charge_value))
 
             # Aggregate solar data from all monthly entries
-            all_monthly_solar = data["monthly"].get("solar", [])
+            all_monthly_solar = data["monthly"].get("solar") or []
             for solar_entry in all_monthly_solar:
                 if isinstance(solar_entry, dict):
                     all_time_solar_consumption += solar_entry.get("consumption", 0)
@@ -511,8 +511,8 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             all_daily_entries = []
 
             # Combine solar and export data by date
-            solar_entries = daily_data.get("solar", [])
-            export_entries = daily_data.get("export", [])
+            solar_entries = daily_data.get("solar") or []
+            export_entries = daily_data.get("export") or []
 
             # DEBUG: Log export_entries structure
             _LOGGER.warning("DEBUG: export_entries count: %d", len(export_entries))
