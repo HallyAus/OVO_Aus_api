@@ -447,7 +447,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                         latest_date = period_to
 
                 # Aggregate rates
-                rates = entry.get("rates", [])
+                rates = entry.get("rates") or []
                 for rate_entry in rates:
                     if not isinstance(rate_entry, dict):
                         continue
@@ -599,7 +599,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                             daily_map[date_key]["return_to_grid_charge"] = 0
 
                         # Extract rates breakdown
-                        rates_list = entry.get("rates", [])
+                        rates_list = entry.get("rates") or []
                         # DEBUG: Log per-entry rate extraction
                         _LOGGER.warning("DEBUG: date=%s, charge_type=%s, has_rates=%s, rates_count=%d",
                                        date_key, charge_type, "rates" in entry,
@@ -681,57 +681,55 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Monthly daily breakdown (for graphing)
             solar_daily_breakdown = []
-            if "solar" in daily_data and daily_data["solar"]:
-                for entry in daily_data["solar"]:
-                    period_from = entry.get("periodFrom", "")
-                    if period_from:
-                        try:
-                            entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+            for entry in solar_entries:
+                period_from = entry.get("periodFrom", "")
+                if period_from:
+                    try:
+                        entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
 
-                            # Only include current month
-                            if entry_date.month == current_month and entry_date.year == current_year:
-                                solar_daily_breakdown.append({
-                                    "date": entry_date.strftime("%Y-%m-%d"),
-                                    "day": entry_date.day,
-                                    "consumption": entry.get("consumption", 0),
-                                    "charge": entry.get("charge", {}).get("value", 0),
-                                    "read_type": entry.get("readType", ""),
-                                })
-                        except Exception as err:
-                            continue
+                        # Only include current month
+                        if entry_date.month == current_month and entry_date.year == current_year:
+                            solar_daily_breakdown.append({
+                                "date": entry_date.strftime("%Y-%m-%d"),
+                                "day": entry_date.day,
+                                "consumption": entry.get("consumption", 0),
+                                "charge": entry.get("charge", {}).get("value", 0),
+                                "read_type": entry.get("readType", ""),
+                            })
+                    except Exception as err:
+                        continue
 
             # Process export daily breakdown
             grid_daily_breakdown = []
             return_daily_breakdown = []
-            if "export" in daily_data and daily_data["export"]:
-                for entry in daily_data["export"]:
-                    period_from = entry.get("periodFrom", "")
-                    if period_from:
-                        try:
-                            entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+            for entry in export_entries:
+                period_from = entry.get("periodFrom", "")
+                if period_from:
+                    try:
+                        entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
 
-                            # Only include current month
-                            if entry_date.month == current_month and entry_date.year == current_year:
-                                charge_type = entry.get("charge", {}).get("type", "DEBIT")
-                                consumption = entry.get("consumption", 0)
-                                charge_value = entry.get("charge", {}).get("value", 0)
+                        # Only include current month
+                        if entry_date.month == current_month and entry_date.year == current_year:
+                            charge_type = entry.get("charge", {}).get("type", "DEBIT")
+                            consumption = entry.get("consumption", 0)
+                            charge_value = entry.get("charge", {}).get("value", 0)
 
-                                daily_entry = {
-                                    "date": entry_date.strftime("%Y-%m-%d"),
-                                    "day": entry_date.day,
-                                    "consumption": consumption,
-                                    "charge": charge_value,
-                                    "read_type": entry.get("readType", ""),
-                                    "charge_type": charge_type,
-                                }
+                            daily_entry = {
+                                "date": entry_date.strftime("%Y-%m-%d"),
+                                "day": entry_date.day,
+                                "consumption": consumption,
+                                "charge": charge_value,
+                                "read_type": entry.get("readType", ""),
+                                "charge_type": charge_type,
+                            }
 
-                                # Separate into grid consumption vs return to grid
-                                if charge_type == "CREDIT":
-                                    return_daily_breakdown.append(daily_entry)
-                                else:
-                                    grid_daily_breakdown.append(daily_entry)
-                        except Exception as err:
-                            continue
+                            # Separate into grid consumption vs return to grid
+                            if charge_type == "CREDIT":
+                                return_daily_breakdown.append(daily_entry)
+                            else:
+                                grid_daily_breakdown.append(daily_entry)
+                    except Exception as err:
+                        continue
 
             # Add to monthly data
             processed["monthly"]["solar_daily_breakdown"] = sorted(solar_daily_breakdown, key=lambda x: x["date"])
@@ -967,7 +965,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             # Process all export entries (grid consumption, not solar export/CREDIT)
             for entry in processed["grid_entries"]:
-                rates_list = entry.get("rates", [])
+                rates_list = entry.get("rates") or []
 
                 if not rates_list or not isinstance(rates_list, list):
                     # No rate breakdown for this hour, skip
