@@ -1,41 +1,34 @@
 # OVO Energy Australia - Monthly Charges Dashboard
-# Similar to the OVO Energy dashboard with daily breakdown graphs
+# Detailed daily breakdown graphs for the current billing month
 #
-# Installation:
-# 1. Install ApexCharts card from HACS: https://github.com/RomRider/apexcharts-card
-# 2. Copy this file to your Home Assistant config
-# 3. Add to your dashboard
+# Required custom cards (install via HACS):
+# - apexcharts-card: https://github.com/RomRider/apexcharts-card
+#
+# IMPORTANT - Entity ID Note:
+# Entity IDs follow the format: sensor.ovo_energy_au_{category}_{sensor_name}
+# If entities show as "not found", check Settings → Devices → OVO Energy AU
 
 type: vertical-stack
 cards:
   # Monthly Summary Cards
   - type: horizontal-stack
     cards:
-      - type: statistic
-        entity: sensor.monthly_solar_consumption
+      - type: entity
+        entity: sensor.ovo_energy_au_this_month_solar_consumption
         name: Solar This Month
-        stat_type: total
-        period:
-          calendar:
-            period: month
+        icon: mdi:solar-power
 
-      - type: statistic
-        entity: sensor.monthly_solar_charge
-        name: Solar Cost
-        stat_type: total
-        period:
-          calendar:
-            period: month
+      - type: entity
+        entity: sensor.ovo_energy_au_this_month_solar_feed_in_credit
+        name: Solar Credit
+        icon: mdi:cash-plus
 
-      - type: statistic
-        entity: sensor.monthly_grid_charge
+      - type: entity
+        entity: sensor.ovo_energy_au_this_month_grid_charge
         name: Grid Cost
-        stat_type: total
-        period:
-          calendar:
-            period: month
+        icon: mdi:currency-usd
 
-  # Daily Solar Consumption Graph (like OVO dashboard)
+  # Daily Solar Consumption Graph
   - type: custom:apexcharts-card
     header:
       show: true
@@ -46,7 +39,7 @@ cards:
     span:
       start: month
     series:
-      - entity: sensor.monthly_solar_consumption
+      - entity: sensor.ovo_energy_au_this_month_solar_consumption
         name: Solar kWh
         type: column
         color: orange
@@ -75,21 +68,21 @@ cards:
   - type: custom:apexcharts-card
     header:
       show: true
-      title: Daily Solar Charge This Month
+      title: Daily Solar Credit This Month
       show_states: true
       colorize_states: true
     graph_span: 1month
     span:
       start: month
     series:
-      - entity: sensor.monthly_solar_charge
+      - entity: sensor.ovo_energy_au_this_month_solar_feed_in_credit
         name: Solar $
         type: column
         color: '#4caf50'
         data_generator: |
           const daily = entity.attributes.daily_breakdown || [];
           return daily.map(day => {
-            return [new Date(day.date).getTime(), day.charge];
+            return [new Date(day.date).getTime(), Math.abs(day.charge)];
           });
         show:
           in_header: false
@@ -114,14 +107,14 @@ cards:
   - type: custom:apexcharts-card
     header:
       show: true
-      title: Daily Grid Charge This Month
+      title: Daily Grid Cost This Month
       show_states: true
       colorize_states: true
     graph_span: 1month
     span:
       start: month
     series:
-      - entity: sensor.monthly_grid_charge
+      - entity: sensor.ovo_energy_au_this_month_grid_charge
         name: Grid $
         type: column
         color: '#f44336'
@@ -153,14 +146,14 @@ cards:
   - type: custom:apexcharts-card
     header:
       show: true
-      title: Daily Solar vs Grid Consumption
+      title: Daily Solar vs Grid vs Export
       show_states: true
       colorize_states: true
     graph_span: 1month
     span:
       start: month
     series:
-      - entity: sensor.monthly_solar_consumption
+      - entity: sensor.ovo_energy_au_this_month_solar_consumption
         name: Solar
         type: column
         color: orange
@@ -172,10 +165,22 @@ cards:
         show:
           in_header: false
 
-      - entity: sensor.monthly_grid_consumption
+      - entity: sensor.ovo_energy_au_this_month_grid_consumption
         name: Grid
         type: column
-        color: blue
+        color: '#f44336'
+        data_generator: |
+          const daily = entity.attributes.daily_breakdown || [];
+          return daily.map(day => {
+            return [new Date(day.date).getTime(), day.consumption];
+          });
+        show:
+          in_header: false
+
+      - entity: sensor.ovo_energy_au_this_month_return_to_grid
+        name: Export
+        type: column
+        color: '#1E90FF'
         data_generator: |
           const daily = entity.attributes.daily_breakdown || [];
           return daily.map(day => {
@@ -205,31 +210,30 @@ cards:
   - type: entities
     title: Monthly Statistics
     entities:
-      - entity: sensor.monthly_solar_consumption
+      - entity: sensor.ovo_energy_au_this_month_solar_consumption
         type: attribute
         attribute: daily_average
         name: Avg Daily Solar
-        suffix: kWh
-      - entity: sensor.monthly_solar_consumption
+        suffix: " kWh"
+      - entity: sensor.ovo_energy_au_this_month_solar_consumption
         type: attribute
         attribute: daily_max
         name: Max Daily Solar
-        suffix: kWh
-      - entity: sensor.monthly_solar_charge
-        type: attribute
-        attribute: daily_charge_average
-        name: Avg Daily Solar Cost
-        suffix: AUD
-      - entity: sensor.monthly_solar_consumption
+        suffix: " kWh"
+      - entity: sensor.ovo_energy_au_this_month_solar_consumption
         type: attribute
         attribute: days_in_month
         name: Days Tracked
       - type: divider
-      - entity: sensor.monthly_solar_consumption
+      - entity: sensor.ovo_energy_au_this_month_solar_consumption
         name: Total Solar This Month
-      - entity: sensor.monthly_grid_consumption
+      - entity: sensor.ovo_energy_au_this_month_grid_consumption
         name: Total Grid This Month
-      - entity: sensor.monthly_solar_charge
-        name: Total Solar Charge
-      - entity: sensor.monthly_grid_charge
-        name: Total Grid Charge
+      - entity: sensor.ovo_energy_au_this_month_return_to_grid
+        name: Total Export This Month
+      - entity: sensor.ovo_energy_au_this_month_solar_feed_in_credit
+        name: Total Solar Credit
+      - entity: sensor.ovo_energy_au_this_month_grid_charge
+        name: Total Grid Cost
+      - entity: sensor.ovo_energy_au_this_month_return_to_grid_charge
+        name: Total Export Credit

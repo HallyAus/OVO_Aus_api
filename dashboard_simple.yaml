@@ -1,8 +1,13 @@
 # OVO Energy Australia - Simple Dashboard
 # Uses only built-in Home Assistant cards (no custom components needed)
 #
-# This dashboard shows monthly totals and statistics
-# For daily breakdown graphs, use dashboard_monthly_charges.yaml with ApexCharts
+# IMPORTANT - Entity ID Note:
+# This integration uses has_entity_name=True with device grouping.
+# Your entity IDs follow the format: sensor.ovo_energy_au_{category}_{sensor_name}
+# If entities show as "not found", check Settings → Devices → OVO Energy AU
+# to find the exact entity IDs for your installation.
+#
+# For daily breakdown graphs, use dashboard_example.yaml with ApexCharts & Mushroom
 
 type: vertical-stack
 cards:
@@ -10,70 +15,69 @@ cards:
   - type: markdown
     content: |
       # OVO Energy Australia
-      Account: {{ state_attr('sensor.monthly_solar_consumption', 'latest_entry').periodFrom[:7] if state_attr('sensor.monthly_solar_consumption', 'latest_entry') else 'N/A' }}
+      {{ states('sensor.ovo_energy_au_plan_information') }}
 
   # Current Month Summary
   - type: grid
     columns: 3
     cards:
-      - type: statistic
-        entity: sensor.monthly_solar_consumption
+      - type: entity
+        entity: sensor.ovo_energy_au_this_month_solar_consumption
         name: Solar
         icon: mdi:solar-power
-        stat_type: total
 
-      - type: statistic
-        entity: sensor.monthly_grid_consumption
+      - type: entity
+        entity: sensor.ovo_energy_au_this_month_grid_consumption
         name: Grid
         icon: mdi:transmission-tower
-        stat_type: total
 
-      - type: statistic
-        entity: sensor.monthly_return_to_grid
+      - type: entity
+        entity: sensor.ovo_energy_au_this_month_return_to_grid
         name: Export
         icon: mdi:transmission-tower-export
-        stat_type: total
 
   # Monthly Charges
   - type: grid
     columns: 3
     cards:
       - type: entity
-        entity: sensor.monthly_solar_charge
-        name: Solar Cost
-        icon: mdi:currency-usd
+        entity: sensor.ovo_energy_au_this_month_solar_feed_in_credit
+        name: Solar Credit
+        icon: mdi:cash-plus
 
       - type: entity
-        entity: sensor.monthly_grid_charge
+        entity: sensor.ovo_energy_au_this_month_grid_charge
         name: Grid Cost
         icon: mdi:currency-usd
 
       - type: entity
-        entity: sensor.monthly_return_to_grid_charge
+        entity: sensor.ovo_energy_au_this_month_return_to_grid_charge
         name: Export Credit
-        icon: mdi:currency-usd
+        icon: mdi:cash-refund
 
   # Daily Averages
   - type: entities
     title: Daily Averages This Month
     entities:
-      - type: custom:template-entity-row
-        entity: sensor.monthly_solar_consumption
+      - type: attribute
+        entity: sensor.ovo_energy_au_this_month_solar_consumption
+        attribute: daily_average
         name: Avg Solar/Day
-        state: "{{ state_attr('sensor.monthly_solar_consumption', 'daily_average') | round(2) }} kWh"
+        suffix: " kWh"
         icon: mdi:solar-power
 
-      - type: custom:template-entity-row
-        entity: sensor.monthly_solar_consumption
+      - type: attribute
+        entity: sensor.ovo_energy_au_this_month_solar_consumption
+        attribute: daily_max
         name: Max Solar Day
-        state: "{{ state_attr('sensor.monthly_solar_consumption', 'daily_max') | round(2) }} kWh"
+        suffix: " kWh"
         icon: mdi:arrow-up-bold
 
-      - type: custom:template-entity-row
-        entity: sensor.monthly_solar_charge
-        name: Avg Cost/Day
-        state: "${{ state_attr('sensor.monthly_solar_charge', 'daily_charge_average') | round(2) }}"
-        icon: mdi:currency-usd
+      - type: attribute
+        entity: sensor.ovo_energy_au_this_month_solar_consumption
+        attribute: days_in_month
+        name: Days Tracked
+        icon: mdi:calendar-check
 
   # Daily/Yearly Comparison
   - type: grid
@@ -81,58 +85,41 @@ cards:
     title: Period Comparison
     cards:
       - type: entity
-        entity: sensor.daily_solar_consumption
-        name: Today's Solar
+        entity: sensor.ovo_energy_au_yesterday_solar_consumption
+        name: Yesterday Solar
         icon: mdi:solar-power
 
       - type: entity
-        entity: sensor.daily_grid_consumption
-        name: Today's Grid
+        entity: sensor.ovo_energy_au_yesterday_grid_consumption
+        name: Yesterday Grid
         icon: mdi:transmission-tower
 
       - type: entity
-        entity: sensor.yearly_solar_consumption
+        entity: sensor.ovo_energy_au_this_year_solar_consumption
         name: Yearly Solar
         icon: mdi:solar-power
 
       - type: entity
-        entity: sensor.yearly_grid_consumption
+        entity: sensor.ovo_energy_au_this_year_grid_consumption
         name: Yearly Grid
         icon: mdi:transmission-tower
 
-  # Hourly Breakdown (7-day history)
+  # Analytics Summary
   - type: entities
-    title: Hourly Data (Last 7 Days)
+    title: Analytics
     entities:
-      - entity: sensor.hourly_solar_consumption
-        name: Total Solar (7d)
-        icon: mdi:solar-power
-      - entity: sensor.hourly_grid_consumption
-        name: Total Grid (7d)
+      - entity: sensor.ovo_energy_au_solar_insights_self_sufficiency_score
+        name: Self-Sufficiency Score
+        icon: mdi:battery-charging-100
+      - entity: sensor.ovo_energy_au_monthly_forecast_projected_monthly_cost
+        name: Projected Monthly Cost
+        icon: mdi:crystal-ball
+      - entity: sensor.ovo_energy_au_monthly_forecast_daily_average_cost
+        name: Daily Average Cost
+        icon: mdi:chart-line
+      - entity: sensor.ovo_energy_au_cost_analysis_overall_cost_per_kwh
+        name: Overall Cost/kWh
+        icon: mdi:currency-usd
+      - entity: sensor.ovo_energy_au_cost_analysis_grid_cost_per_kwh
+        name: Grid Cost/kWh
         icon: mdi:transmission-tower
-      - entity: sensor.hourly_return_to_grid
-        name: Total Export (7d)
-        icon: mdi:transmission-tower-export
-      - type: custom:template-entity-row
-        entity: sensor.hourly_solar_consumption
-        name: Hourly Entries
-        state: "{{ state_attr('sensor.hourly_solar_consumption', 'entry_count') }} records"
-        icon: mdi:calendar-clock
-
-  # Energy Distribution Chart (using built-in energy card)
-  - type: energy-distribution
-    title: Energy Distribution
-    link_dashboard: true
-
-  # Debug Info (optional - remove if not needed)
-  - type: entities
-    title: Debug Info
-    entities:
-      - entity: sensor.monthly_solar_consumption
-        type: attribute
-        attribute: days_in_month
-        name: Days Tracked
-      - entity: sensor.monthly_solar_consumption
-        type: attribute
-        attribute: latest_entry
-        name: Latest Entry
