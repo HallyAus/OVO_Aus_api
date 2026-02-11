@@ -1,38 +1,24 @@
 # OVO Energy Australia - Simple Dashboard
 # Uses only built-in Home Assistant cards (no custom components needed)
-#
-# IMPORTANT - Entity ID Note:
-# This integration uses has_entity_name=True with device grouping.
-# Your entity IDs follow the format: sensor.ovo_energy_au_{category}_{sensor_name}
-# If entities show as "not found", check Settings → Devices → OVO Energy AU
-# to find the exact entity IDs for your installation.
-#
-# For daily breakdown graphs, use dashboard_example.yaml with ApexCharts & Mushroom
 
 type: vertical-stack
 cards:
-  # Header with Account Info
-  - type: markdown
-    content: |
-      # OVO Energy Australia
-      {{ states('sensor.ovo_energy_au_plan_information') }}
-
   # Current Month Summary
   - type: grid
     columns: 3
     cards:
       - type: entity
-        entity: sensor.ovo_energy_au_this_month_solar_consumption
+        entity: sensor.ovo_energy_au_30264061_monthly_solar_consumption_2
         name: Solar
         icon: mdi:solar-power
 
       - type: entity
-        entity: sensor.ovo_energy_au_this_month_grid_consumption
+        entity: sensor.ovo_energy_au_30264061_monthly_grid_consumption_2
         name: Grid
         icon: mdi:transmission-tower
 
       - type: entity
-        entity: sensor.ovo_energy_au_this_month_return_to_grid
+        entity: sensor.ovo_energy_au_30264061_monthly_return_to_grid_2
         name: Export
         icon: mdi:transmission-tower-export
 
@@ -41,17 +27,17 @@ cards:
     columns: 3
     cards:
       - type: entity
-        entity: sensor.ovo_energy_au_this_month_solar_feed_in_credit
+        entity: sensor.ovo_energy_au_30264061_monthly_solar_charge_2
         name: Solar Credit
         icon: mdi:cash-plus
 
       - type: entity
-        entity: sensor.ovo_energy_au_this_month_grid_charge
+        entity: sensor.ovo_energy_au_30264061_monthly_grid_charge_2
         name: Grid Cost
         icon: mdi:currency-usd
 
       - type: entity
-        entity: sensor.ovo_energy_au_this_month_return_to_grid_charge
+        entity: sensor.ovo_energy_au_30264061_monthly_return_to_grid_charge_2
         name: Export Credit
         icon: mdi:cash-refund
 
@@ -60,21 +46,21 @@ cards:
     title: Daily Averages This Month
     entities:
       - type: attribute
-        entity: sensor.ovo_energy_au_this_month_solar_consumption
+        entity: sensor.ovo_energy_au_30264061_monthly_solar_consumption_2
         attribute: daily_average
         name: Avg Solar/Day
         suffix: " kWh"
         icon: mdi:solar-power
 
       - type: attribute
-        entity: sensor.ovo_energy_au_this_month_solar_consumption
+        entity: sensor.ovo_energy_au_30264061_monthly_solar_consumption_2
         attribute: daily_max
         name: Max Solar Day
         suffix: " kWh"
         icon: mdi:arrow-up-bold
 
       - type: attribute
-        entity: sensor.ovo_energy_au_this_month_solar_consumption
+        entity: sensor.ovo_energy_au_30264061_monthly_solar_consumption_2
         attribute: days_in_month
         name: Days Tracked
         icon: mdi:calendar-check
@@ -85,22 +71,22 @@ cards:
     title: Period Comparison
     cards:
       - type: entity
-        entity: sensor.ovo_energy_au_yesterday_solar_consumption
+        entity: sensor.ovo_energy_au_30264061_daily_solar_consumption_2
         name: Yesterday Solar
         icon: mdi:solar-power
 
       - type: entity
-        entity: sensor.ovo_energy_au_yesterday_grid_consumption
+        entity: sensor.ovo_energy_au_30264061_daily_grid_consumption_2
         name: Yesterday Grid
         icon: mdi:transmission-tower
 
       - type: entity
-        entity: sensor.ovo_energy_au_this_year_solar_consumption
+        entity: sensor.ovo_energy_au_30264061_yearly_solar_consumption_2
         name: Yearly Solar
         icon: mdi:solar-power
 
       - type: entity
-        entity: sensor.ovo_energy_au_this_year_grid_consumption
+        entity: sensor.ovo_energy_au_30264061_yearly_grid_consumption_2
         name: Yearly Grid
         icon: mdi:transmission-tower
 
@@ -111,15 +97,15 @@ cards:
       - entity: sensor.ovo_energy_au_solar_insights_self_sufficiency_score
         name: Self-Sufficiency Score
         icon: mdi:battery-charging-100
-      - entity: sensor.ovo_energy_au_monthly_forecast_projected_monthly_cost
-        name: Projected Monthly Cost
-        icon: mdi:crystal-ball
-      - entity: sensor.ovo_energy_au_monthly_forecast_daily_average_cost
-        name: Daily Average Cost
-        icon: mdi:chart-line
-      - entity: sensor.ovo_energy_au_cost_analysis_overall_cost_per_kwh
-        name: Overall Cost/kWh
-        icon: mdi:currency-usd
-      - entity: sensor.ovo_energy_au_cost_analysis_grid_cost_per_kwh
-        name: Grid Cost/kWh
+      - entity: sensor.ovo_energy_au_solar_export_export_credit_earned
+        name: Export Credit Earned
+        icon: mdi:cash-multiple
+      - entity: sensor.ovo_energy_au_solar_export_export_rate_per_kwh
+        name: Export Rate/kWh
+        icon: mdi:cash-check
+      - entity: sensor.ovo_energy_au_week_comparison_solar_consumption_this_week
+        name: Solar This Week
+        icon: mdi:solar-power
+      - entity: sensor.ovo_energy_au_week_comparison_grid_consumption_this_week
+        name: Grid This Week
         icon: mdi:transmission-tower
