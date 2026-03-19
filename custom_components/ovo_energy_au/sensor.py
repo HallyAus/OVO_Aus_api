@@ -59,18 +59,18 @@ def _get_rate_value(data: dict, period: str, rate_type: str, metric: str) -> flo
     return rate_data.get(metric)
 
 
-def _get_yesterday_hourly_total(data: dict, entry_type: str) -> float:
-    """Calculate yesterday's total from hourly entries.
+def _get_yesterday_hourly_data(data: dict, entry_type: str) -> dict:
+    """Get yesterday's hourly data for graphing.
 
     Args:
         data: Coordinator data dict
         entry_type: "solar_entries", "grid_entries", or "return_to_grid_entries"
 
     Returns:
-        Total consumption for yesterday in kWh
+        Dict with 'state' (total) and 'hourly_data' (list of hourly values)
     """
     if not data:
-        return 0.0
+        return {"state": 0.0, "hourly_data": []}
 
     from datetime import datetime, timezone, timedelta
 
@@ -78,14 +78,16 @@ def _get_yesterday_hourly_total(data: dict, entry_type: str) -> float:
     entries = hourly_data.get(entry_type, [])
 
     if not entries:
-        return 0.0
+        return {"state": 0.0, "hourly_data": []}
 
     # Get yesterday's date range (in UTC)
     now_utc = datetime.now(timezone.utc)
     yesterday = now_utc - timedelta(days=1)
     yesterday_date = yesterday.date()
 
+    hourly_values = []
     total = 0.0
+
     for entry in entries:
         try:
             period_from = entry.get("periodFrom", "")
@@ -97,11 +99,23 @@ def _get_yesterday_hourly_total(data: dict, entry_type: str) -> float:
 
             # Check if this entry is from yesterday
             if timestamp.date() == yesterday_date:
-                total += entry.get("consumption", 0)
+                consumption = entry.get("consumption", 0)
+                total += consumption
+                hourly_values.append({
+                    "time": timestamp.isoformat(),
+                    "hour": timestamp.hour,
+                    "value": round(consumption, 3)
+                })
         except Exception:
             continue
 
-    return round(total, 2)
+    # Sort by time
+    hourly_values.sort(key=lambda x: x["time"])
+
+    return {
+        "state": round(total, 2),
+        "hourly_data": hourly_values
+    }
 
 
 def _calculate_free_savings(data: dict, period: str, coordinator) -> float | None:
@@ -756,35 +770,35 @@ async def async_setup_entry(
         OVOEnergyAUSensor(
             coordinator,
             "hourly_solar_yesterday",
-            "Hourly Solar Yesterday",
+            "Yesterday Solar Hourly",
             UnitOfEnergy.KILO_WATT_HOUR,
             SensorDeviceClass.ENERGY,
             SensorStateClass.TOTAL,
             "mdi:solar-power",
-            lambda data: _get_yesterday_hourly_total(data, "solar_entries"),
-            "Hourly Data - Yesterday",
+            lambda data: _get_yesterday_hourly_data(data, "solar_entries")["state"],
+            "Hourly Graph Data",
         ),
         OVOEnergyAUSensor(
             coordinator,
             "hourly_grid_yesterday",
-            "Hourly Grid Yesterday",
+            "Yesterday Grid Hourly",
             UnitOfEnergy.KILO_WATT_HOUR,
             SensorDeviceClass.ENERGY,
             SensorStateClass.TOTAL,
             "mdi:transmission-tower",
-            lambda data: _get_yesterday_hourly_total(data, "grid_entries"),
-            "Hourly Data - Yesterday",
+            lambda data: _get_yesterday_hourly_data(data, "grid_entries")["state"],
+            "Hourly Graph Data",
         ),
         OVOEnergyAUSensor(
             coordinator,
-            "hourly_return_to_grid_yesterday",
-            "Hourly Return to Grid Yesterday",
+            "hourly_export_yesterday",
+            "Yesterday Export Hourly",
             UnitOfEnergy.KILO_WATT_HOUR,
             SensorDeviceClass.ENERGY,
             SensorStateClass.TOTAL,
             "mdi:transmission-tower-export",
-            lambda data: _get_yesterday_hourly_total(data, "return_to_grid_entries"),
-            "Hourly Data - Yesterday",
+            lambda data: _get_yesterday_hourly_data(data, "return_to_grid_entries")["state"],
+            "Hourly Graph Data",
         ),
 
         # Feature 8: Cost Per kWh Tracking
@@ -1333,21 +1347,34 @@ class OVOEnergyAUSensor(CoordinatorEntity, SensorEntity):
         if "hourly_" in self._sensor_key:
             hourly_data = self.coordinator.data.get("hourly", {})
 
-            if "solar" in self._sensor_key:
-                entries = hourly_data.get("solar_entries", [])
-                if entries:
-                    attributes["entries"] = entries
-                    attributes["entry_count"] = len(entries)
-            elif "grid" in self._sensor_key:
-                entries = hourly_data.get("grid_entries", [])
-                if entries:
-                    attributes["entries"] = entries
-                    attributes["entry_count"] = len(entries)
-            elif "return_to_grid" in self._sensor_key:
-                entries = hourly_data.get("return_to_grid_entries", [])
-                if entries:
-                    attributes["entries"] = entries
-                    attributes["entry_count"] = len(entries)
+            # For yesterday sensors, add formatted hourly data for graphing
+            if "_yesterday" in self._sensor_key:
+                if "solar" in self._sensor_key:
+                    yesterday_data = _get_yesterday_hourly_data(self.coordinator.data, "solar_entries")
+                elif "export" in self._sensor_key:
+                    yesterday_data = _get_yesterday_hourly_data(self.coordinator.data, "return_to_grid_entries")
+                else:  # grid
+                    yesterday_data = _get_yesterday_hourly_data(self.coordinator.data, "grid_entries")
+
+                attributes["hourly_values"] = yesterday_data["hourly_data"]
+                attributes["data_points"] = len(yesterday_data["hourly_data"])
+            # For total sensors, add all entries
+            else:
+                if "solar" in self._sensor_key:
+                    entries = hourly_data.get("solar_entries", [])
+                    if entries:
+                        attributes["entries"] = entries
+                        attributes["entry_count"] = len(entries)
+                elif "grid" in self._sensor_key:
+                    entries = hourly_data.get("grid_entries", [])
+                    if entries:
+                        attributes["entries"] = entries
+                        attributes["entry_count"] = len(entries)
+                elif "return_to_grid" in self._sensor_key or "export" in self._sensor_key:
+                    entries = hourly_data.get("return_to_grid_entries", [])
+                    if entries:
+                        attributes["entries"] = entries
+                        attributes["entry_count"] = len(entries)
 
         # Add latest entry for daily/monthly/yearly sensors
         period = None
