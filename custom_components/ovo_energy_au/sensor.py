@@ -59,6 +59,51 @@ def _get_rate_value(data: dict, period: str, rate_type: str, metric: str) -> flo
     return rate_data.get(metric)
 
 
+def _get_yesterday_hourly_total(data: dict, entry_type: str) -> float:
+    """Calculate yesterday's total from hourly entries.
+
+    Args:
+        data: Coordinator data dict
+        entry_type: "solar_entries", "grid_entries", or "return_to_grid_entries"
+
+    Returns:
+        Total consumption for yesterday in kWh
+    """
+    if not data:
+        return 0.0
+
+    from datetime import datetime, timezone, timedelta
+
+    hourly_data = data.get("hourly", {})
+    entries = hourly_data.get(entry_type, [])
+
+    if not entries:
+        return 0.0
+
+    # Get yesterday's date range (in UTC)
+    now_utc = datetime.now(timezone.utc)
+    yesterday = now_utc - timedelta(days=1)
+    yesterday_date = yesterday.date()
+
+    total = 0.0
+    for entry in entries:
+        try:
+            period_from = entry.get("periodFrom", "")
+            if not period_from:
+                continue
+
+            # Parse timestamp
+            timestamp = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+
+            # Check if this entry is from yesterday
+            if timestamp.date() == yesterday_date:
+                total += entry.get("consumption", 0)
+        except Exception:
+            continue
+
+    return round(total, 2)
+
+
 def _calculate_free_savings(data: dict, period: str, coordinator) -> float | None:
     """Calculate savings from free period.
 
@@ -657,6 +702,89 @@ async def async_setup_entry(
             "mdi:grid",
             lambda data: len(data.get("hourly", {}).get("hourly_heatmap", {})),
             "Usage Patterns",
+        ),
+
+        # Hourly Data Test Sensors (for debugging/verification)
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_solar_total",
+            "Hourly Solar Total (Last 7 Days)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:solar-power",
+            lambda data: data.get("hourly", {}).get("solar_total", 0),
+            "Hourly Data",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_grid_total",
+            "Hourly Grid Total (Last 7 Days)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower",
+            lambda data: data.get("hourly", {}).get("grid_total", 0),
+            "Hourly Data",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_return_to_grid_total",
+            "Hourly Return to Grid Total (Last 7 Days)",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower-export",
+            lambda data: data.get("hourly", {}).get("return_to_grid_total", 0),
+            "Hourly Data",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_data_entry_count",
+            "Hourly Data Entries",
+            None,
+            None,
+            None,
+            "mdi:counter",
+            lambda data: (
+                len(data.get("hourly", {}).get("solar_entries", [])) +
+                len(data.get("hourly", {}).get("grid_entries", [])) +
+                len(data.get("hourly", {}).get("return_to_grid_entries", []))
+            ),
+            "Hourly Data",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_solar_yesterday",
+            "Hourly Solar Yesterday",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:solar-power",
+            lambda data: _get_yesterday_hourly_total(data, "solar_entries"),
+            "Hourly Data - Yesterday",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_grid_yesterday",
+            "Hourly Grid Yesterday",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower",
+            lambda data: _get_yesterday_hourly_total(data, "grid_entries"),
+            "Hourly Data - Yesterday",
+        ),
+        OVOEnergyAUSensor(
+            coordinator,
+            "hourly_return_to_grid_yesterday",
+            "Hourly Return to Grid Yesterday",
+            UnitOfEnergy.KILO_WATT_HOUR,
+            SensorDeviceClass.ENERGY,
+            SensorStateClass.TOTAL,
+            "mdi:transmission-tower-export",
+            lambda data: _get_yesterday_hourly_total(data, "return_to_grid_entries"),
+            "Hourly Data - Yesterday",
         ),
 
         # Feature 8: Cost Per kWh Tracking
