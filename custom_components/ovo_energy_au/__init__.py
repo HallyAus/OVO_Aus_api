@@ -340,12 +340,20 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             "month_to_date": {},
         }
 
+        # Safety check - if data is None, return empty structure
+        if not data or not isinstance(data, dict):
+            return processed
+
         # Process daily, monthly, yearly periods
         for period in ["daily", "monthly", "yearly"]:
             if period not in data:
                 continue
 
             period_data = data[period]
+
+            # Safety check - period_data could be None
+            if not period_data or not isinstance(period_data, dict):
+                continue
 
             # Process solar data - use only the LATEST entry
             if "solar" in period_data and period_data["solar"]:
@@ -430,7 +438,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
         earliest_date = None
         latest_date = None
 
-        if "monthly" in data and data["monthly"]:
+        if "monthly" in data and isinstance(data.get("monthly"), dict):
             all_monthly_entries = data["monthly"].get("export") or []
 
             for entry in all_monthly_entries:
@@ -499,7 +507,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             }
 
         # Process daily arrays for historical data
-        if "daily" in data and data["daily"]:
+        if "daily" in data and isinstance(data.get("daily"), dict):
             daily_data = data["daily"]
 
             # Get dates for filtering
