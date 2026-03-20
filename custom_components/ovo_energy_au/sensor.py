@@ -59,8 +59,90 @@ def _get_rate_value(data: dict, period: str, rate_type: str, metric: str) -> flo
     return rate_data.get(metric)
 
 
+def _parse_entry_timestamp(period_from: str):
+    """Parse a periodFrom timestamp, handling both UTC and local formats.
+
+    OVO API returns timestamps like '2024-01-20T08:00:00Z' or '2024-01-20T08:00:00+11:00'.
+    We convert to AEST (UTC+10) for consistent Australian date comparisons.
+
+    Returns:
+        datetime with timezone info, or None if parsing fails.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    if not period_from:
+        return None
+
+    try:
+        # Parse ISO format (handles Z, +00:00, +11:00, etc.)
+        timestamp = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+        # Convert to AEST (UTC+10) for date comparisons
+        aest = timezone(timedelta(hours=10))
+        return timestamp.astimezone(aest)
+    except (ValueError, TypeError):
+        return None
+
+
+def _get_hourly_data_for_date(data: dict, entry_type: str, target_date) -> dict:
+    """Get hourly data for a specific date.
+
+    Args:
+        data: Coordinator data dict
+        entry_type: "solar_entries", "grid_entries", or "return_to_grid_entries"
+        target_date: date object (in AEST) to filter for
+
+    Returns:
+        Dict with 'state' (total) and 'hourly_data' (list of hourly values)
+    """
+    if not data:
+        return {"state": 0.0, "hourly_data": []}
+
+    hourly_data = data.get("hourly", {})
+    entries = hourly_data.get(entry_type, [])
+
+    if not entries:
+        return {"state": 0.0, "hourly_data": []}
+
+    hourly_values = []
+    total = 0.0
+
+    for entry in entries:
+        try:
+            timestamp = _parse_entry_timestamp(entry.get("periodFrom", ""))
+            if timestamp is None:
+                continue
+
+            # Compare in AEST
+            if timestamp.date() == target_date:
+                consumption = entry.get("consumption", 0) or 0
+                charge_info = entry.get("charge", {})
+                charge_value = charge_info.get("value", 0) if isinstance(charge_info, dict) else 0
+                charge_type = charge_info.get("type", "") if isinstance(charge_info, dict) else ""
+
+                total += consumption
+                hourly_values.append({
+                    "time": timestamp.isoformat(),
+                    "hour": timestamp.hour,
+                    "value": round(consumption, 3),
+                    "charge": round(abs(charge_value), 4) if charge_value else 0,
+                    "charge_type": charge_type,
+                })
+        except (ValueError, TypeError, AttributeError):
+            continue
+
+    # Sort by hour
+    hourly_values.sort(key=lambda x: x["hour"])
+
+    return {
+        "state": round(total, 2),
+        "hourly_data": hourly_values
+    }
+
+
 def _get_yesterday_hourly_data(data: dict, entry_type: str) -> dict:
     """Get yesterday's hourly data for graphing.
+
+    Uses AEST (UTC+10) for 'yesterday' calculation since this is an Australian integration.
 
     Args:
         data: Coordinator data dict
@@ -69,53 +151,34 @@ def _get_yesterday_hourly_data(data: dict, entry_type: str) -> dict:
     Returns:
         Dict with 'state' (total) and 'hourly_data' (list of hourly values)
     """
-    if not data:
-        return {"state": 0.0, "hourly_data": []}
-
     from datetime import datetime, timezone, timedelta
 
-    hourly_data = data.get("hourly", {})
-    entries = hourly_data.get(entry_type, [])
+    # Use AEST for date calculations (Australian integration)
+    aest = timezone(timedelta(hours=10))
+    now_aest = datetime.now(aest)
+    yesterday_date = (now_aest - timedelta(days=1)).date()
 
-    if not entries:
-        return {"state": 0.0, "hourly_data": []}
+    return _get_hourly_data_for_date(data, entry_type, yesterday_date)
 
-    # Get yesterday's date range (in UTC)
-    now_utc = datetime.now(timezone.utc)
-    yesterday = now_utc - timedelta(days=1)
-    yesterday_date = yesterday.date()
 
-    hourly_values = []
-    total = 0.0
+def _get_available_hourly_dates(data: dict) -> list:
+    """Get list of dates that have hourly data available.
 
-    for entry in entries:
-        try:
-            period_from = entry.get("periodFrom", "")
-            if not period_from:
-                continue
+    Returns:
+        Sorted list of date objects (in AEST) that have data.
+    """
+    from datetime import datetime, timezone, timedelta
 
-            # Parse timestamp
-            timestamp = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+    dates = set()
+    hourly_data = data.get("hourly", {}) if data else {}
 
-            # Check if this entry is from yesterday
-            if timestamp.date() == yesterday_date:
-                consumption = entry.get("consumption", 0)
-                total += consumption
-                hourly_values.append({
-                    "time": timestamp.isoformat(),
-                    "hour": timestamp.hour,
-                    "value": round(consumption, 3)
-                })
-        except Exception:
-            continue
+    for entry_type in ["solar_entries", "grid_entries", "return_to_grid_entries"]:
+        for entry in hourly_data.get(entry_type, []):
+            timestamp = _parse_entry_timestamp(entry.get("periodFrom", ""))
+            if timestamp:
+                dates.add(timestamp.date())
 
-    # Sort by time
-    hourly_values.sort(key=lambda x: x["time"])
-
-    return {
-        "state": round(total, 2),
-        "hourly_data": hourly_values
-    }
+    return sorted(dates, reverse=True)
 
 
 def _calculate_free_savings(data: dict, period: str, coordinator) -> float | None:
@@ -1254,6 +1317,62 @@ async def async_setup_entry(
         )
     )
 
+    # ====================
+    # PER-DAY HOURLY BREAKDOWN ENTITIES (Last 7 days)
+    # ====================
+    # Each day gets 3 entities (solar/grid/export) with per-hour data in attributes
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    aest = _tz(_td(hours=10))
+    now_aest = _dt.now(aest)
+
+    for days_ago in range(1, 8):  # 1 = yesterday, 7 = a week ago
+        target_date = (now_aest - _td(days=days_ago)).date()
+        date_str = target_date.strftime("%Y-%m-%d")
+        date_label = target_date.strftime("%a %d %b")  # e.g. "Mon 20 Mar"
+
+        for entry_type, type_label, icon in [
+            ("solar_entries", "Solar", "mdi:solar-power"),
+            ("grid_entries", "Grid", "mdi:transmission-tower"),
+            ("return_to_grid_entries", "Export", "mdi:transmission-tower-export"),
+        ]:
+            sensors.append(
+                OVOEnergyAUHourlyDaySensor(
+                    coordinator,
+                    f"hourly_{type_label.lower()}_{days_ago}d_ago",
+                    f"{date_label} {type_label} Hourly",
+                    entry_type,
+                    target_date,
+                    icon,
+                    f"Hourly {type_label}",
+                )
+            )
+
+    # ====================
+    # PER-HOUR ENTITIES FOR YESTERDAY (Individual hourly sensors)
+    # ====================
+    yesterday_date = (now_aest - _td(days=1)).date()
+    yesterday_label = yesterday_date.strftime("%a %d %b")
+
+    for hour in range(24):
+        hour_label = f"{hour:02d}:00"
+        for entry_type, type_label, icon in [
+            ("grid_entries", "Grid", "mdi:transmission-tower"),
+            ("solar_entries", "Solar", "mdi:solar-power"),
+            ("return_to_grid_entries", "Export", "mdi:transmission-tower-export"),
+        ]:
+            sensors.append(
+                OVOEnergyAUHourSensor(
+                    coordinator,
+                    f"yesterday_{type_label.lower()}_h{hour:02d}",
+                    f"{yesterday_label} {type_label} {hour_label}",
+                    entry_type,
+                    yesterday_date,
+                    hour,
+                    icon,
+                    "Yesterday Hourly",
+                )
+            )
+
     async_add_entities(sensors)
 
 
@@ -1696,7 +1815,7 @@ class OVOEnergyAUDayRateSensor(CoordinatorEntity, SensorEntity):
                     date_formatted = dt.strftime("%d %b")
                     if day_name:
                         return f"{day_name} {date_formatted} - {self._sensor_name}"
-                except:
+                except (ValueError, TypeError):
                     pass
 
         return self._sensor_name
@@ -1855,7 +1974,7 @@ class OVOEnergyAUDaySensor(CoordinatorEntity, SensorEntity):
                     from datetime import datetime
                     dt = datetime.strptime(date, "%Y-%m-%d")
                     date_formatted = dt.strftime("%d %b")
-                except:
+                except (ValueError, TypeError):
                     date_formatted = date
 
             if day_name and date_formatted:
@@ -2059,4 +2178,187 @@ class OVOEnergyAUPlanSensor(CoordinatorEntity, SensorEntity):
             "name": "OVO Energy AU",
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
+        }
+
+
+class OVOEnergyAUHourlyDaySensor(CoordinatorEntity, SensorEntity):
+    """Sensor for a specific day's hourly data breakdown.
+
+    State = total consumption for that day.
+    Attributes = per-hour breakdown with consumption, charge, and rate type.
+    """
+
+    def __init__(
+        self,
+        coordinator,
+        sensor_key: str,
+        sensor_name: str,
+        entry_type: str,
+        target_date,
+        icon: str,
+        device_category: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._sensor_key = sensor_key
+        self._sensor_name = sensor_name
+        self._entry_type = entry_type
+        self._target_date = target_date
+        self._icon = icon
+        self._device_category = device_category
+
+        self._attr_unique_id = f"{coordinator.account_id}_{sensor_key}"
+        self._attr_has_entity_name = True
+
+    @property
+    def name(self) -> str:
+        return self._sensor_name
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        result = _get_hourly_data_for_date(
+            self.coordinator.data, self._entry_type, self._target_date
+        )
+        return result["state"] if result["state"] > 0 else 0.0
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return UnitOfEnergy.KILO_WATT_HOUR
+
+    @property
+    def device_class(self) -> SensorDeviceClass:
+        return SensorDeviceClass.ENERGY
+
+    @property
+    def state_class(self) -> SensorStateClass:
+        return SensorStateClass.TOTAL
+
+    @property
+    def icon(self) -> str:
+        return self._icon
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        if not self.coordinator.data:
+            return {}
+        result = _get_hourly_data_for_date(
+            self.coordinator.data, self._entry_type, self._target_date
+        )
+        return {
+            "date": self._target_date.isoformat(),
+            "hourly_values": result["hourly_data"],
+            "data_points": len(result["hourly_data"]),
+            "entry_type": self._entry_type,
+        }
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        return {
+            "identifiers": {(DOMAIN, f"{self.coordinator.account_id}_{self._device_category}")},
+            "name": f"OVO Energy AU - {self._device_category}",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+            "via_device": (DOMAIN, self.coordinator.account_id),
+        }
+
+
+class OVOEnergyAUHourSensor(CoordinatorEntity, SensorEntity):
+    """Sensor for a specific hour on a specific day.
+
+    Individual entity per hour - not grouped.
+    """
+
+    def __init__(
+        self,
+        coordinator,
+        sensor_key: str,
+        sensor_name: str,
+        entry_type: str,
+        target_date,
+        target_hour: int,
+        icon: str,
+        device_category: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._sensor_key = sensor_key
+        self._sensor_name = sensor_name
+        self._entry_type = entry_type
+        self._target_date = target_date
+        self._target_hour = target_hour
+        self._icon = icon
+        self._device_category = device_category
+
+        self._attr_unique_id = f"{coordinator.account_id}_{sensor_key}"
+        self._attr_has_entity_name = True
+
+    @property
+    def name(self) -> str:
+        return self._sensor_name
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        result = _get_hourly_data_for_date(
+            self.coordinator.data, self._entry_type, self._target_date
+        )
+        for entry in result["hourly_data"]:
+            if entry["hour"] == self._target_hour:
+                return entry["value"]
+        return 0.0
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return UnitOfEnergy.KILO_WATT_HOUR
+
+    @property
+    def device_class(self) -> SensorDeviceClass:
+        return SensorDeviceClass.ENERGY
+
+    @property
+    def state_class(self) -> SensorStateClass:
+        return SensorStateClass.TOTAL
+
+    @property
+    def icon(self) -> str:
+        return self._icon
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        if not self.coordinator.data:
+            return {}
+        result = _get_hourly_data_for_date(
+            self.coordinator.data, self._entry_type, self._target_date
+        )
+        for entry in result["hourly_data"]:
+            if entry["hour"] == self._target_hour:
+                return {
+                    "date": self._target_date.isoformat(),
+                    "hour": self._target_hour,
+                    "time_range": f"{self._target_hour:02d}:00-{self._target_hour:02d}:59",
+                    "consumption_kwh": entry["value"],
+                    "charge_aud": entry.get("charge", 0),
+                    "charge_type": entry.get("charge_type", ""),
+                    "entry_type": self._entry_type,
+                }
+        return {
+            "date": self._target_date.isoformat(),
+            "hour": self._target_hour,
+            "time_range": f"{self._target_hour:02d}:00-{self._target_hour:02d}:59",
+            "consumption_kwh": 0,
+            "charge_aud": 0,
+            "charge_type": "",
+            "entry_type": self._entry_type,
+            "note": "No data available for this hour",
+        }
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        return {
+            "identifiers": {(DOMAIN, f"{self.coordinator.account_id}_{self._device_category}")},
+            "name": f"OVO Energy AU - {self._device_category}",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+            "via_device": (DOMAIN, self.coordinator.account_id),
         }

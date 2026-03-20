@@ -96,6 +96,15 @@ FAST_UPDATE_INTERVAL = timedelta(minutes=5)  # For manual refresh
 # Note: Hourly data now fetches only yesterday's data (the day before today)
 # This ensures the sensor displays hourly consumption for the previous day
 HOURLY_DATA_DAYS = 1  # DEPRECATED: Now always fetches yesterday only
+HOURLY_DATA_LOOKBACK_DAYS = 7  # Fetch last 7 days of hourly data
+
+# Token refresh settings
+TOKEN_REFRESH_BUFFER_PERCENT = 0.2  # Refresh when 20% of lifetime remains
+TOKEN_REFRESH_MAX_BUFFER_SECONDS = 120  # Max 2 minutes buffer
+TOKEN_REFRESH_MIN_BUFFER_SECONDS = 60  # Min 1 minute fallback buffer
+
+# API rate limiting
+MIN_REQUEST_INTERVAL_SECONDS = 1.0  # Minimum 1 second between API requests
 
 # Sensor identifiers
 SENSOR_SOLAR_CURRENT = "solar_current"
