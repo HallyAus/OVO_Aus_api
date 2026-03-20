@@ -72,5 +72,11 @@ logs/
 docs/_build/
 site/
 
+# Type checking
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
 # Distribution / packaging
 *.whl

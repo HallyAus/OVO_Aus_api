@@ -35,9 +35,6 @@ from .api import (
     OVOEnergyAUApiClientCommunicationError,
 )
 
-# Import for plan detection
-import sys
-from datetime import datetime, timedelta
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,7 +52,7 @@ async def validate_input(hass: HomeAssistant, username: str, password: str) -> d
     Returns:
         dict with title, account_id, client (authenticated client to reuse)
     """
-    _LOGGER.info("Authenticating with OVO Energy using username/password")
+    _LOGGER.debug("Authenticating with OVO Energy using username/password")
 
     # Create async client
     session = async_get_clientsession(hass)
@@ -70,7 +67,7 @@ async def validate_input(hass: HomeAssistant, username: str, password: str) -> d
         if not account_id:
             raise InvalidAuth("Could not retrieve account ID after authentication")
 
-        _LOGGER.info("Successfully authenticated. Account ID: %s", account_id)
+        _LOGGER.debug("Successfully authenticated. Account ID: %s", account_id)
 
         return {
             "title": f"OVO Energy AU ({account_id})",
@@ -127,7 +124,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             unit_rates = product.get("unitRatesCentsPerKWH", {})
             standing_charge = product.get("standingChargeCentsPerDay", 0)
 
-            _LOGGER.info(
+            _LOGGER.debug(
                 "Found plan: %s, standing charge: %.2f cents/day",
                 plan_name,
                 standing_charge
@@ -163,7 +160,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._detected_plan = plan_type
             self._detected_rates = detected_rates
 
-            _LOGGER.info(
+            _LOGGER.debug(
                 "Auto-detected plan: %s (%s), rates: %s",
                 PLAN_NAMES.get(plan_type, plan_type),
                 plan_name,
@@ -241,6 +238,50 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+        """Handle reauth when credentials expire."""
+        self._auth_data = dict(entry_data)
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle reauth credential input."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            try:
+                info = await validate_input(
+                    self.hass,
+                    user_input[CONF_USERNAME],
+                    user_input[CONF_PASSWORD],
+                )
+                # Update the existing entry with new credentials
+                self.hass.config_entries.async_update_entry(
+                    self.hass.config_entries.async_get_entry(self.context["entry_id"]),
+                    data={
+                        **self._auth_data,
+                        CONF_USERNAME: user_input[CONF_USERNAME],
+                        CONF_PASSWORD: user_input[CONF_PASSWORD],
+                        CONF_ACCOUNT_ID: info["account_id"],
+                    },
+                )
+                await self.hass.config_entries.async_reload(self.context["entry_id"])
+                return self.async_abort(reason="reauth_successful")
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:
+                _LOGGER.exception("Unexpected exception during reauth")
+                errors["base"] = "unknown"
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=STEP_USER_SCHEMA,
+            errors=errors,
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
@@ -289,11 +330,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 data.pop(CONF_OFF_PEAK_RATE, None)
                 data.pop(CONF_EV_RATE, None)
 
-            # Update the config entry
+            # NOTE: Ideally rates should be stored in options, not data.
+            # This is an anti-pattern but changing it requires migration logic.
+            # Update the config entry (triggers reload automatically)
             self.hass.config_entries.async_update_entry(self.config_entry, data=data)
-
-            # Reload the integration to apply changes
-            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
 
             return self.async_create_entry(title="", data={})
 
