@@ -478,11 +478,12 @@ class OVOEnergyAUApiClient:
 
                 data = await response.json()
 
-                if "errors" in data:
-                    error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
-                    raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
+                if "errors" in data and data["errors"]:
+                    error_messages = [error.get("message", "Unknown error") for error in data["errors"] if isinstance(error, dict)]
+                    if error_messages:
+                        raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
 
-                if "data" not in data or "GetContactInfo" not in data["data"]:
+                if "data" not in data or data["data"] is None or "GetContactInfo" not in data["data"]:
                     raise OVOEnergyAUApiClientError("Invalid response from API")
 
                 return data["data"]["GetContactInfo"]
@@ -573,11 +574,12 @@ class OVOEnergyAUApiClient:
 
                 data = await response.json()
 
-                if "errors" in data:
-                    error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
-                    raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
+                if "errors" in data and data["errors"]:
+                    error_messages = [error.get("message", "Unknown error") for error in data["errors"] if isinstance(error, dict)]
+                    if error_messages:
+                        raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
 
-                if "data" not in data:
+                if "data" not in data or data["data"] is None:
                     raise OVOEnergyAUApiClientError("Invalid response from API")
 
                 return data["data"]["GetIntervalData"]
@@ -661,14 +663,25 @@ class OVOEnergyAUApiClient:
 
                 data = await response.json()
 
-                if "errors" in data:
-                    error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
-                    raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
+                if "errors" in data and data["errors"]:
+                    error_messages = [
+                        error.get("message", "Unknown error")
+                        for error in data["errors"]
+                        if isinstance(error, dict)
+                    ]
+                    if error_messages:
+                        raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
 
-                if "data" not in data:
-                    raise OVOEnergyAUApiClientError("Invalid response from API")
+                if "data" not in data or data["data"] is None:
+                    _LOGGER.warning("GetHourlyData returned no data. Response keys: %s", list(data.keys()) if data else "None")
+                    return {}
 
-                return data["data"]["GetHourlyData"]
+                result = data["data"].get("GetHourlyData")
+                if result is None:
+                    _LOGGER.info("GetHourlyData returned null - hourly data may not be available for this account")
+                    return {}
+
+                return result
         except OVOEnergyAUApiClientAuthenticationError:
             raise
         except aiohttp.ClientResponseError as err:
@@ -745,12 +758,13 @@ class OVOEnergyAUApiClient:
 
                 data = await response.json()
 
-                if "errors" in data:
-                    error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
-                    _LOGGER.error("GetAccountInfo GraphQL errors: %s", error_messages)
-                    raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
+                if "errors" in data and data["errors"]:
+                    error_messages = [error.get("message", "Unknown error") for error in data["errors"] if isinstance(error, dict)]
+                    if error_messages:
+                        _LOGGER.error("GetAccountInfo GraphQL errors: %s", error_messages)
+                        raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
 
-                if "data" not in data or "GetAccountInfo" not in data["data"]:
+                if "data" not in data or data["data"] is None or "GetAccountInfo" not in data["data"]:
                     _LOGGER.error("Invalid GetAccountInfo response structure: %s", data)
                     raise OVOEnergyAUApiClientError("Invalid response from API")
 

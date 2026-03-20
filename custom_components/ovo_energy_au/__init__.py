@@ -306,6 +306,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                         "peak": {"consumption": 0, "cost": 0, "hours": 0},
                         "shoulder": {"consumption": 0, "cost": 0, "hours": 0},
                         "off_peak": {"consumption": 0, "cost": 0, "hours": 0},
+                        "ev_offpeak": {"consumption": 0, "cost": 0, "hours": 0},
                         "free": {"consumption": 0, "cost": 0, "hours": 0},
                         "other": {"consumption": 0, "cost": 0, "hours": 0},
                     },
@@ -534,22 +535,8 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             solar_entries = daily_data.get("solar") or []
             export_entries = daily_data.get("export") or []
 
-            # DEBUG: Log export_entries structure
-            _LOGGER.warning("DEBUG: export_entries count: %d", len(export_entries))
-            if export_entries:
-                sample = export_entries[0]
-                _LOGGER.warning("DEBUG: First export entry keys: %s", list(sample.keys()))
-                _LOGGER.warning("DEBUG: Has 'rates' field: %s", "rates" in sample)
-                if "rates" in sample:
-                    rates_sample = sample.get("rates")
-                    _LOGGER.warning("DEBUG: rates is list: %s, count: %d",
-                                   isinstance(rates_sample, list),
-                                   len(rates_sample) if isinstance(rates_sample, list) else 0)
-                    if rates_sample:
-                        _LOGGER.warning("DEBUG: First rate entry: %s", rates_sample[0])
-                _LOGGER.warning("DEBUG: Sample periodFrom: %s, periodTo: %s",
-                               sample.get("periodFrom"), sample.get("periodTo"))
-                _LOGGER.warning("DEBUG: Sample charge type: %s", sample.get("charge", {}).get("type"))
+            _LOGGER.debug("Interval data: %d solar entries, %d export entries",
+                         len(solar_entries), len(export_entries))
 
             # Create a map of dates to data
             from datetime import datetime
@@ -620,12 +607,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
                         # Extract rates breakdown
                         rates_list = entry.get("rates") or []
-                        # DEBUG: Log per-entry rate extraction
-                        _LOGGER.warning("DEBUG: date=%s, charge_type=%s, has_rates=%s, rates_count=%d",
-                                       date_key, charge_type, "rates" in entry,
-                                       len(rates_list) if rates_list else 0)
                         if rates_list and isinstance(rates_list, list):
-                            _LOGGER.warning("DEBUG: Processing %d rate entries for %s", len(rates_list), date_key)
                             for rate_entry in rates_list:
                                 if not isinstance(rate_entry, dict):
                                     continue
@@ -643,17 +625,14 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                                     daily_map[date_key]["grid_rates_kwh"].get(rate_type, 0) + consumption
                                 daily_map[date_key]["grid_rates_aud"][rate_type] = \
                                     daily_map[date_key]["grid_rates_aud"].get(rate_type, 0) + charge_value
-
-                                # DEBUG: Log accumulation
-                                _LOGGER.warning("DEBUG: Accumulated %s for %s: kwh=%.2f, aud=%.2f",
-                                               rate_type, date_key,
-                                               daily_map[date_key]["grid_rates_kwh"][rate_type],
-                                               daily_map[date_key]["grid_rates_aud"][rate_type])
                     except Exception as err:
                         pass
 
             # Convert to sorted list (newest first)
             all_daily_entries = sorted(daily_map.values(), key=lambda x: x["date"], reverse=True)
+
+            # All daily entries sorted newest first
+            processed["all_daily_entries"] = all_daily_entries
 
             # Last 3 days (most recent 3) - reversed to show oldest to newest
             processed["last_3_days"] = list(reversed(all_daily_entries[:3])) if len(all_daily_entries) >= 3 else list(reversed(all_daily_entries))
@@ -1153,6 +1132,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             "peak": {"consumption": 0, "cost": 0, "hours": 0},
             "shoulder": {"consumption": 0, "cost": 0, "hours": 0},
             "off_peak": {"consumption": 0, "cost": 0, "hours": 0},
+            "ev_offpeak": {"consumption": 0, "cost": 0, "hours": 0},
             "free": {"consumption": 0, "cost": 0, "hours": 0},
             "other": {"consumption": 0, "cost": 0, "hours": 0},
         }
@@ -1198,45 +1178,42 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             charge_type = entry.get("charge_type", "DEBIT")
             charge_value = abs(entry.get("charge_value", 0))  # Absolute value for cost
 
-            # Track FREE periods from API (charge_type = "FREE")
-            if charge_type == "FREE":
+            # Track FREE periods from API (charge_type = "FREE" or "FREE_3")
+            if charge_type in ["FREE", "FREE_3"]:
                 free_usage_mtd["consumption"] += consumption
                 free_usage_mtd["hours"] += 1
                 # Calculate savings: what it WOULD have cost at shoulder rate
                 free_usage_mtd["cost_saved"] += consumption * shoulder_rate
 
-            # Track EV charging (00:00-06:00) for EV plan - keep time-based for now
-            # TODO: Check if OVO API has special charge_type for EV periods
-            if plan_type == "ev" and 0 <= hour < 6:
+            # Track EV off-peak from API charge_type
+            if charge_type == "EV_OFFPEAK":
                 ev_usage_mtd["consumption"] += consumption
-                ev_usage_mtd["cost"] += charge_value  # Use actual cost from API
+                ev_usage_mtd["cost"] += charge_value
                 ev_usage_mtd["hours"] += 1
-                # Calculate savings vs off-peak rate
+                # Calculate savings vs OTHER rate (standard rate)
                 ev_usage_mtd["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
         # Calculate EV usage for last 7 days (weekly)
         for entry in last_7_days_hourly:
-            timestamp = entry["timestamp"]
-            hour = timestamp.hour
             consumption = entry["consumption"]
             charge_value = abs(entry.get("charge_value", 0))
+            charge_type = entry.get("charge_type", "DEBIT")
 
-            if plan_type == "ev" and 0 <= hour < 6:
+            if charge_type == "EV_OFFPEAK":
                 ev_usage_weekly["consumption"] += consumption
-                ev_usage_weekly["cost"] += charge_value  # Use actual cost from API
+                ev_usage_weekly["cost"] += charge_value
                 ev_usage_weekly["hours"] += 1
                 ev_usage_weekly["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
         # Calculate EV usage for current year (yearly)
         for entry in ytd_hourly:
-            timestamp = entry["timestamp"]
-            hour = timestamp.hour
             consumption = entry["consumption"]
             charge_value = abs(entry.get("charge_value", 0))
+            charge_type = entry.get("charge_type", "DEBIT")
 
-            if plan_type == "ev" and 0 <= hour < 6:
+            if charge_type == "EV_OFFPEAK":
                 ev_usage_yearly["consumption"] += consumption
-                ev_usage_yearly["cost"] += charge_value  # Use actual cost from API
+                ev_usage_yearly["cost"] += charge_value
                 ev_usage_yearly["hours"] += 1
                 ev_usage_yearly["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
@@ -1250,8 +1227,8 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             charge_value = abs(entry.get("charge_value", 0))
 
             # Map API charge_type to our TOU periods
-            # API returns for Free 3 TOU plan: FREE, OTHER, CREDIT
-            # API may also return: PEAK, OFF_PEAK, SHOULDER, DEBIT
+            # API returns for Free 3 TOU plan: EV_OFFPEAK, FREE_3, OTHER, CREDIT
+            # API may also return: PEAK, OFF_PEAK, SHOULDER, FREE, DEBIT
             period = None
             skip_entry = False
 
@@ -1264,10 +1241,14 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             elif charge_type in ["SHOULDER", "DEBIT"]:
                 period = "shoulder"
                 cost = charge_value
-            elif charge_type == "FREE":
+            elif charge_type in ["FREE", "FREE_3"]:
                 # Free period consumption (e.g., 11am-2pm on Free 3 plan)
                 period = "free"
                 cost = charge_value  # Should be 0 for free period
+            elif charge_type == "EV_OFFPEAK":
+                # EV off-peak rate (e.g., midnight-6am on EV/Free 3 plans)
+                period = "ev_offpeak"
+                cost = charge_value
             elif charge_type == "OTHER":
                 # Standard rate consumption (used by Free 3 TOU plan)
                 period = "other"

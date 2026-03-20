@@ -981,9 +981,12 @@ async def async_setup_entry(
         ),
     ]
 
-    # Add dynamic sensors for last 3 days
-    last_3_days_data = coordinator.data.get("last_3_days", []) if coordinator.data else []
-    for idx, day_data in enumerate(last_3_days_data):
+    # Add dynamic sensors for last 7 days with rate breakdowns
+    all_daily_data = coordinator.data.get("all_daily_entries", []) if coordinator.data else []
+    # Take the first 7 days (most recent), they're already sorted newest first
+    last_7_daily = all_daily_data[:7] if len(all_daily_data) >= 7 else all_daily_data
+
+    for idx, day_data in enumerate(last_7_daily):
         day_num = idx + 1
         sensors.extend([
             OVOEnergyAUDaySensor(
@@ -1067,6 +1070,56 @@ async def async_setup_entry(
                     idx,
                     rate_type,
                     "grid_rates_aud",
+                )
+            )
+
+    # ====================
+    # PER-DAY RATE BREAKDOWN (Last 7 days from interval data)
+    # ====================
+    # These show each day's consumption broken down by rate type (EV_OFFPEAK, FREE_3, OTHER)
+    all_daily = coordinator.data.get("all_daily_entries", []) if coordinator.data else []
+    for idx in range(min(7, len(all_daily))):
+        day_data = all_daily[idx]
+        date_str = day_data.get("date", "")
+        day_name = day_data.get("day_name", "")
+
+        # Format: "Mon 20 Mar" style label
+        try:
+            from datetime import datetime as _dt2
+            _d = _dt2.strptime(date_str, "%Y-%m-%d")
+            date_label = _d.strftime("%a %d %b")
+        except (ValueError, TypeError):
+            date_label = date_str
+
+        # Total consumption sensor for each day
+        sensors.append(
+            OVOEnergyAUDailyRateHistorySensor(
+                coordinator,
+                f"history_day_{idx}_total",
+                f"{date_label} Total Consumption",
+                idx,
+                None,  # None = total
+                "mdi:calendar-today",
+            )
+        )
+
+        # Per rate type sensors
+        for rate_type in ["EV_OFFPEAK", "FREE_3", "OTHER"]:
+            rate_label = rate_type.replace("_", " ").title()
+            icon = {
+                "EV_OFFPEAK": "mdi:ev-station",
+                "FREE_3": "mdi:gift",
+                "OTHER": "mdi:chart-bar",
+            }.get(rate_type, "mdi:flash")
+
+            sensors.append(
+                OVOEnergyAUDailyRateHistorySensor(
+                    coordinator,
+                    f"history_day_{idx}_{rate_type.lower()}",
+                    f"{date_label} {rate_label}",
+                    idx,
+                    rate_type,
+                    icon,
                 )
             )
 
@@ -1767,7 +1820,7 @@ class OVOEnergyAURateBreakdownSensor(CoordinatorEntity, SensorEntity):
 
 
 class OVOEnergyAUDayRateSensor(CoordinatorEntity, SensorEntity):
-    """Sensor for a specific rate type on a specific day."""
+    """Sensor for a specific rate type on a specific day (supports EV_OFFPEAK, FREE_3, etc)."""
 
     def __init__(
         self,
@@ -1802,9 +1855,9 @@ class OVOEnergyAUDayRateSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return self._sensor_name
 
-        last_3_days = self.coordinator.data.get("last_3_days", [])
-        if self._day_index < len(last_3_days):
-            day_data = last_3_days[self._day_index]
+        all_daily = self.coordinator.data.get("all_daily_entries", [])
+        if self._day_index < len(all_daily):
+            day_data = all_daily[self._day_index]
             day_name = day_data.get("day_name", "")
             date = day_data.get("date", "")
 
@@ -1894,9 +1947,9 @@ class OVOEnergyAUDayRateSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return attributes
 
-        last_3_days = self.coordinator.data.get("last_3_days", [])
-        if self._day_index < len(last_3_days):
-            day_data = last_3_days[self._day_index]
+        all_daily = self.coordinator.data.get("all_daily_entries", [])
+        if self._day_index < len(all_daily):
+            day_data = all_daily[self._day_index]
 
             attributes["periodFrom"] = day_data.get("periodFrom")
             attributes["periodTo"] = day_data.get("periodTo")
@@ -1927,7 +1980,7 @@ class OVOEnergyAUDayRateSensor(CoordinatorEntity, SensorEntity):
 
 
 class OVOEnergyAUDaySensor(CoordinatorEntity, SensorEntity):
-    """Representation of a dynamic day sensor (last 3 days)."""
+    """Representation of a dynamic day sensor (last 7 days with rate breakdowns)."""
 
     def __init__(
         self,
@@ -1962,9 +2015,9 @@ class OVOEnergyAUDaySensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return self._sensor_name
 
-        last_3_days = self.coordinator.data.get("last_3_days", [])
-        if self._day_index < len(last_3_days):
-            day_data = last_3_days[self._day_index]
+        all_daily = self.coordinator.data.get("all_daily_entries", [])
+        if self._day_index < len(all_daily):
+            day_data = all_daily[self._day_index]
             day_name = day_data.get("day_name", "")
             date = day_data.get("date", "")
             # Format: "Monday 20 Jan" for example
@@ -1988,9 +2041,9 @@ class OVOEnergyAUDaySensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
 
-        last_3_days = self.coordinator.data.get("last_3_days", [])
-        if self._day_index < len(last_3_days):
-            day_data = last_3_days[self._day_index]
+        all_daily = self.coordinator.data.get("all_daily_entries", [])
+        if self._day_index < len(all_daily):
+            day_data = all_daily[self._day_index]
             value = day_data.get(self._value_key, 0)
             return round(float(value), 2) if value is not None else 0
 
@@ -2022,9 +2075,9 @@ class OVOEnergyAUDaySensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return {}
 
-        last_3_days = self.coordinator.data.get("last_3_days", [])
-        if self._day_index < len(last_3_days):
-            day_data = last_3_days[self._day_index]
+        all_daily = self.coordinator.data.get("all_daily_entries", [])
+        if self._day_index < len(all_daily):
+            day_data = all_daily[self._day_index]
             return {
                 "date": day_data.get("date"),
                 "day_name": day_data.get("day_name"),
