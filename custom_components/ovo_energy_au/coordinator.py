@@ -62,9 +62,11 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Failed to fetch product agreements: %s", err)
                 processed["product_agreements"] = None
 
-            # 3. Hourly data (current month)
+            # 3. Hourly data - fetch last 8 days to cover all 7-day-ago sensors
+            # and handle month boundaries (e.g., yesterday on the 1st)
             now = dt_util.now()
-            query_start = now.replace(day=1).strftime("%Y-%m-%d")
+            from datetime import timedelta
+            query_start = (now - timedelta(days=8)).strftime("%Y-%m-%d")
             query_end = now.strftime("%Y-%m-%d")
 
             try:

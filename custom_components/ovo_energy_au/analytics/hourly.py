@@ -183,11 +183,16 @@ def _build_timeline(processed: dict) -> list[dict]:
 
 
 def _parse_timestamp(period_from: str) -> datetime | None:
-    """Parse an ISO timestamp string."""
+    """Parse an ISO timestamp string and convert to Australian Eastern time.
+
+    This ensures hour-of-day calculations (heatmap, peak window, TOU)
+    use local Australian hours, not UTC.
+    """
     if not period_from:
         return None
     try:
-        return datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+        ts = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+        return ts.astimezone(AU_TIMEZONE)
     except (ValueError, TypeError):
         return None
 

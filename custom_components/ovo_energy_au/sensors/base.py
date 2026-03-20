@@ -81,7 +81,8 @@ class OVOEnergySensor(OVOBaseSensor):
         try:
             value = self._value_fn(self.coordinator.data)
             return round(float(value), 2) if value is not None else None
-        except Exception:
+        except Exception as err:
+            _LOGGER.debug("Sensor %s error: %s", self._sensor_key, err)
             return None
 
     @property

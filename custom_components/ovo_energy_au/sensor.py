@@ -178,10 +178,12 @@ def _add_dynamic_day_sensors(sensors: list, coordinator) -> None:
 
 
 def _add_hourly_day_sensors(sensors: list, coordinator) -> None:
-    """Add per-day hourly breakdown sensors (last 7 days)."""
-    now_aest = datetime.now(AU_TIMEZONE)
+    """Add per-day hourly breakdown sensors (last 7 days).
+
+    Uses days_ago instead of fixed target_date so sensors compute
+    the correct date dynamically on each update (survives midnight).
+    """
     for days_ago in range(1, 8):
-        target_date = (now_aest - timedelta(days=days_ago)).date()
         for entry_type, type_label, icon in [
             ("solar_entries", "Solar", "mdi:solar-power"),
             ("grid_entries", "Grid", "mdi:transmission-tower"),
@@ -189,8 +191,8 @@ def _add_hourly_day_sensors(sensors: list, coordinator) -> None:
         ]:
             sensors.append(OVOHourlyDaySensor(
                 coordinator, f"hourly_{type_label.lower()}_{days_ago}d_ago",
-                f"{type_label} Hourly {days_ago}d Ago",  # Stable name
-                entry_type, target_date, icon, f"Hourly {type_label}",
+                f"{type_label} Hourly {days_ago}d Ago",
+                entry_type, days_ago, icon, f"Hourly {type_label}",
             ))
 
 
@@ -556,22 +558,33 @@ class OVOHealthSensor(OVOBaseSensor):
 
 
 class OVOHourlyDaySensor(OVOBaseSensor):
-    """Per-day hourly breakdown sensor."""
+    """Per-day hourly breakdown sensor.
 
-    def __init__(self, coordinator, key, name, entry_type, target_date, icon, category):
+    Uses days_ago to compute target_date dynamically on each update,
+    so it survives midnight without needing an HA restart.
+    Note: Hourly data from OVO is only available the next day after ~8am.
+    """
+
+    def __init__(self, coordinator, key, name, entry_type, days_ago, icon, category):
         super().__init__(coordinator, key, name, category)
         self._entry_type = entry_type
-        self._target_date = target_date
+        self._days_ago = days_ago
         self._icon = icon
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         self._attr_device_class = SensorDeviceClass.ENERGY
         self._attr_state_class = SensorStateClass.TOTAL
 
+    def _get_target_date(self):
+        """Compute target date dynamically (survives midnight)."""
+        return (datetime.now(AU_TIMEZONE) - timedelta(days=self._days_ago)).date()
+
     @property
     def native_value(self) -> float | None:
         if not self.coordinator.data:
             return None
-        result = get_hourly_data_for_date(self.coordinator.data, self._entry_type, self._target_date)
+        result = get_hourly_data_for_date(
+            self.coordinator.data, self._entry_type, self._get_target_date()
+        )
         return result["state"] if result["state"] > 0 else 0.0
 
     @property
@@ -581,9 +594,11 @@ class OVOHourlyDaySensor(OVOBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         if not self.coordinator.data:
             return {}
-        result = get_hourly_data_for_date(self.coordinator.data, self._entry_type, self._target_date)
+        target = self._get_target_date()
+        result = get_hourly_data_for_date(self.coordinator.data, self._entry_type, target)
         return {
-            "date": self._target_date.isoformat(),
+            "date": target.isoformat(),
+            "days_ago": self._days_ago,
             "hourly_values": result["hourly_data"],
             "data_points": len(result["hourly_data"]),
         }
