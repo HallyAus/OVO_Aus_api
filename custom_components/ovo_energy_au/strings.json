@@ -3,10 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to OVO Energy Australia",
-        "description": "Sign in with your OVO Energy Australia account to track energy usage, costs, and solar generation.\n\nYour energy plan and rates are automatically detected from OVO's API. No manual plan selection or rate entry required.\n\nNot an OVO customer yet? Get $120-$180 credit when you [sign up with our referral]({referral_url})!\n\n**Privacy & Security:**\n• Credentials stored in Home Assistant's configuration storage\n• Used only to access your energy data via OVO's official API\n• Never shared with third parties or external services\n\n**Why your password is required:**\n• OVO API tokens expire every 5 minutes for security\n• Automatic re-authentication keeps sensors updating 24/7\n• No manual intervention needed after initial setup",
-        "description_placeholders": {
-          "referral_url": "https://www.ovoenergy.com.au/refer/daniel16485"
-        },
+        "description": "Sign in with your OVO Energy Australia account to track energy usage, costs, and solar generation.\n\nYour energy plan and rates are automatically detected from OVO's API. No manual plan selection or rate entry required.\n\nNot an OVO customer yet? Get $120-$180 credit with referral code: daniel16485\n\n**Privacy & Security:**\n• Credentials stored in Home Assistant's configuration storage\n• Used only to access your energy data via OVO's official API\n• Never shared with third parties or external services\n\n**Why your password is required:**\n• OVO API tokens expire every 5 minutes for security\n• Automatic re-authentication keeps sensors updating 24/7\n• No manual intervention needed after initial setup",
         "data": {
           "username": "Email Address",
           "password": "Password"

@@ -17,7 +17,6 @@ from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .sensors.base import (
@@ -25,7 +24,6 @@ from .sensors.base import (
     OVOBaseSensor,
     OVOEnergySensor,
     get_hourly_data_for_date,
-    get_yesterday_hourly_data,
 )
 from .sensors.definitions import (
     ANALYTICS_SENSORS,

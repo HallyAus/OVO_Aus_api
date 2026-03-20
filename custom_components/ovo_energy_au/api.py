@@ -10,7 +10,7 @@ import logging
 import re
 import secrets
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -90,7 +90,7 @@ class OVOEnergyAUApiClient:
         """Return True if the token has actually expired (no buffer)."""
         if self._token_expires_at is None:
             return True
-        return datetime.now(timezone.utc) >= self._token_expires_at
+        return datetime.now(UTC) >= self._token_expires_at
 
     @property
     def should_refresh(self) -> bool:
@@ -98,7 +98,7 @@ class OVOEnergyAUApiClient:
         if self._token_expires_at is None:
             return True
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self._token_created_at:
             token_lifetime = (self._token_expires_at - self._token_created_at).total_seconds()
             buffer_seconds = max(
@@ -124,7 +124,7 @@ class OVOEnergyAUApiClient:
         self._access_token = access_token
         self._id_token = id_token
         self._refresh_token = refresh_token
-        self._token_created_at = datetime.now(timezone.utc)
+        self._token_created_at = datetime.now(UTC)
 
         if expires_in is not None:
             self._token_expires_at = self._token_created_at + timedelta(seconds=expires_in)
@@ -133,7 +133,7 @@ class OVOEnergyAUApiClient:
                 decoded = jwt.decode(access_token, options={"verify_signature": False})
                 exp_timestamp = decoded.get("exp")
                 if exp_timestamp:
-                    self._token_expires_at = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
+                    self._token_expires_at = datetime.fromtimestamp(exp_timestamp, tz=UTC)
                 else:
                     self._token_expires_at = self._token_created_at + timedelta(hours=1)
             except Exception:
