@@ -62,7 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.services.has_service(DOMAIN, "refresh_data"):
         async def handle_refresh_data(call: ServiceCall) -> None:
             """Handle manual refresh - refreshes all coordinators."""
-            for entry_id, coord in hass.data.get(DOMAIN, {}).items():
+            for _entry_id, coord in hass.data.get(DOMAIN, {}).items():
                 await coord.async_request_refresh()
 
         hass.services.async_register(DOMAIN, "refresh_data", handle_refresh_data)
