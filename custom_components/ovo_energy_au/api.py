@@ -372,6 +372,10 @@ class OVOEnergyAUApiClient:
         Note: OVO's API expects the raw access token without a "Bearer " prefix,
         matching the browser's behavior observed during reverse engineering.
         """
+        if not self._access_token or not self._id_token:
+            raise OVOEnergyAUApiClientAuthenticationError(
+                "Cannot build request headers: not authenticated"
+            )
         return {
             "accept": "*/*",
             "authorization": self._access_token,

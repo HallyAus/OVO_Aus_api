@@ -5,6 +5,8 @@ from __future__ import annotations
 import calendar
 from datetime import datetime
 
+from ..const import AU_TIMEZONE
+
 
 def compute_insights(processed: dict) -> None:
     """Add all analytics insights to the processed data dict (in-place).
@@ -177,8 +179,8 @@ def _add_monthly_projection(processed: dict) -> None:
         mtd.get("solar_charge", 0) + mtd.get("grid_charge", 0)
     )
 
-    # Use current date for month info
-    now = datetime.now()
+    # Use AEST for month info (Australian integration)
+    now = datetime.now(AU_TIMEZONE)
     current_month = now.month
     current_year = now.year
     days_in_month = calendar.monthrange(current_year, current_month)[1]

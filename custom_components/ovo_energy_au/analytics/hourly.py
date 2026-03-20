@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
+from ..const import AU_TIMEZONE
 from ..models import PlanConfig
 
 _LOGGER = logging.getLogger(__name__)
-
-AU_TIMEZONE = ZoneInfo("Australia/Sydney")
 
 # Map API charge types to internal TOU period keys
 _CHARGE_TYPE_TO_PERIOD = {

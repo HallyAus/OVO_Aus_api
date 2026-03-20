@@ -297,8 +297,10 @@ def get_rate_value(data: dict, period: str, rate_type: str, metric: str) -> floa
 def calculate_free_savings(data: dict, period: str, coordinator) -> float | None:
     """Calculate savings from free period consumption."""
     free_consumption = get_rate_value(data, period, "FREE_3", "consumption")
-    if not free_consumption:
+    if free_consumption is None:
         return None
+    if free_consumption == 0:
+        return 0.0
 
     other_charge = get_rate_value(data, period, "OTHER", "charge")
     other_consumption = get_rate_value(data, period, "OTHER", "consumption")

@@ -304,7 +304,7 @@ class OVODaySensor(OVOBaseSensor):
     """Dynamic day sensor for last 7 days."""
 
     def __init__(self, coordinator, key, name, unit, device_class, state_class, icon, day_index, value_key):
-        super().__init__(coordinator, key, name, "3 Day Snapshot")
+        super().__init__(coordinator, key, name, "Daily History")
         self._unit = unit
         self._device_class = device_class
         self._state_class = state_class
@@ -349,7 +349,7 @@ class OVODayRateSensor(OVOBaseSensor):
     """Per-rate sensor for a specific day."""
 
     def __init__(self, coordinator, key, name, unit, device_class, state_class, icon, day_index, rate_type, metric_key):
-        super().__init__(coordinator, key, name, "3 Day Snapshot")
+        super().__init__(coordinator, key, name, "Daily History")
         self._unit = unit
         self._device_class = device_class
         self._state_class = state_class
@@ -585,7 +585,8 @@ class OVOHourlyDaySensor(OVOBaseSensor):
         result = get_hourly_data_for_date(
             self.coordinator.data, self._entry_type, self._get_target_date()
         )
-        return result["state"] if result["state"] > 0 else 0.0
+        # Return None (unavailable) if no data points exist for this date
+        return result["state"] if result["hourly_data"] else None
 
     @property
     def icon(self): return self._icon

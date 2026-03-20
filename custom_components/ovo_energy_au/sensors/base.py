@@ -5,17 +5,13 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from ..const import DOMAIN
+from ..const import AU_TIMEZONE, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-
-# Australian Eastern timezone (handles DST automatically)
-AU_TIMEZONE = ZoneInfo("Australia/Sydney")
 
 
 class OVOBaseSensor(CoordinatorEntity, SensorEntity):

@@ -1,6 +1,10 @@
 """Constants for the OVO Energy Australia integration."""
 
 from datetime import timedelta
+from zoneinfo import ZoneInfo
+
+# Australian Eastern timezone (handles AEST/AEDT DST automatically)
+AU_TIMEZONE = ZoneInfo("Australia/Sydney")
 
 # Integration domain
 DOMAIN = "ovo_energy_au"

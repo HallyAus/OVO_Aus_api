@@ -94,6 +94,8 @@ class SelfSufficiencyData(TypedDict):
 
     score: float
     solar_kwh: float
+    self_consumed_kwh: float
+    exported_kwh: float
     grid_kwh: float
     total_kwh: float
     period_days: int

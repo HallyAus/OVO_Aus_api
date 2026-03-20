@@ -105,7 +105,18 @@ def _process_period_latest(period: str, period_data: dict) -> dict:
                 result["grid_consumption"] += consumption
                 result["grid_charge"] += charge_value
 
-        result["rate_breakdown"] = _extract_rate_breakdown(period, entries[-1])
+        # Merge rate breakdowns from ALL entries in the latest period
+        merged_rates = {}
+        for entry in entries:
+            if entry.get("periodFrom") != latest_period:
+                continue
+            for rt, rd in _extract_rate_breakdown(period, entry).items():
+                if rt not in merged_rates:
+                    merged_rates[rt] = {"consumption": 0, "charge": 0, "percent": 0, "available": True}
+                merged_rates[rt]["consumption"] += rd.get("consumption", 0)
+                merged_rates[rt]["charge"] += rd.get("charge", 0)
+                merged_rates[rt]["percent"] += rd.get("percent", 0)
+        result["rate_breakdown"] = merged_rates
 
     return result
 
