@@ -10,6 +10,7 @@ import html
 import logging
 import re
 import secrets
+import time
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -24,6 +25,7 @@ from .const import (
     GET_HOURLY_DATA_QUERY,
     GET_INTERVAL_DATA_QUERY,
     GRAPHQL_URL,
+    MIN_REQUEST_INTERVAL_SECONDS,
     OAUTH_AUDIENCE,
     OAUTH_AUTHORIZE_URL,
     OAUTH_CLIENT_ID,
@@ -32,6 +34,9 @@ from .const import (
     OAUTH_REDIRECT_URI,
     OAUTH_SCOPES,
     OAUTH_TOKEN_URL,
+    TOKEN_REFRESH_BUFFER_PERCENT,
+    TOKEN_REFRESH_MAX_BUFFER_SECONDS,
+    TOKEN_REFRESH_MIN_BUFFER_SECONDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,6 +72,8 @@ class OVOEnergyAUApiClient:
         self._refresh_token: str | None = None
         self._token_expires_at: datetime | None = None
         self._token_created_at: datetime | None = None
+        self._refresh_lock = asyncio.Lock()  # Prevent concurrent token refreshes
+        self._last_request_time: float | None = None  # For rate limiting
 
     @property
     def is_authenticated(self) -> bool:
@@ -87,14 +94,19 @@ class OVOEnergyAUApiClient:
             return True
 
         # Calculate token lifetime to use adaptive buffer
-        # Use 20% of token lifetime or 2 minutes, whichever is smaller
         now = datetime.now()
         if hasattr(self, '_token_created_at') and self._token_created_at:
             token_lifetime = (self._token_expires_at - self._token_created_at).total_seconds()
-            buffer_seconds = min(token_lifetime * 0.2, 120)  # 20% or 2 min max
+            buffer_seconds = min(
+                token_lifetime * TOKEN_REFRESH_BUFFER_PERCENT,
+                TOKEN_REFRESH_MAX_BUFFER_SECONDS
+            )
+            _LOGGER.debug("Token refresh buffer: %d seconds (%.1f%% of %d second lifetime)",
+                         buffer_seconds, TOKEN_REFRESH_BUFFER_PERCENT * 100, token_lifetime)
         else:
-            # Fallback to 1 minute buffer if we don't know when token was created
-            buffer_seconds = 60
+            # Fallback buffer if we don't know when token was created
+            buffer_seconds = TOKEN_REFRESH_MIN_BUFFER_SECONDS
+            _LOGGER.debug("Using fallback token refresh buffer: %d seconds", buffer_seconds)
 
         return now >= (self._token_expires_at - timedelta(seconds=buffer_seconds))
 
@@ -131,6 +143,8 @@ class OVOEnergyAUApiClient:
                 self._token_expires_at = self._token_created_at + timedelta(hours=1)
 
         token_lifetime = (self._token_expires_at - self._token_created_at).total_seconds()
+        _LOGGER.info("Tokens set successfully. Token lifetime: %d seconds (%.1f hours)",
+                     token_lifetime, token_lifetime / 3600)
 
     async def exchange_code_for_tokens(
         self,
@@ -368,33 +382,45 @@ class OVOEnergyAUApiClient:
                 f"Authentication failed: {err}"
             ) from err
 
+    async def _rate_limit(self) -> None:
+        """Apply rate limiting to prevent API throttling."""
+        if self._last_request_time is not None:
+            elapsed = time.time() - self._last_request_time
+            if elapsed < MIN_REQUEST_INTERVAL_SECONDS:
+                sleep_time = MIN_REQUEST_INTERVAL_SECONDS - elapsed
+                _LOGGER.debug("Rate limiting: sleeping for %.2f seconds", sleep_time)
+                await asyncio.sleep(sleep_time)
+        self._last_request_time = time.time()
+
     async def _ensure_authenticated(self) -> None:
         """Ensure the client is authenticated."""
-        if not self._access_token:
-            # If we have credentials, try to authenticate
-            if self._username and self._password:
-                await self.authenticate_with_password(self._username, self._password)
-                return
-            raise OVOEnergyAUApiClientAuthenticationError("Not authenticated")
-
-        # Use should_refresh which includes 5-minute buffer for proactive refresh
-        if self.should_refresh:
-            # Prefer full re-authentication if we have credentials
-            # This is more reliable than refresh tokens which seem to expire/invalidate after 24h
-            if self._username and self._password:
-                try:
+        async with self._refresh_lock:  # Prevent concurrent token refreshes
+            if not self._access_token:
+                # If we have credentials, try to authenticate
+                if self._username and self._password:
                     await self.authenticate_with_password(self._username, self._password)
                     return
-                except Exception as err:
-                    _LOGGER.warning("Re-authentication failed: %s. Falling back to refresh token.", err)
+                raise OVOEnergyAUApiClientAuthenticationError("Not authenticated")
 
-            # Fallback to refresh token if no credentials or re-auth failed
-            if self._refresh_token:
-                await self.refresh_tokens()
+            # Use should_refresh which includes adaptive buffer for proactive refresh
+            if self.should_refresh:
+                # Prefer full re-authentication if we have credentials
+                # This is more reliable than refresh tokens which seem to expire/invalidate after 24h
+                if self._username and self._password:
+                    try:
+                        await self.authenticate_with_password(self._username, self._password)
+                        return
+                    except Exception as err:
+                        _LOGGER.warning("Re-authentication failed: %s. Falling back to refresh token.", err)
+
+                # Fallback to refresh token if no credentials or re-auth failed
+                if self._refresh_token:
+                    await self.refresh_tokens()
 
     async def get_contact_info(self) -> dict[str, Any]:
         """Get contact information and account details."""
         await self._ensure_authenticated()
+        await self._rate_limit()
 
         # Extract email from ID token
         try:
@@ -452,11 +478,12 @@ class OVOEnergyAUApiClient:
 
                 data = await response.json()
 
-                if "errors" in data:
-                    error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
-                    raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
+                if "errors" in data and data["errors"]:
+                    error_messages = [error.get("message", "Unknown error") for error in data["errors"] if isinstance(error, dict)]
+                    if error_messages:
+                        raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
 
-                if "data" not in data or "GetContactInfo" not in data["data"]:
+                if "data" not in data or data["data"] is None or "GetContactInfo" not in data["data"]:
                     raise OVOEnergyAUApiClientError("Invalid response from API")
 
                 return data["data"]["GetContactInfo"]
@@ -504,6 +531,7 @@ class OVOEnergyAUApiClient:
     async def get_interval_data(self, account_id: str) -> dict[str, Any]:
         """Get interval data for an account."""
         await self._ensure_authenticated()
+        await self._rate_limit()
 
         headers = {
             "accept": "*/*",
@@ -546,11 +574,12 @@ class OVOEnergyAUApiClient:
 
                 data = await response.json()
 
-                if "errors" in data:
-                    error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
-                    raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
+                if "errors" in data and data["errors"]:
+                    error_messages = [error.get("message", "Unknown error") for error in data["errors"] if isinstance(error, dict)]
+                    if error_messages:
+                        raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
 
-                if "data" not in data:
+                if "data" not in data or data["data"] is None:
                     raise OVOEnergyAUApiClientError("Invalid response from API")
 
                 return data["data"]["GetIntervalData"]
@@ -587,6 +616,7 @@ class OVOEnergyAUApiClient:
             end_date: End date in YYYY-MM-DD format
         """
         await self._ensure_authenticated()
+        await self._rate_limit()
 
         headers = {
             "accept": "*/*",
@@ -633,14 +663,25 @@ class OVOEnergyAUApiClient:
 
                 data = await response.json()
 
-                if "errors" in data:
-                    error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
-                    raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
+                if "errors" in data and data["errors"]:
+                    error_messages = [
+                        error.get("message", "Unknown error")
+                        for error in data["errors"]
+                        if isinstance(error, dict)
+                    ]
+                    if error_messages:
+                        raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
 
-                if "data" not in data:
-                    raise OVOEnergyAUApiClientError("Invalid response from API")
+                if "data" not in data or data["data"] is None:
+                    _LOGGER.warning("GetHourlyData returned no data. Response keys: %s", list(data.keys()) if data else "None")
+                    return {}
 
-                return data["data"]["GetHourlyData"]
+                result = data["data"].get("GetHourlyData")
+                if result is None:
+                    _LOGGER.info("GetHourlyData returned null - hourly data may not be available for this account")
+                    return {}
+
+                return result
         except OVOEnergyAUApiClientAuthenticationError:
             raise
         except aiohttp.ClientResponseError as err:
@@ -672,6 +713,7 @@ class OVOEnergyAUApiClient:
         - nmi: National Meter Identifier
         """
         await self._ensure_authenticated()
+        await self._rate_limit()
 
         headers = {
             "accept": "*/*",
@@ -716,12 +758,13 @@ class OVOEnergyAUApiClient:
 
                 data = await response.json()
 
-                if "errors" in data:
-                    error_messages = [error.get("message", "Unknown error") for error in data["errors"]]
-                    _LOGGER.error("GetAccountInfo GraphQL errors: %s", error_messages)
-                    raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
+                if "errors" in data and data["errors"]:
+                    error_messages = [error.get("message", "Unknown error") for error in data["errors"] if isinstance(error, dict)]
+                    if error_messages:
+                        _LOGGER.error("GetAccountInfo GraphQL errors: %s", error_messages)
+                        raise OVOEnergyAUApiClientError(f"GraphQL errors: {', '.join(error_messages)}")
 
-                if "data" not in data or "GetAccountInfo" not in data["data"]:
+                if "data" not in data or data["data"] is None or "GetAccountInfo" not in data["data"]:
                     _LOGGER.error("Invalid GetAccountInfo response structure: %s", data)
                     raise OVOEnergyAUApiClientError("Invalid response from API")
 

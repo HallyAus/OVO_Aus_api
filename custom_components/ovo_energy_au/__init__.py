@@ -250,16 +250,14 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Failed to fetch product agreements: %s", err, exc_info=True)
                 processed_data["product_agreements"] = None
 
-            # Fetch hourly data for the last 7 days
-            # This ensures we:
-            # 1. Work around the API issue where single-day queries return 0 results
-            # 2. Backfill recent history if the integration was offline
-            # 3. Correctly update any partial data from previous days
+            # Fetch hourly data for the current month
+            # The OVO API returns hourly data when queried with a month-wide range
+            # (start of month -> today). Single-day or narrow queries may return empty.
             now = dt_util.now()
 
-            # Query range: Last 7 days -> Today
-            start_date = now - timedelta(days=7)
-            query_start = start_date.strftime("%Y-%m-%d")
+            # Query range: 1st of current month -> Today
+            month_start = now.replace(day=1)
+            query_start = month_start.strftime("%Y-%m-%d")
             query_end = now.strftime("%Y-%m-%d")
 
             try:
@@ -273,11 +271,22 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 if not hourly_data:
                     hourly_data = {}
 
-                has_solar = len(hourly_data.get("solar", []) or []) > 0
-                has_export = len(hourly_data.get("export", []) or []) > 0
+                solar_count = len(hourly_data.get("solar", []) or [])
+                export_count = len(hourly_data.get("export", []) or [])
 
-                if not has_solar and not has_export:
-                    _LOGGER.info("No hourly data found in range %s to %s", query_start, query_end)
+                _LOGGER.debug(
+                    "Hourly data response: %d solar entries, %d export entries "
+                    "(query: %s to %s)",
+                    solar_count, export_count, query_start, query_end
+                )
+
+                if solar_count == 0 and export_count == 0:
+                    _LOGGER.warning(
+                        "No hourly data returned for range %s to %s. "
+                        "Raw response keys: %s",
+                        query_start, query_end,
+                        list(hourly_data.keys()) if hourly_data else "empty"
+                    )
 
                 # Process hourly data
                 processed_data["hourly"] = self._process_hourly_data(hourly_data)
@@ -291,11 +300,15 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                     "solar_total": 0,
                     "grid_total": 0,
                     "return_to_grid_total": 0,
+                    "hourly_rates_breakdown": {},
                     "peak_4hour_window": None,
                     "time_of_use": {
                         "peak": {"consumption": 0, "cost": 0, "hours": 0},
                         "shoulder": {"consumption": 0, "cost": 0, "hours": 0},
                         "off_peak": {"consumption": 0, "cost": 0, "hours": 0},
+                        "ev_offpeak": {"consumption": 0, "cost": 0, "hours": 0},
+                        "free": {"consumption": 0, "cost": 0, "hours": 0},
+                        "other": {"consumption": 0, "cost": 0, "hours": 0},
                     },
                     "free_usage": {"consumption": 0, "cost_saved": 0, "hours": 0},
                     "ev_usage": {"consumption": 0, "cost": 0, "cost_saved": 0, "hours": 0},
@@ -522,22 +535,8 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             solar_entries = daily_data.get("solar") or []
             export_entries = daily_data.get("export") or []
 
-            # DEBUG: Log export_entries structure
-            _LOGGER.warning("DEBUG: export_entries count: %d", len(export_entries))
-            if export_entries:
-                sample = export_entries[0]
-                _LOGGER.warning("DEBUG: First export entry keys: %s", list(sample.keys()))
-                _LOGGER.warning("DEBUG: Has 'rates' field: %s", "rates" in sample)
-                if "rates" in sample:
-                    rates_sample = sample.get("rates")
-                    _LOGGER.warning("DEBUG: rates is list: %s, count: %d",
-                                   isinstance(rates_sample, list),
-                                   len(rates_sample) if isinstance(rates_sample, list) else 0)
-                    if rates_sample:
-                        _LOGGER.warning("DEBUG: First rate entry: %s", rates_sample[0])
-                _LOGGER.warning("DEBUG: Sample periodFrom: %s, periodTo: %s",
-                               sample.get("periodFrom"), sample.get("periodTo"))
-                _LOGGER.warning("DEBUG: Sample charge type: %s", sample.get("charge", {}).get("type"))
+            _LOGGER.debug("Interval data: %d solar entries, %d export entries",
+                         len(solar_entries), len(export_entries))
 
             # Create a map of dates to data
             from datetime import datetime
@@ -608,12 +607,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
 
                         # Extract rates breakdown
                         rates_list = entry.get("rates") or []
-                        # DEBUG: Log per-entry rate extraction
-                        _LOGGER.warning("DEBUG: date=%s, charge_type=%s, has_rates=%s, rates_count=%d",
-                                       date_key, charge_type, "rates" in entry,
-                                       len(rates_list) if rates_list else 0)
                         if rates_list and isinstance(rates_list, list):
-                            _LOGGER.warning("DEBUG: Processing %d rate entries for %s", len(rates_list), date_key)
                             for rate_entry in rates_list:
                                 if not isinstance(rate_entry, dict):
                                     continue
@@ -631,17 +625,14 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                                     daily_map[date_key]["grid_rates_kwh"].get(rate_type, 0) + consumption
                                 daily_map[date_key]["grid_rates_aud"][rate_type] = \
                                     daily_map[date_key]["grid_rates_aud"].get(rate_type, 0) + charge_value
-
-                                # DEBUG: Log accumulation
-                                _LOGGER.warning("DEBUG: Accumulated %s for %s: kwh=%.2f, aud=%.2f",
-                                               rate_type, date_key,
-                                               daily_map[date_key]["grid_rates_kwh"][rate_type],
-                                               daily_map[date_key]["grid_rates_aud"][rate_type])
                     except Exception as err:
                         pass
 
             # Convert to sorted list (newest first)
             all_daily_entries = sorted(daily_map.values(), key=lambda x: x["date"], reverse=True)
+
+            # All daily entries sorted newest first
+            processed["all_daily_entries"] = all_daily_entries
 
             # Last 3 days (most recent 3) - reversed to show oldest to newest
             processed["last_3_days"] = list(reversed(all_daily_entries[:3])) if len(all_daily_entries) >= 3 else list(reversed(all_daily_entries))
@@ -803,7 +794,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                             weekday_entries.append(entry)
                         else:  # Saturday-Sunday
                             weekend_entries.append(entry)
-                except:
+                except (ValueError, TypeError, KeyError):
                     continue
 
             if weekday_entries:
@@ -950,15 +941,28 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             "return_to_grid_total": 0,
         }
 
+        solar_raw = data.get("solar", []) or []
+        export_raw = data.get("export", []) or []
+
+        _LOGGER.debug(
+            "Processing hourly data: %d solar entries, %d export entries",
+            len(solar_raw), len(export_raw)
+        )
+
+        if solar_raw:
+            _LOGGER.debug("Sample solar entry: %s", solar_raw[0])
+        if export_raw:
+            _LOGGER.debug("Sample export entry: %s", export_raw[0])
+
         # Process solar entries
-        for entry in data.get("solar", []) or []:
+        for entry in solar_raw:
             processed["solar_entries"].append(entry)
-            processed["solar_total"] += entry.get("consumption", 0)
+            processed["solar_total"] += entry.get("consumption", 0) or 0
 
         # Process export entries
-        for entry in data.get("export", []) or []:
+        for entry in export_raw:
             charge_type = entry.get("charge", {}).get("type", "DEBIT")
-            consumption = entry.get("consumption", 0)
+            consumption = entry.get("consumption", 0) or 0
 
             # CREDIT = returning to grid, otherwise grid consumption
             if charge_type == "CREDIT":
@@ -1043,7 +1047,7 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                         "charge_type": charge_info.get("type", "DEBIT"),
                         "charge_value": charge_info.get("value", 0),
                     })
-                except:
+                except (ValueError, TypeError):
                     continue
 
         for entry in processed["grid_entries"]:
@@ -1052,15 +1056,37 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 try:
                     timestamp = dt.fromisoformat(period_from.replace("Z", "+00:00"))
                     charge_info = entry.get("charge", {})
-                    hourly_timeline.append({
-                        "timestamp": timestamp,
-                        "hour": timestamp.hour,
-                        "consumption": entry.get("consumption", 0),
-                        "type": "grid",
-                        "charge_type": charge_info.get("type", "DEBIT"),
-                        "charge_value": charge_info.get("value", 0),
-                    })
-                except:
+                    rates_list = entry.get("rates") or []
+
+                    if rates_list and isinstance(rates_list, list):
+                        # Expand by rate type (e.g., FREE, OTHER, PEAK, etc.)
+                        for rate_entry in rates_list:
+                            if not isinstance(rate_entry, dict):
+                                continue
+                            rate_type = rate_entry.get("type", "OTHER")
+                            rate_consumption = rate_entry.get("consumption", 0) or 0
+                            rate_charge = rate_entry.get("charge", {})
+                            rate_charge_value = rate_charge.get("value", 0) if isinstance(rate_charge, dict) else 0
+
+                            hourly_timeline.append({
+                                "timestamp": timestamp,
+                                "hour": timestamp.hour,
+                                "consumption": rate_consumption,
+                                "type": "grid",
+                                "charge_type": rate_type,
+                                "charge_value": rate_charge_value,
+                            })
+                    else:
+                        # No rate breakdown, use entry-level charge type
+                        hourly_timeline.append({
+                            "timestamp": timestamp,
+                            "hour": timestamp.hour,
+                            "consumption": entry.get("consumption", 0) or 0,
+                            "type": "grid",
+                            "charge_type": charge_info.get("type", "DEBIT"),
+                            "charge_value": charge_info.get("value", 0),
+                        })
+                except (ValueError, TypeError):
                     continue
 
         # Sort by timestamp
@@ -1106,6 +1132,9 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             "peak": {"consumption": 0, "cost": 0, "hours": 0},
             "shoulder": {"consumption": 0, "cost": 0, "hours": 0},
             "off_peak": {"consumption": 0, "cost": 0, "hours": 0},
+            "ev_offpeak": {"consumption": 0, "cost": 0, "hours": 0},
+            "free": {"consumption": 0, "cost": 0, "hours": 0},
+            "other": {"consumption": 0, "cost": 0, "hours": 0},
         }
 
         # Free usage and savings tracking (month-to-date)
@@ -1149,45 +1178,42 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             charge_type = entry.get("charge_type", "DEBIT")
             charge_value = abs(entry.get("charge_value", 0))  # Absolute value for cost
 
-            # Track FREE periods from API (charge_type = "FREE")
-            if charge_type == "FREE":
+            # Track FREE periods from API (charge_type = "FREE" or "FREE_3")
+            if charge_type in ["FREE", "FREE_3"]:
                 free_usage_mtd["consumption"] += consumption
                 free_usage_mtd["hours"] += 1
                 # Calculate savings: what it WOULD have cost at shoulder rate
                 free_usage_mtd["cost_saved"] += consumption * shoulder_rate
 
-            # Track EV charging (00:00-06:00) for EV plan - keep time-based for now
-            # TODO: Check if OVO API has special charge_type for EV periods
-            if plan_type == "ev" and 0 <= hour < 6:
+            # Track EV off-peak from API charge_type
+            if charge_type == "EV_OFFPEAK":
                 ev_usage_mtd["consumption"] += consumption
-                ev_usage_mtd["cost"] += charge_value  # Use actual cost from API
+                ev_usage_mtd["cost"] += charge_value
                 ev_usage_mtd["hours"] += 1
-                # Calculate savings vs off-peak rate
+                # Calculate savings vs OTHER rate (standard rate)
                 ev_usage_mtd["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
         # Calculate EV usage for last 7 days (weekly)
         for entry in last_7_days_hourly:
-            timestamp = entry["timestamp"]
-            hour = timestamp.hour
             consumption = entry["consumption"]
             charge_value = abs(entry.get("charge_value", 0))
+            charge_type = entry.get("charge_type", "DEBIT")
 
-            if plan_type == "ev" and 0 <= hour < 6:
+            if charge_type == "EV_OFFPEAK":
                 ev_usage_weekly["consumption"] += consumption
-                ev_usage_weekly["cost"] += charge_value  # Use actual cost from API
+                ev_usage_weekly["cost"] += charge_value
                 ev_usage_weekly["hours"] += 1
                 ev_usage_weekly["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
         # Calculate EV usage for current year (yearly)
         for entry in ytd_hourly:
-            timestamp = entry["timestamp"]
-            hour = timestamp.hour
             consumption = entry["consumption"]
             charge_value = abs(entry.get("charge_value", 0))
+            charge_type = entry.get("charge_type", "DEBIT")
 
-            if plan_type == "ev" and 0 <= hour < 6:
+            if charge_type == "EV_OFFPEAK":
                 ev_usage_yearly["consumption"] += consumption
-                ev_usage_yearly["cost"] += charge_value  # Use actual cost from API
+                ev_usage_yearly["cost"] += charge_value
                 ev_usage_yearly["hours"] += 1
                 ev_usage_yearly["cost_saved"] += consumption * (off_peak_rate - ev_rate)
 
@@ -1201,7 +1227,8 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             charge_value = abs(entry.get("charge_value", 0))
 
             # Map API charge_type to our TOU periods
-            # API returns: PEAK, OFF_PEAK, SHOULDER, FREE, DEBIT, CREDIT
+            # API returns for Free 3 TOU plan: EV_OFFPEAK, FREE_3, OTHER, CREDIT
+            # API may also return: PEAK, OFF_PEAK, SHOULDER, FREE, DEBIT
             period = None
             skip_entry = False
 
@@ -1212,12 +1239,20 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
                 period = "off_peak"
                 cost = charge_value
             elif charge_type in ["SHOULDER", "DEBIT"]:
-                # DEBIT is typically shoulder period or could be any consumption
                 period = "shoulder"
                 cost = charge_value
-            elif charge_type == "FREE":
-                # Free periods tracked separately, skip from TOU
-                skip_entry = True
+            elif charge_type in ["FREE", "FREE_3"]:
+                # Free period consumption (e.g., 11am-2pm on Free 3 plan)
+                period = "free"
+                cost = charge_value  # Should be 0 for free period
+            elif charge_type == "EV_OFFPEAK":
+                # EV off-peak rate (e.g., midnight-6am on EV/Free 3 plans)
+                period = "ev_offpeak"
+                cost = charge_value
+            elif charge_type == "OTHER":
+                # Standard rate consumption (used by Free 3 TOU plan)
+                period = "other"
+                cost = charge_value
             elif charge_type == "CREDIT":
                 # Solar export, skip from consumption TOU
                 skip_entry = True
