@@ -5,6 +5,81 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-03-20
+
+### Breaking Changes
+- Removed 72 individual per-hour sensors (data now available in hourly day sensor attributes)
+- Entity names use relative labels ("1d Ago") instead of date stamps - may require dashboard updates
+- Removed deprecated `home_assistant_example/` directory
+- Removed standalone `ovo_australia_client.py`
+
+### Architecture
+- Complete modular restructure: split monolithic files into focused modules
+- `__init__.py`: 1,322 → 82 lines (coordinator extracted to `coordinator.py`)
+- `sensor.py`: 2,418 → ~500 lines (definitions extracted to `sensors/definitions.py`)
+- `api.py`: unified `_graphql_request()` eliminates 120 lines of duplicated error handling
+- `const.py`: 343 → 70 lines (GraphQL queries moved to `graphql/queries.py`)
+- New `models.py` with TypedDict and dataclass definitions
+- New `analytics/` package: `interval.py`, `hourly.py`, `insights.py`
+
+### Bug Fixes (Critical)
+- Fixed self-sufficiency score formula (was using total solar instead of self-consumed)
+- Fixed daily data loss when both grid consumption and solar export exist on the same day
+- Fixed `_process_period_latest` silently dropping either grid or export data
+- Fixed OAuth2 URL parameters not being URL-encoded (spaces in scopes)
+- Fixed entity count depending on first API response (now always creates 7 day sensors)
+
+### Bug Fixes (High)
+- Fixed hardcoded AEST timezone ignoring DST (now uses `ZoneInfo("Australia/Sydney")`)
+- Fixed `_ensure_authenticated` falling through silently when both re-auth and refresh fail
+- Fixed `OVODayRateSensor` reading from `last_3_days` instead of `all_daily_entries`
+- Fixed peak 4-hour window double-counting from mixed solar+grid timeline
+- Fixed heatmap double-counting hours with multiple rate entries
+- Fixed `ev_usage_monthly` aliasing same dict as `ev_usage`
+- Fixed `set_tokens` using truthiness check instead of `is not None`
+- Fixed `refresh_tokens` not handling 401 status code
+- Fixed `get_contact_info` accessing `_id_token` before authentication check
+
+### New Features
+- Added reauth flow (`async_step_reauth`) for automatic credential recovery
+- Added integration health diagnostic sensor
+- Added 401 retry logic with automatic token refresh
+- Added rate limiter lock for concurrent request safety
+- Added date format validation on hourly data requests
+- Added CI/CD with GitHub Actions (lint, test, hassfest, HACS validation)
+
+### Improvements
+- Data-driven sensor definitions (add sensors by editing a list, not constructor calls)
+- Sensor attributes restored for analytics, monthly breakdowns, and hourly data
+- Rate breakdown computation cached per update cycle
+- UTC-aware datetime throughout token management
+- Token refresh buffer now applies minimum floor
+- Unbounded daily entries capped at 90 days
+- Raw API entries trimmed to needed fields (reduced memory)
+- Accurate hour counting in rate aggregation
+- Service registered once with multi-account support and proper cleanup
+- Removed deprecated `async_reload_entry`
+- Changed PII logging from INFO to DEBUG
+- Fixed misleading "encrypted storage" claim in setup description
+- Removed `aiohttp` from manifest requirements (HA core dependency)
+
+### Testing
+- Added 21+ analytics tests with comprehensive fixtures
+- Added model, sensor definition, hourly helper, and edge case tests
+- Test conftest with HA module mocking for standalone test execution
+- Added `pyproject.toml` with pytest, ruff, and mypy configuration
+
+### Cleanup
+- Deleted deprecated `home_assistant_example/` prototype
+- Deleted diverged standalone `ovo_australia_client.py`
+- Deleted legacy `test_integration.py`
+- Deleted contradicting `requirements.txt`
+- Moved documentation to `docs/guides/` and `docs/dashboards/`
+- Moved install scripts to `scripts/`
+- Added `CLAUDE.md` project guide
+
+---
+
 ## [3.0.0] - 2026-01-21
 
 ### 🚀 Intelligent Auto-Configuration Release

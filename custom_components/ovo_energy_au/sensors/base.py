@@ -101,6 +101,79 @@ class OVOEnergySensor(OVOBaseSensor):
     def icon(self) -> str:
         return self._icon
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes based on sensor category."""
+        if not self.coordinator.data:
+            return {}
+
+        attrs = {}
+
+        # Add week comparison details
+        if "week_comparison" in self._sensor_key:
+            week_data = self.coordinator.data.get("week_comparison", {})
+            if week_data:
+                attrs["all_metrics"] = week_data
+
+        # Self-sufficiency details
+        elif self._sensor_key == "self_sufficiency_score":
+            ss = self.coordinator.data.get("self_sufficiency", {})
+            if ss:
+                attrs.update({k: v for k, v in ss.items() if k != "score"})
+
+        # High usage days rankings
+        elif self._sensor_key == "high_usage_days":
+            high = self.coordinator.data.get("high_usage_days", [])
+            if high:
+                attrs["rankings"] = high
+                attrs["rank_count"] = len(high)
+
+        # Heatmap data
+        elif self._sensor_key == "hourly_heatmap":
+            heatmap = self.coordinator.data.get("hourly", {}).get("hourly_heatmap", {})
+            if heatmap:
+                attrs["heatmap_data"] = heatmap
+                attrs["days_available"] = list(heatmap.keys())
+
+        # Monthly projection details
+        elif "monthly_projection" in self._sensor_key or self._sensor_key == "monthly_daily_average":
+            proj = self.coordinator.data.get("monthly_projection", {})
+            if proj:
+                attrs.update(proj)
+
+        # Cost per kWh details
+        elif "cost_per_kwh" in self._sensor_key:
+            cpk = self.coordinator.data.get("cost_per_kwh", {})
+            if cpk:
+                attrs.update(cpk)
+
+        # Return-to-grid details
+        elif "rtg_" in self._sensor_key:
+            rtg = self.coordinator.data.get("return_to_grid_analysis", {})
+            if rtg:
+                attrs.update(rtg)
+
+        # Yesterday hourly sensors - add hourly breakdown
+        elif "_yesterday" in self._sensor_key and "hourly" in self._sensor_key:
+            if "solar" in self._sensor_key:
+                result = get_yesterday_hourly_data(self.coordinator.data, "solar_entries")
+            elif "export" in self._sensor_key:
+                result = get_yesterday_hourly_data(self.coordinator.data, "return_to_grid_entries")
+            else:
+                result = get_yesterday_hourly_data(self.coordinator.data, "grid_entries")
+            attrs["hourly_values"] = result["hourly_data"]
+            attrs["data_points"] = len(result["hourly_data"])
+
+        # Monthly sensors - add daily breakdown
+        elif "monthly_" in self._sensor_key:
+            monthly = self.coordinator.data.get("monthly", {})
+            if "solar" in self._sensor_key and "solar_daily_breakdown" in monthly:
+                attrs["daily_breakdown"] = monthly["solar_daily_breakdown"]
+            elif "grid" in self._sensor_key and "grid_daily_breakdown" in monthly:
+                attrs["daily_breakdown"] = monthly["grid_daily_breakdown"]
+
+        return attrs
+
 
 # ─── Hourly data helpers ────────────────────────────────────────────
 

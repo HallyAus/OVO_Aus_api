@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import types
 from unittest.mock import MagicMock
 
 # Mock homeassistant module so imports don't fail outside HA
@@ -14,7 +15,39 @@ sys.modules.setdefault("homeassistant.core", ha_mock)
 sys.modules.setdefault("homeassistant.exceptions", ha_mock)
 sys.modules.setdefault("homeassistant.helpers", ha_mock)
 sys.modules.setdefault("homeassistant.helpers.aiohttp_client", ha_mock)
-sys.modules.setdefault("homeassistant.helpers.update_coordinator", ha_mock)
+
+# Build proper stub classes for sensor base classes so multiple inheritance
+# in OVOBaseSensor(CoordinatorEntity, SensorEntity) doesn't hit a metaclass conflict.
+class _CoordinatorEntity:
+    """Stub for homeassistant.helpers.update_coordinator.CoordinatorEntity."""
+    def __init__(self, *args, **kwargs):
+        pass
+
+class _SensorEntity:
+    """Stub for homeassistant.components.sensor.SensorEntity."""
+    pass
+
+class _DataUpdateCoordinator:
+    """Stub for DataUpdateCoordinator."""
+    def __init__(self, *args, **kwargs):
+        pass
+
+class _UpdateFailed(Exception):
+    """Stub for UpdateFailed."""
+    pass
+
+coordinator_mod = types.ModuleType("homeassistant.helpers.update_coordinator")
+coordinator_mod.CoordinatorEntity = _CoordinatorEntity
+coordinator_mod.DataUpdateCoordinator = _DataUpdateCoordinator
+coordinator_mod.UpdateFailed = _UpdateFailed
+sys.modules.setdefault("homeassistant.helpers.update_coordinator", coordinator_mod)
+
+sensor_mod = types.ModuleType("homeassistant.components.sensor")
+sensor_mod.SensorEntity = _SensorEntity
+sensor_mod.SensorDeviceClass = MagicMock()
+sensor_mod.SensorStateClass = MagicMock()
+sys.modules.setdefault("homeassistant.components.sensor", sensor_mod)
+
 # Mock dt_util.now() to return a real datetime
 from datetime import datetime as _dt, timezone as _tz
 dt_mock = MagicMock()
@@ -23,7 +56,6 @@ util_mock = MagicMock()
 util_mock.dt = dt_mock
 sys.modules.setdefault("homeassistant.util", util_mock)
 sys.modules.setdefault("homeassistant.util.dt", dt_mock)
-sys.modules.setdefault("homeassistant.components.sensor", ha_mock)
 sys.modules.setdefault("homeassistant.helpers.entity", ha_mock)
 sys.modules.setdefault("homeassistant.helpers.entity_platform", ha_mock)
 sys.modules.setdefault("homeassistant.data_entry_flow", ha_mock)

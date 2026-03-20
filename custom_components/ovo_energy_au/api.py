@@ -367,7 +367,11 @@ class OVOEnergyAUApiClient:
             self._last_request_time = time.time()
 
     def _graphql_headers(self, referer_path: str = "/") -> dict[str, str]:
-        """Build standard GraphQL request headers."""
+        """Build standard GraphQL request headers.
+
+        Note: OVO's API expects the raw access token without a "Bearer " prefix,
+        matching the browser's behavior observed during reverse engineering.
+        """
         return {
             "accept": "*/*",
             "authorization": self._access_token,
@@ -385,6 +389,7 @@ class OVOEnergyAUApiClient:
         result_key: str,
         referer_path: str = "/",
         allow_null_result: bool = False,
+        _retried: bool = False,
     ) -> dict[str, Any] | None:
         """Execute a GraphQL request with unified error handling.
 
@@ -469,6 +474,15 @@ class OVOEnergyAUApiClient:
         except OVOEnergyAUApiClientError:
             raise
         except aiohttp.ClientResponseError as err:
+            if err.status == 401 and not _retried:
+                _LOGGER.debug("Got 401, refreshing token and retrying")
+                self._access_token = None  # Force re-auth
+                await self._ensure_authenticated()
+                # Retry the request once
+                return await self._graphql_request(
+                    operation_name, query, variables, result_key,
+                    referer_path, allow_null_result, _retried=True,
+                )
             if err.status == 401:
                 raise OVOEnergyAUApiClientAuthenticationError(
                     "Authentication failed"

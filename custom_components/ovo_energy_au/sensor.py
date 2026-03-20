@@ -75,6 +75,9 @@ async def async_setup_entry(
     # ── Plan diagnostic sensor ──
     sensors.append(OVOPlanSensor(coordinator))
 
+    # ── Integration health diagnostic sensor ──
+    sensors.append(OVOHealthSensor(coordinator))
+
     async_add_entities(sensors)
 
 
@@ -413,6 +416,24 @@ class OVODailyHistorySensor(OVOBaseSensor):
     @property
     def icon(self): return self._icon
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        if not self.coordinator.data:
+            return {}
+        all_daily = self.coordinator.data.get("all_daily_entries", [])
+        if self._day_index >= len(all_daily):
+            return {}
+        day = all_daily[self._day_index]
+        attrs = {
+            "date": day.get("date"),
+            "day_name": day.get("day_name"),
+        }
+        if self._rate_type is None:
+            attrs["solar"] = round(day.get("solar_consumption", 0), 2)
+            attrs["grid"] = round(day.get("grid_consumption", 0), 2)
+            attrs["export"] = round(day.get("return_to_grid", 0), 2)
+        return attrs
+
 
 class OVOPlanSensor(OVOBaseSensor):
     """Diagnostic sensor displaying plan information."""
@@ -473,6 +494,56 @@ class OVOPlanSensor(OVOBaseSensor):
             if val is not None:
                 attrs[f"{label}_cents_kwh"] = val
                 attrs[f"{label}_aud_kwh"] = round(val / 100, 4)
+
+        return attrs
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        return {
+            "identifiers": {(DOMAIN, self.coordinator.account_id)},
+            "name": "OVO Energy AU",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+        }
+
+
+class OVOHealthSensor(OVOBaseSensor):
+    """Diagnostic sensor showing integration health."""
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "integration_health", "Integration Health", "General")
+        self._attr_icon = "mdi:heart-pulse"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> str:
+        if not self.coordinator.data:
+            return "No Data"
+        return "OK"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        attrs = {
+            "account_id": self.coordinator.account_id,
+            "update_interval_minutes": 5,
+            "plan_type": self.coordinator.plan_config.plan_type,
+        }
+
+        if self.coordinator.data:
+            all_daily = self.coordinator.data.get("all_daily_entries", [])
+            hourly = self.coordinator.data.get("hourly", {})
+
+            attrs["daily_entries_available"] = len(all_daily)
+            attrs["hourly_solar_entries"] = len(hourly.get("solar_entries", []))
+            attrs["hourly_grid_entries"] = len(hourly.get("grid_entries", []))
+            attrs["has_product_agreements"] = self.coordinator.data.get("product_agreements") is not None
+
+            if all_daily:
+                attrs["oldest_daily_date"] = all_daily[-1].get("date")
+                attrs["newest_daily_date"] = all_daily[0].get("date")
+
+        if self.coordinator.last_update_success_time:
+            attrs["last_successful_update"] = self.coordinator.last_update_success_time.isoformat()
 
         return attrs
 
