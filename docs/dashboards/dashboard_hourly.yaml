@@ -1,0 +1,251 @@
+# OVO Energy Australia - Hourly Data Dashboard
+#
+# Hourly data is available from the previous day (typically after ~8am AEST).
+# The integration creates per-day hourly sensors for the last 7 days:
+#   sensor.ovo_energy_au_hourly_[type]_[type]_hourly_[N]d_ago
+# Each sensor stores per-hour breakdown in its "hourly_values" attribute.
+#
+# Additionally, "Yesterday Hourly" graph-data sensors aggregate yesterday:
+#   sensor.ovo_energy_au_hourly_graph_data_yesterday_[type]_hourly
+#
+# Required: apexcharts-card (install via HACS)
+#   https://github.com/RomRider/apexcharts-card
+#
+# HOW TO FIND YOUR ENTITY IDs:
+#   1. Go to Settings > Devices & Services > OVO Energy AU
+#   2. Look for "Hourly Solar", "Hourly Grid", "Hourly Export" devices
+#   3. Also check "Hourly Graph Data" device for yesterday sensors
+#   4. Verify entity IDs match what is shown below
+
+title: OVO Hourly
+views:
+  - title: Hourly Data
+    path: hourly
+    icon: mdi:clock-outline
+    cards:
+      # ── Yesterday Hourly Solar ──
+      - type: custom:apexcharts-card
+        header:
+          title: Yesterday - Solar (Hourly)
+          show: true
+          show_states: true
+          colorize_states: true
+        graph_span: 24h
+        series:
+          - entity: sensor.ovo_energy_au_hourly_graph_data_yesterday_solar_hourly
+            name: Solar kWh
+            type: column
+            color: "#FFA500"
+            data_generator: |
+              const hourly = entity.attributes.hourly_values || [];
+              return hourly.map(h => {
+                return [new Date(h.time).getTime(), h.value];
+              });
+            show:
+              in_header: true
+        apex_config:
+          chart:
+            height: 250px
+          xaxis:
+            type: datetime
+            labels:
+              format: HH:mm
+            min: new Date().setHours(0,0,0,0) - 86400000
+            max: new Date().setHours(0,0,0,0)
+          yaxis:
+            - title:
+                text: kWh
+              decimalsInFloat: 2
+          tooltip:
+            x:
+              format: "HH:mm"
+
+      # ── Yesterday Hourly Grid ──
+      - type: custom:apexcharts-card
+        header:
+          title: Yesterday - Grid (Hourly)
+          show: true
+          show_states: true
+          colorize_states: true
+        graph_span: 24h
+        series:
+          - entity: sensor.ovo_energy_au_hourly_graph_data_yesterday_grid_hourly
+            name: Grid kWh
+            type: column
+            color: "#E53935"
+            data_generator: |
+              const hourly = entity.attributes.hourly_values || [];
+              return hourly.map(h => {
+                return [new Date(h.time).getTime(), h.value];
+              });
+            show:
+              in_header: true
+        apex_config:
+          chart:
+            height: 250px
+          xaxis:
+            type: datetime
+            labels:
+              format: HH:mm
+          yaxis:
+            - title:
+                text: kWh
+              decimalsInFloat: 2
+          tooltip:
+            x:
+              format: "HH:mm"
+
+      # ── Yesterday Hourly Export ──
+      - type: custom:apexcharts-card
+        header:
+          title: Yesterday - Export (Hourly)
+          show: true
+          show_states: true
+          colorize_states: true
+        graph_span: 24h
+        series:
+          - entity: sensor.ovo_energy_au_hourly_graph_data_yesterday_export_hourly
+            name: Export kWh
+            type: column
+            color: "#1E90FF"
+            data_generator: |
+              const hourly = entity.attributes.hourly_values || [];
+              return hourly.map(h => {
+                return [new Date(h.time).getTime(), h.value];
+              });
+            show:
+              in_header: true
+        apex_config:
+          chart:
+            height: 250px
+          xaxis:
+            type: datetime
+            labels:
+              format: HH:mm
+          yaxis:
+            - title:
+                text: kWh
+              decimalsInFloat: 2
+          tooltip:
+            x:
+              format: "HH:mm"
+
+      # ── Combined Overlay: Solar + Grid + Export ──
+      - type: custom:apexcharts-card
+        header:
+          title: Yesterday - Combined (Solar / Grid / Export)
+          show: true
+          show_states: true
+          colorize_states: true
+        graph_span: 24h
+        series:
+          - entity: sensor.ovo_energy_au_hourly_graph_data_yesterday_solar_hourly
+            name: Solar
+            type: column
+            color: "#FFA500"
+            opacity: 0.7
+            data_generator: |
+              const hourly = entity.attributes.hourly_values || [];
+              return hourly.map(h => {
+                return [new Date(h.time).getTime(), h.value];
+              });
+          - entity: sensor.ovo_energy_au_hourly_graph_data_yesterday_grid_hourly
+            name: Grid
+            type: column
+            color: "#E53935"
+            opacity: 0.7
+            data_generator: |
+              const hourly = entity.attributes.hourly_values || [];
+              return hourly.map(h => {
+                return [new Date(h.time).getTime(), h.value];
+              });
+          - entity: sensor.ovo_energy_au_hourly_graph_data_yesterday_export_hourly
+            name: Export
+            type: column
+            color: "#1E90FF"
+            opacity: 0.7
+            data_generator: |
+              const hourly = entity.attributes.hourly_values || [];
+              return hourly.map(h => {
+                return [new Date(h.time).getTime(), h.value];
+              });
+        apex_config:
+          chart:
+            height: 300px
+            stacked: false
+          xaxis:
+            type: datetime
+            labels:
+              format: HH:mm
+          yaxis:
+            - title:
+                text: kWh
+              decimalsInFloat: 2
+          tooltip:
+            x:
+              format: "HH:mm"
+          legend:
+            show: true
+            position: top
+
+      # ── Hourly Heatmap Data ──
+      # The heatmap sensor stores day-by-hour data in attributes.
+      # Use "more-info" tap to inspect the full heatmap_data attribute.
+      - type: entities
+        title: Hourly Usage Heatmap
+        entities:
+          - entity: sensor.ovo_energy_au_usage_patterns_hourly_usage_heatmap
+            name: Heatmap Data Points
+            icon: mdi:grid
+            tap_action:
+              action: more-info
+
+      # ── Peak 4-Hour Window ──
+      - type: entities
+        title: Peak Usage Window
+        entities:
+          - entity: sensor.ovo_energy_au_peak_usage_peak_4_hour_consumption
+            name: Peak 4-Hour Consumption
+            icon: mdi:chart-bell-curve
+
+      # ── Hourly Totals (Last 7 Days) ──
+      - type: entities
+        title: Hourly Totals (Last 7 Days)
+        entities:
+          - entity: sensor.ovo_energy_au_hourly_data_hourly_solar_total_last_7_days
+            name: Solar Total
+            icon: mdi:solar-power
+          - entity: sensor.ovo_energy_au_hourly_data_hourly_grid_total_last_7_days
+            name: Grid Total
+            icon: mdi:transmission-tower
+          - entity: sensor.ovo_energy_au_hourly_data_hourly_return_to_grid_total_last_7_days
+            name: Export Total
+            icon: mdi:transmission-tower-export
+          - entity: sensor.ovo_energy_au_hourly_data_hourly_data_entries
+            name: Data Entry Count
+            icon: mdi:counter
+
+      # ── Per-Day Hourly Sensors (1-3 days ago) ──
+      # These sensors have hourly_values in attributes for charting.
+      # Use more-info or apexcharts data_generator to visualize.
+      - type: entities
+        title: Per-Day Hourly Breakdown
+        entities:
+          - entity: sensor.ovo_energy_au_hourly_solar_solar_hourly_1d_ago
+            name: Solar (1 day ago)
+            icon: mdi:solar-power
+          - entity: sensor.ovo_energy_au_hourly_grid_grid_hourly_1d_ago
+            name: Grid (1 day ago)
+            icon: mdi:transmission-tower
+          - entity: sensor.ovo_energy_au_hourly_export_export_hourly_1d_ago
+            name: Export (1 day ago)
+            icon: mdi:transmission-tower-export
+          - entity: sensor.ovo_energy_au_hourly_solar_solar_hourly_2d_ago
+            name: Solar (2 days ago)
+            icon: mdi:solar-power
+          - entity: sensor.ovo_energy_au_hourly_grid_grid_hourly_2d_ago
+            name: Grid (2 days ago)
+            icon: mdi:transmission-tower
+          - entity: sensor.ovo_energy_au_hourly_export_export_hourly_2d_ago
+            name: Export (2 days ago)
+            icon: mdi:transmission-tower-export

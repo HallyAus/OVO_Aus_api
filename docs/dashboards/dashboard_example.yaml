@@ -1,99 +1,81 @@
 # OVO Energy Australia - Comprehensive Dashboard
 #
 # Required custom cards (install via HACS):
-# - mushroom: https://github.com/piitaya/lovelace-mushroom
-# - apexcharts-card: https://github.com/RomRider/apexcharts-card
+#   - mushroom: https://github.com/piitaya/lovelace-mushroom
+#   - apexcharts-card: https://github.com/RomRider/apexcharts-card
 #
-# To use this dashboard:
-# 1. Go to Settings → Dashboards → Add Dashboard
-# 2. Choose "New dashboard from scratch"
-# 3. Click the 3 dots → Edit Dashboard → Raw configuration editor
-# 4. Paste this YAML
+# HOW TO FIND YOUR ENTITY IDs:
+#   1. Go to Settings > Devices & Services > OVO Energy AU
+#   2. Click on any device to see its entities and their IDs
+#   3. Entity IDs follow: sensor.ovo_energy_au_[device]_[name]
+#   4. If entities show "unavailable", verify IDs match your instance
+#
+# To install:
+#   1. Go to Settings > Dashboards > Add Dashboard
+#   2. Choose "New dashboard from scratch"
+#   3. Click 3 dots > Edit Dashboard > Raw configuration editor
+#   4. Paste this YAML
 
 title: OVO Energy
 views:
-  # ============================================================
+  # ================================================================
   # VIEW 1: OVERVIEW
-  # ============================================================
+  # ================================================================
   - title: Overview
     path: overview
     icon: mdi:view-dashboard
     cards:
-      # This Month kWh Summary
+      # ── This Month kWh ──
       - type: horizontal-stack
         cards:
           - type: custom:mushroom-template-card
             primary: Solar
-            secondary: >
-              {{ states('sensor.ovo_energy_au_30264061_monthly_solar_consumption_2') }} kWh
+            secondary: "{{ states('sensor.ovo_energy_au_this_month_solar_consumption') }} kWh"
             icon: mdi:solar-power
             icon_color: amber
-            badge_icon: mdi:calendar-month
-            badge_color: amber
-            entity: sensor.ovo_energy_au_30264061_monthly_solar_consumption_2
-            tap_action:
-              action: more-info
+            entity: sensor.ovo_energy_au_this_month_solar_consumption
             layout: vertical
           - type: custom:mushroom-template-card
             primary: Grid
-            secondary: >
-              {{ states('sensor.ovo_energy_au_30264061_monthly_grid_consumption_2') }} kWh
+            secondary: "{{ states('sensor.ovo_energy_au_this_month_grid_consumption') }} kWh"
             icon: mdi:transmission-tower
             icon_color: red
-            badge_icon: mdi:calendar-month
-            badge_color: red
-            entity: sensor.ovo_energy_au_30264061_monthly_grid_consumption_2
-            tap_action:
-              action: more-info
+            entity: sensor.ovo_energy_au_this_month_grid_consumption
             layout: vertical
           - type: custom:mushroom-template-card
             primary: Exported
-            secondary: >
-              {{ states('sensor.ovo_energy_au_30264061_monthly_return_to_grid_2') }} kWh
+            secondary: "{{ states('sensor.ovo_energy_au_this_month_return_to_grid') }} kWh"
             icon: mdi:transmission-tower-export
             icon_color: blue
-            badge_icon: mdi:calendar-month
-            badge_color: blue
-            entity: sensor.ovo_energy_au_30264061_monthly_return_to_grid_2
-            tap_action:
-              action: more-info
+            entity: sensor.ovo_energy_au_this_month_return_to_grid
             layout: vertical
 
-      # This Month Cost Row
+      # ── This Month Cost ──
       - type: horizontal-stack
         cards:
           - type: custom:mushroom-template-card
             primary: Solar Credit
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_30264061_monthly_solar_charge_2') }}
+            secondary: "${{ states('sensor.ovo_energy_au_this_month_solar_feed_in_credit') }}"
             icon: mdi:cash-plus
             icon_color: green
-            entity: sensor.ovo_energy_au_30264061_monthly_solar_charge_2
-            tap_action:
-              action: more-info
+            entity: sensor.ovo_energy_au_this_month_solar_feed_in_credit
             layout: vertical
           - type: custom:mushroom-template-card
             primary: Grid Cost
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_30264061_monthly_grid_charge_2') }}
+            secondary: "${{ states('sensor.ovo_energy_au_this_month_grid_charge') }}"
             icon: mdi:currency-usd
             icon_color: red
-            entity: sensor.ovo_energy_au_30264061_monthly_grid_charge_2
-            tap_action:
-              action: more-info
+            entity: sensor.ovo_energy_au_this_month_grid_charge
             layout: vertical
           - type: custom:mushroom-template-card
             primary: Export Credit
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_30264061_monthly_return_to_grid_charge_2') }}
+            secondary: "${{ states('sensor.ovo_energy_au_this_month_return_to_grid_charge') }}"
             icon: mdi:cash-refund
             icon_color: teal
-            entity: sensor.ovo_energy_au_30264061_monthly_return_to_grid_charge_2
-            tap_action:
-              action: more-info
+            entity: sensor.ovo_energy_au_this_month_return_to_grid_charge
             layout: vertical
 
-      # Self-Sufficiency Gauge
+      # ── Self-Sufficiency ──
       - type: gauge
         entity: sensor.ovo_energy_au_solar_insights_self_sufficiency_score
         name: Solar Self-Sufficiency
@@ -105,416 +87,120 @@ views:
           yellow: 30
           red: 0
 
-      # Daily Solar vs Grid vs Export Chart (This Month)
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Daily Usage (This Month)
-          show_states: true
-          colorize_states: true
-        graph_span: 1month
-        span:
-          start: month
-        series:
-          - entity: sensor.ovo_energy_au_30264061_monthly_solar_consumption_2
-            name: Solar
-            type: column
-            color: '#FFA500'
-            group_by:
-              func: raw
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.consumption];
-              });
-          - entity: sensor.ovo_energy_au_30264061_monthly_grid_consumption_2
-            name: Grid
-            type: column
-            color: '#E53935'
-            group_by:
-              func: raw
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.consumption];
-              });
-          - entity: sensor.ovo_energy_au_30264061_monthly_return_to_grid_2
-            name: Export
-            type: column
-            color: '#1E90FF'
-            group_by:
-              func: raw
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.consumption];
-              });
-        apex_config:
-          chart:
-            height: 300px
-            stacked: false
-          xaxis:
-            type: datetime
-            labels:
-              format: dd MMM
-          yaxis:
-            - title:
-                text: kWh
-          tooltip:
-            x:
-              format: dd MMM yyyy
-          legend:
-            show: true
-            position: top
+      # ── OVO Savings ──
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Daily Savings
+            secondary: "${{ states('sensor.ovo_energy_au_ovo_savings_ovo_savings_yesterday') }}"
+            icon: mdi:piggy-bank-outline
+            icon_color: green
+            entity: sensor.ovo_energy_au_ovo_savings_ovo_savings_yesterday
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: Monthly Savings
+            secondary: "${{ states('sensor.ovo_energy_au_ovo_savings_ovo_savings_this_month') }}"
+            icon: mdi:piggy-bank-outline
+            icon_color: green
+            entity: sensor.ovo_energy_au_ovo_savings_ovo_savings_this_month
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: Yearly Savings
+            secondary: "${{ states('sensor.ovo_energy_au_ovo_savings_ovo_savings_this_year') }}"
+            icon: mdi:piggy-bank-outline
+            icon_color: green
+            entity: sensor.ovo_energy_au_ovo_savings_ovo_savings_this_year
+            layout: vertical
 
-      # Daily Costs Chart (This Month)
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Daily Costs (This Month)
-          show_states: true
-          colorize_states: true
-        graph_span: 1month
-        span:
-          start: month
-        series:
-          - entity: sensor.ovo_energy_au_30264061_monthly_solar_charge_2
-            name: Solar Credit
-            type: column
-            color: '#4CAF50'
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), Math.abs(day.charge)];
-              });
-          - entity: sensor.ovo_energy_au_30264061_monthly_grid_charge_2
-            name: Grid Cost
-            type: column
-            color: '#E53935'
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.charge];
-              });
-        apex_config:
-          chart:
-            height: 250px
-          xaxis:
-            type: datetime
-            labels:
-              format: dd MMM
-          yaxis:
-            - title:
-                text: AUD ($)
-              decimalsInFloat: 2
-          tooltip:
-            x:
-              format: dd MMM yyyy
+      # ── Account Balance & Projection ──
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: Account Balance
+            secondary: "${{ states('sensor.ovo_energy_au_account_account_balance') }}"
+            icon: mdi:cash
+            icon_color: teal
+            entity: sensor.ovo_energy_au_account_account_balance
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: Projected Monthly
+            secondary: "${{ states('sensor.ovo_energy_au_monthly_forecast_projected_monthly_cost') }}"
+            icon: mdi:crystal-ball
+            icon_color: purple
+            entity: sensor.ovo_energy_au_monthly_forecast_projected_monthly_cost
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: Daily Avg Cost
+            secondary: "${{ states('sensor.ovo_energy_au_monthly_forecast_daily_average_cost') }}"
+            icon: mdi:chart-line
+            icon_color: orange
+            entity: sensor.ovo_energy_au_monthly_forecast_daily_average_cost
+            layout: vertical
 
-      # Yesterday Summary
+  # ================================================================
+  # VIEW 2: DAILY DETAILS
+  # ================================================================
+  - title: Daily
+    path: daily
+    icon: mdi:calendar-today
+    cards:
+      # ── Yesterday kWh ──
       - type: custom:mushroom-title-card
         title: Yesterday
         subtitle: Daily usage summary
-
       - type: horizontal-stack
         cards:
           - type: custom:mushroom-template-card
             primary: Solar
-            secondary: >
-              {{ states('sensor.ovo_energy_au_30264061_daily_solar_consumption_2') }} kWh
+            secondary: "{{ states('sensor.ovo_energy_au_yesterday_solar_consumption') }} kWh"
             icon: mdi:solar-power
             icon_color: amber
-            entity: sensor.ovo_energy_au_30264061_daily_solar_consumption_2
+            entity: sensor.ovo_energy_au_yesterday_solar_consumption
             layout: vertical
           - type: custom:mushroom-template-card
             primary: Grid
-            secondary: >
-              {{ states('sensor.ovo_energy_au_30264061_daily_grid_consumption_2') }} kWh
+            secondary: "{{ states('sensor.ovo_energy_au_yesterday_grid_consumption') }} kWh"
             icon: mdi:transmission-tower
             icon_color: red
-            entity: sensor.ovo_energy_au_30264061_daily_grid_consumption_2
+            entity: sensor.ovo_energy_au_yesterday_grid_consumption
             layout: vertical
           - type: custom:mushroom-template-card
             primary: Exported
-            secondary: >
-              {{ states('sensor.ovo_energy_au_30264061_daily_return_to_grid_2') }} kWh
+            secondary: "{{ states('sensor.ovo_energy_au_yesterday_return_to_grid') }} kWh"
             icon: mdi:transmission-tower-export
             icon_color: blue
-            entity: sensor.ovo_energy_au_30264061_daily_return_to_grid_2
+            entity: sensor.ovo_energy_au_yesterday_return_to_grid
             layout: vertical
 
+      # ── Yesterday Charges ──
       - type: horizontal-stack
         cards:
           - type: custom:mushroom-template-card
             primary: Solar Credit
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_30264061_daily_solar_charge_2') }}
+            secondary: "${{ states('sensor.ovo_energy_au_yesterday_solar_feed_in_credit') }}"
             icon: mdi:cash-plus
             icon_color: green
-            entity: sensor.ovo_energy_au_30264061_daily_solar_charge_2
+            entity: sensor.ovo_energy_au_yesterday_solar_feed_in_credit
             layout: vertical
           - type: custom:mushroom-template-card
             primary: Grid Cost
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_30264061_daily_grid_charge_2') }}
+            secondary: "${{ states('sensor.ovo_energy_au_yesterday_grid_charge') }}"
             icon: mdi:currency-usd
             icon_color: red
-            entity: sensor.ovo_energy_au_30264061_daily_grid_charge_2
+            entity: sensor.ovo_energy_au_yesterday_grid_charge
             layout: vertical
           - type: custom:mushroom-template-card
             primary: Export Credit
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_30264061_daily_return_to_grid_charge_2') }}
+            secondary: "${{ states('sensor.ovo_energy_au_yesterday_return_to_grid_charge') }}"
             icon: mdi:cash-refund
             icon_color: teal
-            entity: sensor.ovo_energy_au_30264061_daily_return_to_grid_charge_2
+            entity: sensor.ovo_energy_au_yesterday_return_to_grid_charge
             layout: vertical
 
-  # ============================================================
-  # VIEW 2: MONTHLY DETAIL
-  # ============================================================
-  - title: Monthly
-    path: monthly
-    icon: mdi:calendar-month
-    cards:
-      # Monthly Statistics
+      # ── Week-over-Week ──
       - type: custom:mushroom-title-card
-        title: This Month Statistics
-        subtitle: Daily averages and maximums
-
-      - type: horizontal-stack
-        cards:
-          - type: custom:mushroom-template-card
-            primary: Solar Stats
-            secondary: >
-              Avg: {{ state_attr('sensor.ovo_energy_au_30264061_monthly_solar_consumption_2', 'daily_average') }} kWh/day
-
-              Max: {{ state_attr('sensor.ovo_energy_au_30264061_monthly_solar_consumption_2', 'daily_max') }} kWh
-
-              Days: {{ state_attr('sensor.ovo_energy_au_30264061_monthly_solar_consumption_2', 'days_in_month') }}
-            icon: mdi:solar-power
-            icon_color: amber
-            entity: sensor.ovo_energy_au_30264061_monthly_solar_consumption_2
-            multiline_secondary: true
-            tap_action:
-              action: more-info
-          - type: custom:mushroom-template-card
-            primary: Grid Stats
-            secondary: >
-              Avg: {{ state_attr('sensor.ovo_energy_au_30264061_monthly_grid_consumption_2', 'daily_average') }} kWh/day
-
-              Max: {{ state_attr('sensor.ovo_energy_au_30264061_monthly_grid_consumption_2', 'daily_max') }} kWh
-
-              Days: {{ state_attr('sensor.ovo_energy_au_30264061_monthly_grid_consumption_2', 'days_in_month') }}
-            icon: mdi:transmission-tower
-            icon_color: red
-            entity: sensor.ovo_energy_au_30264061_monthly_grid_consumption_2
-            multiline_secondary: true
-            tap_action:
-              action: more-info
-          - type: custom:mushroom-template-card
-            primary: Export Stats
-            secondary: >
-              Avg: {{ state_attr('sensor.ovo_energy_au_30264061_monthly_return_to_grid_2', 'daily_average') }} kWh/day
-
-              Max: {{ state_attr('sensor.ovo_energy_au_30264061_monthly_return_to_grid_2', 'daily_max') }} kWh
-
-              Days: {{ state_attr('sensor.ovo_energy_au_30264061_monthly_return_to_grid_2', 'days_in_month') }}
-            icon: mdi:transmission-tower-export
-            icon_color: blue
-            entity: sensor.ovo_energy_au_30264061_monthly_return_to_grid_2
-            multiline_secondary: true
-            tap_action:
-              action: more-info
-
-      # Solar Consumption Chart
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Solar Generation (This Month)
-          show_states: true
-          colorize_states: true
-        graph_span: 1month
-        span:
-          start: month
-        series:
-          - entity: sensor.ovo_energy_au_30264061_monthly_solar_consumption_2
-            name: Solar kWh
-            type: column
-            color: '#FFA500'
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.consumption];
-              });
-            show:
-              in_header: true
-        apex_config:
-          chart:
-            height: 250px
-          xaxis:
-            type: datetime
-            labels:
-              format: dd
-          yaxis:
-            - title:
-                text: kWh
-          tooltip:
-            x:
-              format: dd MMM yyyy
-
-      # Grid Consumption Chart
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Grid Consumption (This Month)
-          show_states: true
-          colorize_states: true
-        graph_span: 1month
-        span:
-          start: month
-        series:
-          - entity: sensor.ovo_energy_au_30264061_monthly_grid_consumption_2
-            name: Grid kWh
-            type: column
-            color: '#E53935'
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.consumption];
-              });
-            show:
-              in_header: true
-        apex_config:
-          chart:
-            height: 250px
-          xaxis:
-            type: datetime
-            labels:
-              format: dd
-          yaxis:
-            - title:
-                text: kWh
-          tooltip:
-            x:
-              format: dd MMM yyyy
-
-      # Grid Export Chart
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Grid Export (This Month)
-          show_states: true
-          colorize_states: true
-        graph_span: 1month
-        span:
-          start: month
-        series:
-          - entity: sensor.ovo_energy_au_30264061_monthly_return_to_grid_2
-            name: Export kWh
-            type: column
-            color: '#1E90FF'
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.consumption];
-              });
-            show:
-              in_header: true
-        apex_config:
-          chart:
-            height: 250px
-          xaxis:
-            type: datetime
-            labels:
-              format: dd
-          yaxis:
-            - title:
-                text: kWh
-          tooltip:
-            x:
-              format: dd MMM yyyy
-
-      # Solar Feed-in Credit Chart
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Solar Feed-in Credit (This Month)
-          show_states: true
-          colorize_states: true
-        graph_span: 1month
-        span:
-          start: month
-        series:
-          - entity: sensor.ovo_energy_au_30264061_monthly_solar_charge_2
-            name: Solar $
-            type: area
-            color: '#4CAF50'
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), Math.abs(day.charge)];
-              });
-            show:
-              in_header: true
-        apex_config:
-          chart:
-            height: 250px
-          xaxis:
-            type: datetime
-            labels:
-              format: dd
-          yaxis:
-            - title:
-                text: AUD ($)
-              decimalsInFloat: 2
-          tooltip:
-            x:
-              format: dd MMM yyyy
-
-      # This Year Totals
-      - type: custom:mushroom-title-card
-        title: This Year
-
-      - type: horizontal-stack
-        cards:
-          - type: custom:mushroom-template-card
-            primary: Solar
-            secondary: >
-              {{ states('sensor.ovo_energy_au_30264061_yearly_solar_consumption_2') }} kWh
-            icon: mdi:solar-power
-            icon_color: amber
-            entity: sensor.ovo_energy_au_30264061_yearly_solar_consumption_2
-            layout: vertical
-          - type: custom:mushroom-template-card
-            primary: Grid
-            secondary: >
-              {{ states('sensor.ovo_energy_au_30264061_yearly_grid_consumption_2') }} kWh
-            icon: mdi:transmission-tower
-            icon_color: red
-            entity: sensor.ovo_energy_au_30264061_yearly_grid_consumption_2
-            layout: vertical
-          - type: custom:mushroom-template-card
-            primary: Grid Cost
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_30264061_yearly_grid_charge_2') }}
-            icon: mdi:currency-usd
-            icon_color: deep-orange
-            entity: sensor.ovo_energy_au_30264061_yearly_grid_charge_2
-            layout: vertical
-
-  # ============================================================
-  # VIEW 3: ANALYTICS
-  # ============================================================
-  - title: Analytics
-    path: analytics
-    icon: mdi:chart-box
-    cards:
-      # Week-over-Week Comparison
-      - type: custom:mushroom-title-card
-        title: Week-over-Week Comparison
+        title: Week-over-Week
         subtitle: This week vs last week
-
       - type: horizontal-stack
         cards:
           - type: custom:mushroom-template-card
@@ -551,11 +237,10 @@ views:
             multiline_secondary: true
             layout: vertical
 
-      # Weekday vs Weekend
+      # ── Weekday vs Weekend ──
       - type: custom:mushroom-title-card
         title: Weekday vs Weekend
         subtitle: Average daily patterns
-
       - type: horizontal-stack
         cards:
           - type: custom:mushroom-template-card
@@ -581,28 +266,16 @@ views:
             multiline_secondary: true
             layout: vertical
 
-      # High Usage Days
-      - type: custom:mushroom-title-card
-        title: High Usage Days
-        subtitle: Top consumption days this month
-
-      - type: custom:mushroom-template-card
-        primary: Highest Usage Day
-        secondary: >
-          {{ states('sensor.ovo_energy_au_usage_rankings_high_usage_days_tracker') }} kWh
-        icon: mdi:medal
-        icon_color: amber
-        entity: sensor.ovo_energy_au_usage_rankings_high_usage_days_tracker
-        tap_action:
-          action: more-info
-
-      # Yesterday Rate Breakdown
-      - type: custom:mushroom-title-card
-        title: Yesterday Rate Breakdown
-        subtitle: Consumption by rate type
-
+  # ================================================================
+  # VIEW 3: RATE BREAKDOWN
+  # ================================================================
+  - title: Rates
+    path: rates
+    icon: mdi:chart-bar
+    cards:
+      # ── Yesterday Rate Breakdown ──
       - type: entities
-        title: Yesterday - Rate Type Detail
+        title: Yesterday - Rate Breakdown
         entities:
           - entity: sensor.ovo_energy_au_rate_breakdown_yesterday_ev_off_peak_consumption
             name: EV Off-Peak Usage
@@ -623,14 +296,126 @@ views:
             name: Other Rates Cost
             icon: mdi:currency-usd
 
-  # ============================================================
-  # VIEW 4: SOLAR & EXPORT
-  # ============================================================
-  - title: Solar & Export
-    path: solar
+      # ── This Month Rate Breakdown ──
+      - type: entities
+        title: This Month - Rate Breakdown
+        entities:
+          - entity: sensor.ovo_energy_au_rate_breakdown_this_month_ev_off_peak_consumption
+            name: EV Off-Peak Usage
+            icon: mdi:ev-station
+          - entity: sensor.ovo_energy_au_rate_breakdown_this_month_ev_off_peak_cost
+            name: EV Off-Peak Cost
+            icon: mdi:currency-usd
+          - entity: sensor.ovo_energy_au_rate_breakdown_this_month_free_period_consumption
+            name: Free Period Usage
+            icon: mdi:gift
+          - entity: sensor.ovo_energy_au_rate_breakdown_this_month_free_period_savings
+            name: Free Period Savings
+            icon: mdi:piggy-bank
+          - entity: sensor.ovo_energy_au_rate_breakdown_this_month_other_rates_consumption
+            name: Other Rates Usage
+            icon: mdi:chart-bar
+          - entity: sensor.ovo_energy_au_rate_breakdown_this_month_other_rates_cost
+            name: Other Rates Cost
+            icon: mdi:currency-usd
+
+      # ── Counterfactual Breakdown (attributes on rate_breakdown sensor) ──
+      - type: custom:mushroom-title-card
+        title: Rate Savings Analysis
+        subtitle: What you saved vs paying the "Other" rate for everything
+
+      - type: entities
+        title: Rate Breakdown with Counterfactuals
+        entities:
+          - entity: sensor.ovo_energy_au_rate_breakdown_rate_breakdown_yesterday
+            name: Yesterday Breakdown
+            icon: mdi:cash-multiple
+          - entity: sensor.ovo_energy_au_rate_breakdown_rate_breakdown_this_month
+            name: This Month Breakdown
+            icon: mdi:cash-multiple
+          - entity: sensor.ovo_energy_au_rate_breakdown_rate_breakdown_this_year
+            name: This Year Breakdown
+            icon: mdi:cash-multiple
+          - entity: sensor.ovo_energy_au_rate_breakdown_rate_breakdown_all_time
+            name: All Time Breakdown
+            icon: mdi:cash-multiple
+
+      # ── Cost per kWh ──
+      - type: entities
+        title: Cost per kWh
+        entities:
+          - entity: sensor.ovo_energy_au_cost_analysis_overall_cost_per_kwh
+            name: Overall $/kWh
+            icon: mdi:currency-usd
+          - entity: sensor.ovo_energy_au_cost_analysis_grid_cost_per_kwh
+            name: Grid $/kWh
+            icon: mdi:transmission-tower
+          - entity: sensor.ovo_energy_au_cost_analysis_solar_cost_per_kwh
+            name: Solar $/kWh
+            icon: mdi:solar-power
+
+  # ================================================================
+  # VIEW 4: HOURLY & SOLAR
+  # ================================================================
+  - title: Hourly & Solar
+    path: hourly
     icon: mdi:solar-power-variant
     cards:
-      # Self-Sufficiency Score
+      # ── Yesterday Hourly Solar ──
+      - type: custom:apexcharts-card
+        header:
+          title: Yesterday Solar (Hourly)
+          show: true
+        graph_span: 24h
+        series:
+          - entity: sensor.ovo_energy_au_hourly_graph_data_yesterday_solar_hourly
+            name: Solar kWh
+            type: column
+            color: "#FFA500"
+            data_generator: |
+              const hourly = entity.attributes.hourly_values || [];
+              return hourly.map(h => {
+                return [new Date(h.time).getTime(), h.value];
+              });
+        apex_config:
+          chart:
+            height: 250px
+          xaxis:
+            type: datetime
+            labels:
+              format: HH:mm
+          yaxis:
+            - title:
+                text: kWh
+
+      # ── Yesterday Hourly Grid ──
+      - type: custom:apexcharts-card
+        header:
+          title: Yesterday Grid (Hourly)
+          show: true
+        graph_span: 24h
+        series:
+          - entity: sensor.ovo_energy_au_hourly_graph_data_yesterday_grid_hourly
+            name: Grid kWh
+            type: column
+            color: "#E53935"
+            data_generator: |
+              const hourly = entity.attributes.hourly_values || [];
+              return hourly.map(h => {
+                return [new Date(h.time).getTime(), h.value];
+              });
+        apex_config:
+          chart:
+            height: 250px
+          xaxis:
+            type: datetime
+            labels:
+              format: HH:mm
+          yaxis:
+            - title:
+                text: kWh
+
+      # ── Self-Sufficiency Gauge ──
       - type: gauge
         entity: sensor.ovo_energy_au_solar_insights_self_sufficiency_score
         name: Solar Self-Sufficiency
@@ -642,155 +427,46 @@ views:
           yellow: 30
           red: 0
 
-      # Solar Export Analysis
-      - type: custom:mushroom-title-card
-        title: Export Value Analysis
-        subtitle: Return-to-grid economics
-
+      # ── Solar Export Analysis ──
       - type: horizontal-stack
         cards:
           - type: custom:mushroom-template-card
             primary: Export Credit
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_solar_export_export_credit_earned') }}
+            secondary: "${{ states('sensor.ovo_energy_au_solar_export_export_credit_earned') }}"
             icon: mdi:cash-multiple
             icon_color: green
             entity: sensor.ovo_energy_au_solar_export_export_credit_earned
             layout: vertical
           - type: custom:mushroom-template-card
             primary: Export Rate
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_solar_export_export_rate_per_kwh') }}/kWh
+            secondary: "${{ states('sensor.ovo_energy_au_solar_export_export_rate_per_kwh') }}/kWh"
             icon: mdi:cash-check
             icon_color: teal
             entity: sensor.ovo_energy_au_solar_export_export_rate_per_kwh
             layout: vertical
-
       - type: horizontal-stack
         cards:
           - type: custom:mushroom-template-card
             primary: Potential Savings
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_solar_export_potential_savings_vs_purchase') }}
+            secondary: "${{ states('sensor.ovo_energy_au_solar_export_potential_savings_vs_purchase') }}"
             icon: mdi:piggy-bank
             icon_color: green
             entity: sensor.ovo_energy_au_solar_export_potential_savings_vs_purchase
             layout: vertical
-            tap_action:
-              action: more-info
           - type: custom:mushroom-template-card
             primary: Opportunity Cost
-            secondary: >
-              ${{ states('sensor.ovo_energy_au_solar_export_opportunity_cost') }}
+            secondary: "${{ states('sensor.ovo_energy_au_solar_export_opportunity_cost') }}"
             icon: mdi:alert-circle
             icon_color: orange
             entity: sensor.ovo_energy_au_solar_export_opportunity_cost
             layout: vertical
-            tap_action:
-              action: more-info
 
-      # Solar Generation vs Export Chart
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Solar vs Export (This Month)
-          show_states: true
-          colorize_states: true
-        graph_span: 1month
-        span:
-          start: month
-        series:
-          - entity: sensor.ovo_energy_au_30264061_monthly_solar_consumption_2
-            name: Solar Generated
-            type: area
-            color: '#FFA500'
-            opacity: 0.3
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.consumption];
-              });
-          - entity: sensor.ovo_energy_au_30264061_monthly_return_to_grid_2
-            name: Exported to Grid
-            type: area
-            color: '#1E90FF'
-            opacity: 0.3
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.consumption];
-              });
-        apex_config:
-          chart:
-            height: 300px
-          xaxis:
-            type: datetime
-            labels:
-              format: dd MMM
-          yaxis:
-            - title:
-                text: kWh
-          tooltip:
-            x:
-              format: dd MMM yyyy
-          legend:
-            show: true
-            position: top
-          stroke:
-            curve: smooth
-
-      # Solar Credit vs Grid Cost Chart
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Solar Credit vs Grid Cost (This Month)
-          show_states: true
-          colorize_states: true
-        graph_span: 1month
-        span:
-          start: month
-        series:
-          - entity: sensor.ovo_energy_au_30264061_monthly_solar_charge_2
-            name: Solar Credit
-            type: column
-            color: '#4CAF50'
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), Math.abs(day.charge)];
-              });
-          - entity: sensor.ovo_energy_au_30264061_monthly_grid_charge_2
-            name: Grid Cost
-            type: column
-            color: '#E53935'
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), day.charge];
-              });
-          - entity: sensor.ovo_energy_au_30264061_monthly_return_to_grid_charge_2
-            name: Export Credit
-            type: column
-            color: '#1E90FF'
-            data_generator: |
-              const daily = entity.attributes.daily_breakdown || [];
-              return daily.map(day => {
-                return [new Date(day.date).getTime(), Math.abs(day.charge)];
-              });
-        apex_config:
-          chart:
-            height: 300px
-          xaxis:
-            type: datetime
-            labels:
-              format: dd MMM
-          yaxis:
-            - title:
-                text: AUD ($)
-              decimalsInFloat: 2
-          tooltip:
-            x:
-              format: dd MMM yyyy
-          legend:
-            show: true
-            position: top
+      # ── High Usage Days ──
+      - type: custom:mushroom-template-card
+        primary: Highest Usage Day
+        secondary: "{{ states('sensor.ovo_energy_au_usage_rankings_high_usage_days_tracker') }} kWh"
+        icon: mdi:medal
+        icon_color: amber
+        entity: sensor.ovo_energy_au_usage_rankings_high_usage_days_tracker
+        tap_action:
+          action: more-info
