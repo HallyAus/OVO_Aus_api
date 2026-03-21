@@ -1,0 +1,97 @@
+blueprint:
+  name: OVO Energy Daily Savings Report
+  description: >
+    Send a daily notification with your OVO Energy savings, solar generation,
+    and energy costs from yesterday. Data is typically available after 8am.
+  domain: automation
+  author: HallyAus
+  source_url: https://github.com/HallyAus/OVO_Aus_api/blob/main/blueprints/automation/ovo_daily_savings_notification.yaml
+  input:
+    notify_service:
+      name: Notification Service
+      description: The notification service to use (e.g., notify.mobile_app_phone)
+      selector:
+        text:
+      default: notify.persistent_notification
+    trigger_time:
+      name: Notification Time
+      description: Time to send the daily report (after 8am recommended)
+      selector:
+        time:
+      default: "08:30:00"
+    savings_sensor:
+      name: OVO Savings Sensor (Yesterday)
+      description: The OVO daily savings sensor
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+      default: ""
+    solar_sensor:
+      name: Solar Consumption Sensor (Yesterday)
+      description: Yesterday's solar generation sensor
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+      default: ""
+    grid_sensor:
+      name: Grid Consumption Sensor (Yesterday)
+      description: Yesterday's grid consumption sensor
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+      default: ""
+    grid_charge_sensor:
+      name: Grid Charge Sensor (Yesterday)
+      description: Yesterday's grid cost sensor
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+      default: ""
+    monthly_savings_sensor:
+      name: OVO Savings Sensor (This Month)
+      description: Monthly savings total sensor
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+      default: ""
+
+trigger:
+  - platform: time
+    at: !input trigger_time
+
+condition:
+  - condition: template
+    value_template: >
+      {{ states(savings_entity) not in ['unknown', 'unavailable', 'None'] }}
+
+action:
+  - variables:
+      savings_entity: !input savings_sensor
+      solar_entity: !input solar_sensor
+      grid_entity: !input grid_sensor
+      charge_entity: !input grid_charge_sensor
+      monthly_entity: !input monthly_savings_sensor
+      savings: "{{ states(savings_entity) | float(0) | round(2) }}"
+      solar: "{{ states(solar_entity) | float(0) | round(1) }}"
+      grid: "{{ states(grid_entity) | float(0) | round(1) }}"
+      cost: "{{ states(charge_entity) | float(0) | round(2) }}"
+      monthly_savings: "{{ states(monthly_entity) | float(0) | round(2) }}"
+  - service: !input notify_service
+    data:
+      title: "⚡ OVO Energy Daily Report"
+      message: >
+        Yesterday's Energy Summary:
+
+        💰 Savings: ${{ savings }} (vs One Plan)
+        ☀️ Solar: {{ solar }} kWh generated
+        🔌 Grid: {{ grid }} kWh consumed
+        💵 Grid Cost: ${{ cost }}
+
+        📊 Month-to-date savings: ${{ monthly_savings }}
+
+mode: single

@@ -1,0 +1,47 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "连接 OVO Energy Australia",
+        "description": "使用您的 OVO Energy Australia 账户登录，追踪用电量、电费和太阳能发电数据。\n\n系统会通过 OVO API 自动识别您的电力套餐和费率，无需手动选择套餐或输入费率。\n\n还不是 OVO 客户？使用推荐码 daniel16485 可获得 $120-$180 账户赠金\n\n**隐私与安全：**\n• 登录凭据安全存储在 Home Assistant 的配置存储中\n• 仅用于通过 OVO 官方 API 访问您的能源数据\n• 绝不会与第三方或外部服务共享\n\n**为何需要密码：**\n• OVO API 令牌每 5 分钟过期一次，以确保安全\n• 自动重新认证可保证传感器全天候持续更新\n• 初次设置后无需手动操作",
+        "data": {
+          "username": "电子邮箱",
+          "password": "密码"
+        }
+      },
+      "reauth_confirm": {
+        "title": "重新验证 OVO Energy 账户",
+        "description": "您的 OVO Energy 会话已过期，请重新登录以恢复能源监控。\n\n**接下来会发生什么：**\n• 您的登录凭据仍安全存储\n• 重新验证后传感器将恢复更新\n• 此操作仅需进行一次，之后将继续自动认证\n\n请在下方输入您的 OVO Energy 登录信息：",
+        "data": {
+          "username": "电子邮箱",
+          "password": "密码"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接到 OVO Energy API。请检查您的网络连接后重试。",
+      "invalid_auth": "认证失败。请确认您的电子邮箱和密码是否正确。",
+      "unknown": "发生意外错误。请重试或查看 Home Assistant 日志了解详情。"
+    },
+    "abort": {
+      "already_configured": "此 OVO Energy 账户已在 Home Assistant 中配置。",
+      "reauth_successful": "重新认证成功！您的能源传感器将恢复更新。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "更新电力套餐设置",
+        "description": "修改您的电力套餐和费率。更改将立即生效并更新所有费用计算。\n\n**提示：**如果您已在 OVO 更换了套餐，请在此更新选择，以确保费用追踪和节省计算的准确性。",
+        "data": {
+          "plan_type": "电力套餐",
+          "peak_rate": "高峰费率 ($/kWh)",
+          "shoulder_rate": "平峰费率 ($/kWh)",
+          "off_peak_rate": "低谷费率 ($/kWh)",
+          "ev_rate": "EV Off-Peak 费率 ($/kWh)",
+          "flat_rate": "统一费率 ($/kWh)"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connetti a OVO Energy Australia",
+        "description": "Accedi con il tuo account OVO Energy Australia per monitorare il consumo energetico, i costi e la produzione solare.\n\nIl tuo piano energetico e le tariffe vengono rilevati automaticamente tramite l'API di OVO. Non è necessario selezionare manualmente il piano o inserire le tariffe.\n\nNon sei ancora cliente OVO? Ottieni un credito di $120-$180 con il codice referral: daniel16485\n\n**Privacy e Sicurezza:**\n• Le credenziali sono archiviate nella memoria di configurazione di Home Assistant\n• Utilizzate esclusivamente per accedere ai tuoi dati energetici tramite l'API ufficiale di OVO\n• Mai condivise con terze parti o servizi esterni\n\n**Perché è necessaria la password:**\n• I token dell'API OVO scadono ogni 5 minuti per sicurezza\n• La ri-autenticazione automatica mantiene i sensori aggiornati 24/7\n• Nessun intervento manuale necessario dopo la configurazione iniziale",
+        "data": {
+          "username": "Indirizzo Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ri-autenticazione con OVO Energy",
+        "description": "La tua sessione OVO Energy è scaduta. Accedi nuovamente per ripristinare il monitoraggio energetico.\n\n**Cosa succede dopo:**\n• Le tue credenziali sono ancora archiviate in modo sicuro\n• I sensori riprenderanno l'aggiornamento dopo la ri-autenticazione\n• Questa è un'azione una tantum - la ri-autenticazione automatica continuerà\n\nInserisci le tue credenziali OVO Energy qui sotto:",
+        "data": {
+          "username": "Indirizzo Email",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossibile connettersi all'API di OVO Energy. Controlla la tua connessione internet e riprova.",
+      "invalid_auth": "Autenticazione fallita. Verifica che il tuo indirizzo email e la password siano corretti.",
+      "unknown": "Si è verificato un errore imprevisto. Riprova o controlla i log di Home Assistant per i dettagli."
+    },
+    "abort": {
+      "already_configured": "Questo account OVO Energy è già configurato in Home Assistant.",
+      "reauth_successful": "Ri-autenticazione riuscita! I sensori energetici riprenderanno l'aggiornamento."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Aggiorna Impostazioni Piano Energetico",
+        "description": "Modifica il tuo piano elettrico e le tariffe. Le modifiche hanno effetto immediato e aggiornano tutti i calcoli dei costi.\n\n**Suggerimento:** Se hai cambiato piano con OVO, aggiorna la tua selezione qui per garantire un monitoraggio accurato dei costi e dei risparmi.",
+        "data": {
+          "plan_type": "Piano Energetico",
+          "peak_rate": "Tariffa di Punta ($/kWh)",
+          "shoulder_rate": "Tariffa Intermedia ($/kWh)",
+          "off_peak_rate": "Tariffa Fuori Punta ($/kWh)",
+          "ev_rate": "Tariffa EV Off-Peak ($/kWh)",
+          "flat_rate": "Tariffa Unica ($/kWh)"
+        }
+      }
+    }
+  }
+}

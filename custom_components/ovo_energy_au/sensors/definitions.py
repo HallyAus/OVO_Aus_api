@@ -41,15 +41,15 @@ ENERGY_SENSORS = [
 
     # ── This Month ──
     ("monthly_solar_consumption", "Solar Consumption", UnitOfEnergy.KILO_WATT_HOUR,
-     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:solar-power",
+     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING, "mdi:solar-power",
      lambda d: d.get("monthly", {}).get("solar_consumption"), "This Month"),
 
     ("monthly_grid_consumption", "Grid Consumption", UnitOfEnergy.KILO_WATT_HOUR,
-     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:transmission-tower",
+     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING, "mdi:transmission-tower",
      lambda d: d.get("monthly", {}).get("grid_consumption"), "This Month"),
 
     ("monthly_return_to_grid", "Return to Grid", UnitOfEnergy.KILO_WATT_HOUR,
-     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:transmission-tower-export",
+     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING, "mdi:transmission-tower-export",
      lambda d: d.get("monthly", {}).get("return_to_grid"), "This Month"),
 
     ("monthly_solar_charge", "Solar Feed-in Credit", "AUD",
