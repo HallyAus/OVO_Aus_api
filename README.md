@@ -13,7 +13,22 @@
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 
+![GitHub Stars](https://img.shields.io/github/stars/HallyAus/OVO_Aus_api?style=social)
+![GitHub Forks](https://img.shields.io/github/forks/HallyAus/OVO_Aus_api?style=social)
+![GitHub Issues](https://img.shields.io/github/issues/HallyAus/OVO_Aus_api)
+![GitHub Last Commit](https://img.shields.io/github/last-commit/HallyAus/OVO_Aus_api)
+![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange.svg?logo=buy-me-a-coffee)](https://buymeacoffee.com/printforge)
+![Powered by Coffee](https://img.shields.io/badge/Powered%20by-Coffee%20%E2%98%95-brown)
+![Australian Made](https://img.shields.io/badge/Made%20in-Australia%20%F0%9F%87%A6%F0%9F%87%BA-green)
+![Jedi Master](https://img.shields.io/badge/Energy%20Monitoring-Jedi%20Master%20Level-blue?logo=starwars)
+
+**Comprehensive Home Assistant integration for OVO Energy Australia**
+
 Track solar generation, grid consumption, costs, rate breakdowns, and OVO plan savings -- all from your Home Assistant dashboard.
+
+> *"Use the Force wisely, young Padawan. Monitor your energy, you must."* -- Yoda (probably)
 
 [Features](#features) · [Quick Start](#quick-start) · [Sensors](#sensors) · [Dashboards](#dashboard-examples) · [Contributing](#contributing)
 
@@ -21,13 +36,18 @@ Track solar generation, grid consumption, costs, rate breakdowns, and OVO plan s
 
 ---
 
-## Screenshots
+## New to OVO Energy? Get $120-$180 Credit!
 
-<!-- Add your dashboard screenshots here -->
-<!-- ![Dashboard Overview](docs/screenshots/overview.png) -->
-<!-- ![Energy Breakdown](docs/screenshots/breakdown.png) -->
+Not an OVO customer yet? Sign up using this referral link and we'll both get credit:
 
-*Screenshots coming soon -- contributions welcome!*
+**[www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
+
+**Referral Benefits:**
+- **$120 credit** paid over 12 months on standard plans
+- **$180 credit** paid over 12 months if you choose The EV Plan
+- Both you and I receive the credit - it's a win-win!
+
+*Join the OVO community and start tracking your energy with this integration!*
 
 ---
 
