@@ -623,7 +623,7 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
             rate_cents = 0
             next_change = "14:00"
             next_period = "Standard"
-        elif 14 <= hour < 24:
+        else:  # 14-23
             current_rate = "Standard"
             rate_cents = 37.18
             next_change = "00:00"

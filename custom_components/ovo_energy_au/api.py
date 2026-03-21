@@ -259,7 +259,7 @@ class OVOEnergyAUApiClient:
             token_data = await self._exchange_code_for_tokens(
                 authorization_code, OAUTH_REDIRECT_URI, code_verifier
             )
-            _LOGGER.info("Successfully authenticated with username/password")
+            _LOGGER.debug("Successfully authenticated with username/password")
             return token_data
 
         except OVOEnergyAUApiClientError:
@@ -585,7 +585,7 @@ class OVOEnergyAUApiClient:
             result_key="GetAccountInfo",
             referer_path="/usage",
         )
-        _LOGGER.info("Fetched product agreements for account %s", result.get("id"))
+        _LOGGER.debug("Fetched product agreements for account %s", result.get("id"))
         return result
 
     async def get_usage_info(self, account_id: str) -> dict[str, Any]:

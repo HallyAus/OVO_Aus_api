@@ -59,7 +59,8 @@ def process_interval_data(data: dict) -> dict:
         if savings_list and isinstance(savings_list, list):
             latest_savings = savings_list[-1]
             amount = latest_savings.get("amount") or {}
-            processed[period]["ovo_savings"] = abs(amount.get("value", 0))
+            # Don't abs() — negative savings means user would save more on another plan
+            processed[period]["ovo_savings"] = amount.get("value", 0)
             processed[period]["ovo_savings_description"] = latest_savings.get("description", "")
 
     # Build daily map for aggregations
@@ -383,13 +384,14 @@ def _compute_all_time(monthly_data: dict) -> dict:
     all_time_rates = {}
     all_time_solar_consumption = 0.0
     all_time_solar_charge = 0.0
-    months_included = 0
+    seen_months = set()
     earliest_date = None
     latest_date = None
 
     for entry in (monthly_data.get("export") or []):
-        months_included += 1
         period_from = entry.get("periodFrom")
+        if period_from:
+            seen_months.add(period_from[:7])  # Track unique YYYY-MM
         period_to = entry.get("periodTo")
         if period_from and (not earliest_date or period_from < earliest_date):
             earliest_date = period_from
@@ -423,5 +425,5 @@ def _compute_all_time(monthly_data: dict) -> dict:
         "solar_charge": round(all_time_solar_charge, 2),
         "periodFrom": earliest_date,
         "periodTo": latest_date,
-        "months_included": months_included,
+        "months_included": len(seen_months),
     }

@@ -31,6 +31,15 @@ fragment UsageV2DataParts on UsageV2Data {
       percentOfTotal
     }
   }
+  savings {
+    periodFrom
+    periodTo
+    amount {
+      value
+      type
+    }
+    description
+  }
 }
 """
 
