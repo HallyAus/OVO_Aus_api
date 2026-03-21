@@ -39,6 +39,7 @@ from .graphql.queries import (
     GET_HOURLY_DATA,
     GET_INTERVAL_DATA,
     GET_PRODUCT_AGREEMENTS,
+    GET_USAGE_INFO,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -586,6 +587,17 @@ class OVOEnergyAUApiClient:
         )
         _LOGGER.info("Fetched product agreements for account %s", result.get("id"))
         return result
+
+    async def get_usage_info(self, account_id: str) -> dict[str, Any]:
+        """Get usage info (timezone, meter type) for an account."""
+        return await self._graphql_request(
+            operation_name="GetUsageInfo",
+            query=GET_USAGE_INFO,
+            variables={"input": {"id": account_id, "system": "KALUZA"}},
+            result_key="GetAccountInfo",
+            referer_path="/usage",
+            allow_null_result=True,
+        )
 
     async def test_connection(self, account_id: str) -> bool:
         """Test the API connection."""

@@ -269,6 +269,24 @@ ANALYTICS_SENSORS = [
     ("rtg_opportunity_cost", "Opportunity Cost", "AUD",
      SensorDeviceClass.MONETARY, None, "mdi:alert-circle",
      lambda d: d.get("return_to_grid_analysis", {}).get("opportunity_cost"), "Solar Export"),
+
+    # Account Balance
+    ("account_balance", "Account Balance", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:cash",
+     lambda d: d.get("account_balance"), "Account"),
+
+    # OVO Savings (plan comparison calculated by OVO)
+    ("daily_ovo_savings", "OVO Savings (Yesterday)", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:piggy-bank-outline",
+     lambda d: d.get("daily", {}).get("ovo_savings"), "OVO Savings"),
+
+    ("monthly_ovo_savings", "OVO Savings (This Month)", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:piggy-bank-outline",
+     lambda d: d.get("monthly", {}).get("ovo_savings"), "OVO Savings"),
+
+    ("yearly_ovo_savings", "OVO Savings (This Year)", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:piggy-bank-outline",
+     lambda d: d.get("yearly", {}).get("ovo_savings"), "OVO Savings"),
 ]
 
 # Rate types for per-day breakdown sensors

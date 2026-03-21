@@ -488,12 +488,24 @@ class OVOPlanSensor(OVOBaseSensor):
             ("peak", "peak"), ("shoulder", "shoulder"), ("offPeak", "off_peak"),
             ("evOffPeak", "ev_off_peak"), ("superOffPeak", "super_off_peak"),
             ("standard", "standard"), ("feedInTariff", "feed_in_tariff"),
+            ("CL1", "cl1"),
         ]
         for api_key, label in rate_fields:
             val = unit_rates.get(api_key)
             if val is not None:
                 attrs[f"{label}_cents_kwh"] = val
                 attrs[f"{label}_aud_kwh"] = round(val / 100, 4)
+
+        demand = unit_rates.get("demand") or {}
+        if isinstance(demand, dict):
+            peak_demand = demand.get("peakDemand")
+            if peak_demand is not None:
+                attrs["demand_peak_cents_kwh"] = peak_demand
+                attrs["demand_peak_aud_kwh"] = round(peak_demand / 100, 4)
+
+        if standing:
+            attrs["standing_charge_monthly_aud"] = round(standing / 100 * 30.44, 2)
+            attrs["standing_charge_yearly_aud"] = round(standing / 100 * 365.25, 2)
 
         return attrs
 
@@ -537,6 +549,10 @@ class OVOHealthSensor(OVOBaseSensor):
             attrs["hourly_solar_entries"] = len(hourly.get("solar_entries", []))
             attrs["hourly_grid_entries"] = len(hourly.get("grid_entries", []))
             attrs["has_product_agreements"] = self.coordinator.data.get("product_agreements") is not None
+            attrs["has_solar"] = self.coordinator.data.get("has_solar")
+            attrs["meter_type"] = self.coordinator.data.get("meter_type")
+            attrs["api_timezone"] = self.coordinator.data.get("api_timezone")
+            attrs["last_meter_read"] = self.coordinator.data.get("last_meter_read")
 
             if all_daily:
                 attrs["oldest_daily_date"] = all_daily[-1].get("date")

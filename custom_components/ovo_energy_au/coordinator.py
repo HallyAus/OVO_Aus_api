@@ -83,6 +83,30 @@ class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
             # 4. Analytics insights
             compute_insights(processed)
 
+            # 5. Account balance from contact info
+            try:
+                contact_info = await self.client.get_contact_info()
+                accounts = contact_info.get("accounts", [])
+                active = [a for a in accounts if not a.get("closed", False)]
+                if active:
+                    processed["account_balance"] = active[0].get("customerOrientatedBalance")
+                    processed["has_solar"] = active[0].get("hasSolar", False)
+            except Exception as err:
+                _LOGGER.debug("Failed to fetch contact info: %s", err)
+                processed["account_balance"] = None
+                processed["has_solar"] = None
+
+            # 6. Usage info (timezone, meter type)
+            try:
+                usage_info = await self.client.get_usage_info(self.account_id)
+                usage_v2 = (usage_info or {}).get("usageV2") or {}
+                processed["meter_type"] = usage_v2.get("meterType")
+                processed["api_timezone"] = usage_v2.get("timezone")
+                last_read = (usage_v2.get("lastMeterRead") or {}).get("date")
+                processed["last_meter_read"] = last_read
+            except Exception as err:
+                _LOGGER.debug("Failed to fetch usage info: %s", err)
+
             return processed
 
         except OVOEnergyAUApiClientAuthenticationError as err:

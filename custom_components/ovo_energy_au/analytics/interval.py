@@ -50,6 +50,18 @@ def process_interval_data(data: dict) -> dict:
             continue
         processed[period] = _process_period_latest(period, period_data)
 
+    # Extract OVO savings data (EV/Free plan vs One Plan comparison)
+    for period in ["daily", "monthly", "yearly"]:
+        period_data = data.get(period)
+        if not period_data or not isinstance(period_data, dict):
+            continue
+        savings_list = period_data.get("savings") or []
+        if savings_list and isinstance(savings_list, list):
+            latest_savings = savings_list[-1]
+            amount = latest_savings.get("amount") or {}
+            processed[period]["ovo_savings"] = abs(amount.get("value", 0))
+            processed[period]["ovo_savings_description"] = latest_savings.get("description", "")
+
     # Build daily map for aggregations
     daily_data = data.get("daily")
     if daily_data and isinstance(daily_data, dict):

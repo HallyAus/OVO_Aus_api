@@ -103,6 +103,24 @@ query GetHourlyData($input: GetHourlyDataInput!) {{
 {USAGE_V2_FRAGMENT}
 """
 
+GET_USAGE_INFO = """
+query GetUsageInfo($input: GetAccountInfoInput!) {
+  GetAccountInfo(input: $input) {
+    id
+    usageV2 {
+      lastMeterRead {
+        date
+        __typename
+      }
+      timezone
+      meterType
+      __typename
+    }
+    __typename
+  }
+}
+"""
+
 GET_PRODUCT_AGREEMENTS = """
 query GetProductAgreements($input: GetAccountInfoInput!) {
   GetAccountInfo(input: $input) {
