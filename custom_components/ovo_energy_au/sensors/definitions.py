@@ -287,6 +287,44 @@ ANALYTICS_SENSORS = [
     ("yearly_ovo_savings", "OVO Savings (This Year)", "AUD",
      SensorDeviceClass.MONETARY, None, "mdi:piggy-bank-outline",
      lambda d: d.get("yearly", {}).get("ovo_savings"), "OVO Savings"),
+
+    # EV Charging Tracker
+    ("monthly_ev_charging_kwh", "EV Charging This Month", UnitOfEnergy.KILO_WATT_HOUR,
+     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:ev-station",
+     lambda d: d.get("monthly", {}).get("rate_breakdown", {}).get("EV_OFFPEAK", {}).get("consumption"),
+     "EV Charging"),
+
+    ("monthly_ev_charging_cost", "EV Charging Cost This Month", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:ev-station",
+     lambda d: d.get("monthly", {}).get("rate_breakdown", {}).get("EV_OFFPEAK", {}).get("charge"),
+     "EV Charging"),
+
+    ("yearly_ev_charging_kwh", "EV Charging This Year", UnitOfEnergy.KILO_WATT_HOUR,
+     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:ev-station",
+     lambda d: d.get("yearly", {}).get("rate_breakdown", {}).get("EV_OFFPEAK", {}).get("consumption"),
+     "EV Charging"),
+
+    ("yearly_ev_charging_cost", "EV Charging Cost This Year", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:ev-station",
+     lambda d: d.get("yearly", {}).get("rate_breakdown", {}).get("EV_OFFPEAK", {}).get("charge"),
+     "EV Charging"),
+
+    # Bill Estimator
+    ("bill_mtd", "Bill So Far This Month", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:receipt-text",
+     lambda d: d.get("bill_estimate", {}).get("mtd_bill"), "Bill Estimate"),
+
+    ("bill_projected", "Projected Monthly Bill", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:receipt-text-clock",
+     lambda d: d.get("bill_estimate", {}).get("projected_bill"), "Bill Estimate"),
+
+    ("bill_remaining", "Estimated Remaining This Month", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:receipt-text-minus",
+     lambda d: d.get("bill_estimate", {}).get("remaining_estimate"), "Bill Estimate"),
+
+    ("bill_daily_average", "Daily Average Net Cost", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:calendar-today",
+     lambda d: d.get("bill_estimate", {}).get("daily_average_net"), "Bill Estimate"),
 ]
 
 # Rate types for per-day breakdown sensors

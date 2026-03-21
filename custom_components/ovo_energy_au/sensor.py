@@ -76,6 +76,12 @@ async def async_setup_entry(
     # ── Integration health diagnostic sensor ──
     sensors.append(OVOHealthSensor(coordinator))
 
+    # ── Tariff period indicator ──
+    sensors.append(OVOTariffPeriodSensor(coordinator))
+
+    # ── Plan comparison / recommendation ──
+    sensors.append(OVORateComparisonSensor(coordinator))
+
     async_add_entities(sensors)
 
 
@@ -570,6 +576,182 @@ class OVOHealthSensor(OVOBaseSensor):
             "name": "OVO Energy AU",
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
+        }
+
+
+class OVOTariffPeriodSensor(OVOBaseSensor):
+    """Sensor showing the current tariff/rate period based on time of day."""
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "current_tariff_period", "Current Tariff Period", "Tariff")
+        self._attr_icon = "mdi:clock-time-four"
+
+    @property
+    def native_value(self) -> str:
+        """Return current tariff period based on time of day."""
+        now = datetime.now(AU_TIMEZONE)
+        hour = now.hour
+
+        # Determine period based on EV Plan schedule
+        # These match the OVO savings description:
+        # "EV off peak period (midnight-6am)" and "super off peak period (11am-2pm)"
+        if 0 <= hour < 6:
+            return "EV Off-Peak"
+        elif 11 <= hour < 14:
+            return "Super Off-Peak (FREE)"
+        else:
+            return "Standard"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        now = datetime.now(AU_TIMEZONE)
+        hour = now.hour
+
+        # Calculate time until next period change
+        if 0 <= hour < 6:
+            current_rate = "EV Off-Peak"
+            rate_cents = 8.0
+            next_change = "06:00"
+            next_period = "Standard"
+        elif 6 <= hour < 11:
+            current_rate = "Standard"
+            rate_cents = 37.18
+            next_change = "11:00"
+            next_period = "Super Off-Peak (FREE)"
+        elif 11 <= hour < 14:
+            current_rate = "Super Off-Peak (FREE)"
+            rate_cents = 0
+            next_change = "14:00"
+            next_period = "Standard"
+        elif 14 <= hour < 24:
+            current_rate = "Standard"
+            rate_cents = 37.18
+            next_change = "00:00"
+            next_period = "EV Off-Peak"
+
+        # Try to get actual rates from plan data
+        if self.coordinator.data:
+            pa = self.coordinator.data.get("product_agreements")
+            if pa and isinstance(pa, dict):
+                agreements = pa.get("productAgreements", [])
+                if agreements:
+                    rates = agreements[0].get("product", {}).get("unitRatesCentsPerKWH", {})
+                    if rates:
+                        if current_rate == "EV Off-Peak" and rates.get("evOffPeak") is not None:
+                            rate_cents = rates["evOffPeak"]
+                        elif current_rate == "Standard" and rates.get("peak") is not None:
+                            rate_cents = rates["peak"]
+                        elif current_rate == "Super Off-Peak (FREE)" and rates.get("superOffPeak") is not None:
+                            rate_cents = rates["superOffPeak"]
+
+        return {
+            "current_period": current_rate,
+            "rate_cents_kwh": rate_cents,
+            "rate_aud_kwh": round(rate_cents / 100, 4),
+            "next_period_change": next_change,
+            "next_period": next_period,
+            "current_hour": hour,
+        }
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self.coordinator.account_id)},
+            "name": "OVO Energy AU",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+        }
+
+
+class OVORateComparisonSensor(OVOBaseSensor):
+    """Sensor showing plan comparison and recommendation."""
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "plan_comparison", "Plan Comparison", "OVO Savings")
+        self._attr_icon = "mdi:compare-horizontal"
+
+    @property
+    def native_value(self) -> str | None:
+        if not self.coordinator.data:
+            return None
+        yearly = self.coordinator.data.get("yearly", {})
+        savings = yearly.get("ovo_savings", 0)
+        if savings and savings > 0:
+            return f"Saving ${round(savings, 2)}/year"
+        elif savings and savings < 0:
+            return "Consider switching plans"
+        return "No comparison data"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        if not self.coordinator.data:
+            return {}
+
+        attrs = {}
+
+        # Get savings across periods
+        daily = self.coordinator.data.get("daily", {})
+        monthly = self.coordinator.data.get("monthly", {})
+        yearly = self.coordinator.data.get("yearly", {})
+
+        daily_savings = daily.get("ovo_savings", 0) or 0
+        monthly_savings = monthly.get("ovo_savings", 0) or 0
+        yearly_savings = yearly.get("ovo_savings", 0) or 0
+
+        attrs["daily_savings"] = round(daily_savings, 2)
+        attrs["monthly_savings"] = round(monthly_savings, 2)
+        attrs["yearly_savings"] = round(yearly_savings, 2)
+
+        # Get the comparison description from savings data
+        daily_desc = daily.get("ovo_savings_description", "")
+        if daily_desc:
+            attrs["comparison_description"] = daily_desc
+
+        # Calculate recommendation
+        if yearly_savings > 500:
+            attrs["recommendation"] = "Excellent! Your current plan is saving you significantly. Stay on it."
+            attrs["rating"] = "Excellent"
+        elif yearly_savings > 200:
+            attrs["recommendation"] = "Good savings. Your current plan is working well for your usage pattern."
+            attrs["rating"] = "Good"
+        elif yearly_savings > 50:
+            attrs["recommendation"] = "Modest savings. Consider if your usage patterns could be optimized."
+            attrs["rating"] = "Fair"
+        elif yearly_savings > 0:
+            attrs["recommendation"] = "Minimal savings vs the One Plan. Review if EV/Free periods match your usage."
+            attrs["rating"] = "Marginal"
+        else:
+            attrs["recommendation"] = "You may save more on a different plan. Contact OVO to compare options."
+            attrs["rating"] = "Consider Switching"
+
+        # Project annual savings from monthly
+        if monthly_savings > 0:
+            now = datetime.now(AU_TIMEZONE)
+            day_of_month = now.day
+            if day_of_month > 0:
+                projected_monthly = monthly_savings / day_of_month * 30.44
+                projected_annual = projected_monthly * 12
+                attrs["projected_annual_savings"] = round(projected_annual, 2)
+
+        # Get plan info
+        pa = self.coordinator.data.get("product_agreements")
+        if pa and isinstance(pa, dict):
+            agreements = pa.get("productAgreements", [])
+            if agreements:
+                product = agreements[0].get("product", {})
+                attrs["current_plan"] = product.get("displayName", "Unknown")
+                attrs["compared_to"] = "The One Plan"
+
+        return attrs
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, f"{self.coordinator.account_id}_OVO Savings")},
+            "name": "OVO Energy AU - OVO Savings",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+            "via_device": (DOMAIN, self.coordinator.account_id),
         }
 
 

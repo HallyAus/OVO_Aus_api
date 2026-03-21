@@ -1,102 +1,54 @@
-# OVO Energy Australia
+# OVO Energy Australia for Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
-[![GitHub Release](https://img.shields.io/github/release/HallyAus/OVO_Aus_api.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
 
-Unofficial Home Assistant integration for OVO Energy Australia's GraphQL API.
+Track solar generation, grid consumption, costs, EV charging, and plan savings in Home Assistant.
 
-## Features
+## 🎁 Not an OVO customer? Get $120-$180 credit!
 
-- ☀️ **Solar Generation Tracking** - Monitor hourly and daily solar production
-- ⚡ **Grid Export Monitoring** - Track energy exported to the grid
-- 💰 **Cost Savings** - Calculate savings from solar generation
-- 🔄 **Automatic Updates** - Data refreshes every 5 minutes
-- 📊 **Energy Dashboard Compatible** - Works with HA Energy Dashboard
+👉 **[www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
 
-## Installation via HACS
+- ✅ $120 credit on standard plans / $180 on The EV Plan
+- ✅ Both you and the referrer get credit
 
-### Prerequisites
+## ✨ Features
 
-- HACS installed in your Home Assistant instance
-- OVO Energy Australia account with solar panels
+- ☀️ **90+ Sensors** — Solar, grid, export, charges, rate breakdowns, analytics
+- ⚡ **Tariff Period Indicator** — Live current rate period with cost per kWh
+- 🔌 **EV Charging Tracker** — Monthly and yearly EV charging kWh and cost
+- 🧾 **Bill Estimator** — Projected monthly bill with standing charge included
+- 🏆 **OVO Savings** — Daily/monthly/yearly savings vs the One Plan (OVO-calculated)
+- 📊 **Plan Comparison** — Rating and recommendation based on your actual savings
+- 💰 **Account Balance** — Current credit/balance on your OVO account
+- 📈 **Energy Dashboard** — Compatible with HA's native Energy Dashboard
+- 🔄 **Automatic Auth** — OAuth2 PKCE with auto-refresh, no manual tokens
+- 🌏 **6 Languages** — English, Chinese, Vietnamese, Greek, Italian, Arabic
+- 🤖 **Daily Report Blueprint** — Automated savings notification
 
-### Add Custom Repository
+## 🚀 Setup
 
-1. Open HACS in Home Assistant
-2. Click on "Integrations"
-3. Click the 3 dots in the top right corner
-4. Select "Custom repositories"
-5. Add this repository URL: `https://github.com/HallyAus/OVO_Aus_api`
-6. Select category: "Integration"
-7. Click "Add"
+1. Add custom repository in HACS: `https://github.com/HallyAus/OVO_Aus_api`
+2. Download and restart Home Assistant
+3. **Settings → Devices & Services → Add Integration → OVO Energy Australia**
+4. Enter your OVO email and password — everything else is automatic
 
-### Install Integration
+> **Note:** OVO Energy **Australia** only. Not compatible with OVO UK.
 
-1. Search for "OVO Energy Australia" in HACS
-2. Click "Download"
-3. Restart Home Assistant
+## 📊 Dashboard Templates
 
-### Configuration
+Ready-to-use YAML dashboards included in [`docs/dashboards/`](https://github.com/HallyAus/OVO_Aus_api/tree/main/docs/dashboards):
+- Simple (built-in cards only)
+- Comprehensive (mushroom + apexcharts)
+- Hourly data with solar/grid/export charts
 
-Add to your `configuration.yaml`:
-
-```yaml
-ovo_energy_au:
-  access_token: "Bearer eyJ..."
-  id_token: "eyJ..."
-  account_id: "30264061"
-```
-
-Or use `secrets.yaml`:
-
-```yaml
-ovo_energy_au:
-  access_token: !secret ovo_access_token
-  id_token: !secret ovo_id_token
-  account_id: !secret ovo_account_id
-```
-
-### Getting Your Tokens
-
-1. Go to https://my.ovoenergy.com.au
-2. Open DevTools (F12) → Network tab
-3. Log in and click "Usage"
-4. Filter by "graphql"
-5. Click on any graphql request
-6. Copy from Headers:
-   - `authorization` → access_token (includes "Bearer ")
-   - `myovo-id-token` → id_token
-7. Copy from Payload:
-   - `accountId` → account_id
-
-**Note:** Tokens expire after 5 minutes. You'll need to update them periodically.
-
-## Available Sensors
-
-After configuration, you'll have these sensors:
-
-- `sensor.ovo_energy_solar_generation_current_hour` - Solar this hour (kWh)
-- `sensor.ovo_energy_grid_export_current_hour` - Export this hour (kWh)
-- `sensor.ovo_energy_solar_generation_today` - Total solar today (kWh)
-- `sensor.ovo_energy_grid_export_today` - Total export today (kWh)
-- `sensor.ovo_energy_cost_savings_today` - Savings today (AUD)
-
-## Known Limitations
-
-- ⚠️ Tokens expire after 5 minutes (requires manual refresh)
-- ⚠️ YAML configuration only (no UI config flow yet)
-- ⚠️ Only tested with solar accounts
-
-## Support
+## 💬 Support
 
 - 📖 [Full Documentation](https://github.com/HallyAus/OVO_Aus_api)
 - 🐛 [Report Issues](https://github.com/HallyAus/OVO_Aus_api/issues)
-- 💬 [Discussions](https://github.com/HallyAus/OVO_Aus_api/discussions)
-
-## Python Client Available
-
-This repository also includes a standalone Python client with OAuth 2.0 authentication. See the [main README](https://github.com/HallyAus/OVO_Aus_api) for details.
+- ☕ [Buy Me a Coffee](https://buymeacoffee.com/printforge)
 
 ---
 
-**Made with ☀️ for the Australian solar community**
+**Made with ☀️ for the Australian solar and EV community**

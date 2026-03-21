@@ -8,7 +8,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore)](https://github.com/hacs/integration)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
@@ -74,6 +74,10 @@ The integration connects to OVO's GraphQL API and automatically detects your pla
 | **Account Balance** | Current OVO account balance |
 | **Plan Information** | Diagnostic sensor with all plan rates, standing charge, demand charge, NMI |
 | **Integration Health** | Diagnostic sensor for monitoring API connectivity |
+| **⚡ Tariff Period Indicator** | Shows current rate period (EV Off-Peak / FREE / Standard) with live rate |
+| **📊 Plan Comparison** | Savings vs One Plan with rating and recommendation |
+| **🔌 EV Charging Tracker** | Monthly and yearly EV charging kWh and cost |
+| **🧾 Bill Estimator** | MTD bill, projected monthly bill, daily average net cost |
 
 ### 🏠 Real-World Results
 
