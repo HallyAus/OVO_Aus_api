@@ -10,8 +10,6 @@ blueprint:
     notify_service:
       name: Notification Service
       description: The notification service to use (e.g., notify.mobile_app_phone)
-      selector:
-        text:
       default: notify.persistent_notification
     trigger_time:
       name: Notification Time
@@ -26,7 +24,6 @@ blueprint:
         entity:
           filter:
             - domain: sensor
-      default: ""
     solar_sensor:
       name: Solar Consumption Sensor (Yesterday)
       description: Yesterday's solar generation sensor
@@ -34,7 +31,6 @@ blueprint:
         entity:
           filter:
             - domain: sensor
-      default: ""
     grid_sensor:
       name: Grid Consumption Sensor (Yesterday)
       description: Yesterday's grid consumption sensor
@@ -42,7 +38,6 @@ blueprint:
         entity:
           filter:
             - domain: sensor
-      default: ""
     grid_charge_sensor:
       name: Grid Charge Sensor (Yesterday)
       description: Yesterday's grid cost sensor
@@ -50,7 +45,6 @@ blueprint:
         entity:
           filter:
             - domain: sensor
-      default: ""
     monthly_savings_sensor:
       name: OVO Savings Sensor (This Month)
       description: Monthly savings total sensor
@@ -58,7 +52,9 @@ blueprint:
         entity:
           filter:
             - domain: sensor
-      default: ""
+
+variables:
+  savings_entity: !input savings_sensor
 
 trigger:
   - platform: time

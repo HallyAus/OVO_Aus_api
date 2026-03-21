@@ -2,7 +2,7 @@
 
 ## Project Overview
 Custom Home Assistant integration for OVO Energy Australia. Fetches energy data via
-OVO's GraphQL API (Auth0 OAuth2 + PKCE) and exposes 80+ sensors for solar, grid,
+OVO's GraphQL API (Auth0 OAuth2 + PKCE) and exposes 90+ sensors for solar, grid,
 export, rate breakdowns, and analytics.
 
 ## Architecture
@@ -33,8 +33,12 @@ custom_components/ovo_energy_au/
 └── translations/en.json
 tests/
 ├── __init__.py
-├── conftest.py          # Shared fixtures
-└── test_analytics.py    # Analytics processing tests
+├── conftest.py          # Shared fixtures + HA module mocking
+├── test_analytics.py    # Analytics processing tests
+├── test_models.py       # PlanConfig dataclass tests
+├── test_sensor_definitions.py  # Sensor tuple structure + value_fn tests
+├── test_hourly_helpers.py      # Timestamp parsing + hourly data filtering
+└── test_edge_cases.py   # Null data, no solar, flat rate edge cases
 ```
 
 ## Key Commands

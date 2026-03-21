@@ -45,7 +45,7 @@ echo "Please restart Home Assistant to apply the update."
 echo ""
 
 # Try to restart HA if ha command is available
-if command -v ha &> /dev/null; then
+if command -v ha &> /dev/null && [ -t 0 ]; then
     read -p "Restart Home Assistant now? (y/N) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then

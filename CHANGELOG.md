@@ -5,6 +5,38 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-03-21
+
+### New Sensors
+- **Tariff Period Indicator** - Shows current rate period (EV Off-Peak / Super Off-Peak FREE / Standard) with live rate in c/kWh and next period change time
+- **Plan Comparison & Recommendation** - Savings rating (Excellent/Good/Fair/Marginal), projected annual savings, recommendation text
+- **EV Charging Tracker** - Monthly and yearly EV charging kWh and cost from rate breakdown data
+- **Bill Estimator** - Month-to-date bill (grid + standing charge - solar credit), projected monthly bill, remaining estimate, daily average net cost
+
+### New Features
+- **HA Energy Dashboard** - Monthly solar/grid/export sensors now use TOTAL_INCREASING for native Energy Dashboard compatibility
+- **Daily Savings Blueprint** - Automation blueprint sending daily notification with savings, solar, grid, cost
+- **5 New Translations** - Simplified Chinese, Vietnamese, Greek, Italian, Arabic
+- **GetUsageInfo API** - Fetches meter type, API timezone, last meter read
+- **Account Balance sensor** - From customerOrientatedBalance in GetContactInfo
+
+### Bug Fixes
+- **CRITICAL: Added `savings` field to GraphQL fragment** - OVO Savings sensors were returning None because the query didn't request savings data
+- **CRITICAL: Fixed potential UnboundLocalError** in tariff period sensor (elif -> else)
+- **Fixed abs() on savings values** - Negative savings now correctly trigger "Consider switching plans" in plan comparison
+- **Fixed months_included overcounting** - Was counting export entries, not unique months
+- **Changed 3 frequent INFO logs to DEBUG** - Tokens, auth, product agreements no longer spam logs every 5 minutes
+
+### Improvements
+- Enriched Plan sensor with CL1 rate, demand charge, monthly/yearly standing charge calculations
+- Health sensor shows meter type, API timezone, hasSolar, last meter read
+- OVOEnergySensor base class now provides rich attributes for analytics sensors
+- Dashboard YAML files rewritten with generic entity IDs and hourly charts
+- New dedicated hourly data dashboard (dashboard_hourly.yaml)
+- info.md (HACS page) completely rewritten with referral and feature overview
+
+---
+
 ## [4.0.0] - 2026-03-20
 
 ### Breaking Changes

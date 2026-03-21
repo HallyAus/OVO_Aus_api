@@ -1,6 +1,6 @@
 [project]
 name = "ovo-energy-au"
-version = "3.1.7"
+version = "4.1.0"
 description = "OVO Energy Australia Home Assistant Integration"
 requires-python = ">=3.11"
 dependencies = [

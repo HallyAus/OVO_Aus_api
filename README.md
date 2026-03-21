@@ -53,7 +53,7 @@ Not an OVO customer yet? Sign up using this referral link and we'll both get cre
 
 ## ✨ Features
 
-### 📊 80+ Sensors with Automatic Plan Detection
+### 📊 90+ Sensors with Automatic Plan Detection
 
 The integration connects to OVO's GraphQL API and automatically detects your plan, rates, and account details. No manual rate entry required.
 
@@ -127,7 +127,7 @@ Or manually:
 1. Go to **Settings** > **Devices & Services** > **Add Integration**
 2. Search for **OVO Energy Australia**
 3. Enter your OVO email and password
-4. Done -- your plan, rates, and 80+ sensors are created automatically
+4. Done -- your plan, rates, and 90+ sensors are created automatically
 
 > **Note:** OVO Energy **Australia** only. This integration does not work with OVO UK.
 
@@ -241,7 +241,7 @@ custom_components/ovo_energy_au/
   __init__.py          # Integration setup (82 lines)
   coordinator.py       # DataUpdateCoordinator, 5-min polling
   api.py               # OAuth2 PKCE auth, GraphQL client
-  sensor.py            # Sensor platform (~500 lines)
+  sensor.py            # Sensor platform (~800 lines)
   config_flow.py       # UI config + options flow
   models.py            # TypedDict / dataclass definitions
   const.py             # Constants (~70 lines)
