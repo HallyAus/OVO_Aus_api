@@ -36,24 +36,24 @@ Track solar generation, grid consumption, costs, rate breakdowns, and OVO plan s
 
 ---
 
-## New to OVO Energy? Get $120-$180 Credit!
+## 🎁 New to OVO Energy? Get $120-$180 Credit!
 
 Not an OVO customer yet? Sign up using this referral link and we'll both get credit:
 
-**[www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
+**👉 [www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
 
 **Referral Benefits:**
-- **$120 credit** paid over 12 months on standard plans
-- **$180 credit** paid over 12 months if you choose The EV Plan
-- Both you and I receive the credit - it's a win-win!
+- ✅ **$120 credit** paid over 12 months on standard plans
+- ✅ **$180 credit** paid over 12 months if you choose The EV Plan
+- ✅ Both you and I receive the credit - it's a win-win!
 
 *Join the OVO community and start tracking your energy with this integration!*
 
 ---
 
-## Features
+## ✨ Features
 
-### 80+ Sensors with Automatic Plan Detection
+### 📊 80+ Sensors with Automatic Plan Detection
 
 The integration connects to OVO's GraphQL API and automatically detects your plan, rates, and account details. No manual rate entry required.
 
@@ -75,7 +75,7 @@ The integration connects to OVO's GraphQL API and automatically detects your pla
 | **Plan Information** | Diagnostic sensor with all plan rates, standing charge, demand charge, NMI |
 | **Integration Health** | Diagnostic sensor for monitoring API connectivity |
 
-### Real-World Results
+### 🏠 Real-World Results
 
 One user on the **EV Plan** sees:
 
@@ -85,7 +85,7 @@ One user on the **EV Plan** sees:
 - **Free electricity** 11 am -- 2 pm daily
 - **2.8c/kWh** feed-in tariff
 
-### Technical Highlights
+### ⚡ Technical Highlights
 
 - **OAuth2 PKCE** authentication via Auth0 with automatic token refresh
 - **401 retry** with automatic re-authentication
@@ -97,7 +97,7 @@ One user on the **EV Plan** sees:
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Install via HACS (Recommended)
 
@@ -129,11 +129,11 @@ Or manually:
 
 ---
 
-## Sensors
+## 📡 Sensors
 
 All sensors are grouped into logical device categories in Home Assistant for easy navigation.
 
-### Core Energy (Daily / Monthly / Yearly)
+### ⚡ Core Energy (Daily / Monthly / Yearly)
 
 | Sensor | Unit | Description |
 |--------|------|-------------|
@@ -146,7 +146,7 @@ All sensors are grouped into logical device categories in Home Assistant for eas
 
 These six sensors are available for each period: **Yesterday**, **This Month**, **This Year**, **Last Week**, **Last Month**, and **Month to Date**.
 
-### Rate Breakdown (Last 7 Days)
+### 💰 Rate Breakdown (Last 7 Days)
 
 Seven per-day sensors showing consumption and cost split by rate type:
 
@@ -161,7 +161,7 @@ Seven per-day sensors showing consumption and cost split by rate type:
 
 Each day also includes counterfactual analysis showing what you would have paid on a different rate structure.
 
-### OVO Savings
+### 🏆 OVO Savings
 
 | Sensor | Description |
 |--------|-------------|
@@ -171,7 +171,7 @@ Each day also includes counterfactual analysis showing what you would have paid 
 
 These values are calculated by OVO's own comparison engine, not estimated locally.
 
-### Analytics & Insights
+### 🧠 Analytics & Insights
 
 | Sensor Group | Sensors | Purpose |
 |-------------|---------|---------|
@@ -185,13 +185,13 @@ These values are calculated by OVO's own comparison engine, not estimated locall
 | Monthly Forecast | 3 | Projected total, remaining, and daily average |
 | Solar Export | 4 | Export credit, rate, potential savings, opportunity cost |
 
-### Hourly Data
+### ⏰ Hourly Data
 
 - **7-day rolling window** with solar, grid, and export totals
 - **Yesterday hourly** sensors for quick graph display
 - Full hourly entries available in sensor attributes
 
-### Other
+### 🔧 Other
 
 | Sensor | Category |
 |--------|----------|
@@ -201,15 +201,15 @@ These values are calculated by OVO's own comparison engine, not estimated locall
 
 ---
 
-## Dashboard Examples
+## 📊 Dashboard Examples
 
 Ready-to-use YAML dashboard configurations are included in [`docs/dashboards/`](docs/dashboards/):
 
 | File | Description |
 |------|-------------|
-| `dashboard_example.yaml` | Comprehensive energy overview with analytics |
-| `dashboard_monthly_charges.yaml` | Monthly cost breakdown with ApexCharts |
-| `dashboard_simple.yaml` | Minimal setup for quick start |
+| `dashboard_simple.yaml` | Built-in cards only -- no custom components needed |
+| `dashboard_example.yaml` | Comprehensive 4-view dashboard (mushroom + apexcharts) |
+| `dashboard_hourly.yaml` | Dedicated hourly charts with solar/grid/export overlays |
 
 Copy any of these into your Lovelace dashboard configuration to get started. They use standard Home Assistant cards and [ApexCharts Card](https://github.com/RomRider/apexcharts-card) for graphs.
 
@@ -228,7 +228,7 @@ entities:
 
 ---
 
-## Technical Details
+## 🏗️ Technical Details
 
 ### Architecture
 
@@ -268,7 +268,7 @@ OVO's API can return `null` for charge fields when data is not yet available. Al
 
 ---
 
-## Troubleshooting
+## 🔍 Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
@@ -279,7 +279,7 @@ OVO's API can return `null` for charge fields when data is not yet available. Al
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome. Here is how to get started:
 
@@ -300,20 +300,14 @@ See [`CHANGELOG.md`](CHANGELOG.md) for version history and [`CLAUDE.md`](CLAUDE.
 
 ---
 
-## Referral
-
-Not yet an OVO customer? Sign up with [this referral link](https://www.ovoenergy.com.au/refer/daniel16485) and you will receive **$120 credit** (or **$180** on the EV Plan), paid over 12 months. The referrer receives the same credit.
-
----
-
-## Support
+## 💬 Support
 
 - **Issues:** [GitHub Issues](https://github.com/HallyAus/OVO_Aus_api/issues)
 - **Buy Me a Coffee:** [buymeacoffee.com/printforge](https://buymeacoffee.com/printforge)
 
 ---
 
-## License
+## 📄 License
 
 This project is released under the [CC0 1.0 Universal](LICENSE) license.
 
