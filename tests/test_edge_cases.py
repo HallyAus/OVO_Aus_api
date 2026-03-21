@@ -238,3 +238,76 @@ class TestPercentOfTotalAlreadyPercentage:
             # The percent value should be stored (possibly as-is or normalized)
             # Main assertion: it didn't crash
             assert rb["PEAK"]["consumption"] == 4.0
+
+
+class TestNullChargeInHourlyData:
+    """Test that charge: null (not missing) is handled correctly.
+
+    This is the #1 recurring crash in the integration's history.
+    The API returns charge: null for hourly data, but .get("charge", {})
+    returns None (not {}) when the key exists with null value.
+    """
+
+    def test_hourly_data_with_null_charge(self, plan_config):
+        """Test processing hourly data where charge is null on all entries."""
+        from custom_components.ovo_energy_au.analytics.hourly import process_hourly_data
+
+        data = {
+            "solar": [
+                {
+                    "periodFrom": "2026-03-19T20:00:00.000Z",
+                    "periodTo": "2026-03-19T21:00:00.000Z",
+                    "consumption": 0.608,
+                    "readType": "ACTUAL",
+                    "charge": None,  # This is the key: null, not missing!
+                },
+            ],
+            "export": [
+                {
+                    "periodFrom": "2026-03-19T20:00:00.000Z",
+                    "periodTo": "2026-03-19T21:00:00.000Z",
+                    "consumption": 0.003,
+                    "readType": "ACTUAL",
+                    "charge": None,  # null charge
+                    "rates": None,   # null rates
+                },
+            ],
+        }
+
+        # Should not crash
+        result = process_hourly_data(data, plan_config)
+
+        assert result["solar_total"] == 0.608
+        assert result["grid_total"] == 0.003
+        assert len(result["solar_entries"]) == 1
+        assert len(result["grid_entries"]) == 1
+
+    def test_interval_data_with_null_charge(self):
+        """Test interval processing with null charge values."""
+        from custom_components.ovo_energy_au.analytics.interval import process_interval_data
+
+        data = {
+            "daily": {
+                "solar": [
+                    {
+                        "periodFrom": "2026-03-19T00:00:00Z",
+                        "consumption": 10.0,
+                        "charge": None,  # null charge
+                    },
+                ],
+                "export": [
+                    {
+                        "periodFrom": "2026-03-19T00:00:00Z",
+                        "consumption": 5.0,
+                        "charge": None,  # null charge
+                        "rates": None,
+                    },
+                ],
+            },
+        }
+
+        # Should not crash
+        result = process_interval_data(data)
+        assert result["daily"]["solar_consumption"] == 10.0
+        # With null charge, type defaults to DEBIT, so goes to grid
+        assert result["daily"]["grid_consumption"] == 5.0

@@ -43,26 +43,30 @@ def process_hourly_data(data: dict | None, plan_config: PlanConfig) -> dict:
     solar_raw = data.get("solar", []) or []
     export_raw = data.get("export", []) or []
 
-    # Separate entries - store only needed fields (Bug 5 fix)
+    # Separate entries - store only needed fields
+    # IMPORTANT: The API returns charge: null (not charge: {}) for hourly data,
+    # so we must use `or {}` to handle the null case. The classic .get() gotcha:
+    # entry.get("charge", {}) returns None when the key EXISTS with null value.
     for entry in solar_raw:
+        charge = entry.get("charge") or {}
         processed["solar_entries"].append({
             "periodFrom": entry.get("periodFrom"),
             "periodTo": entry.get("periodTo"),
             "consumption": entry.get("consumption", 0) or 0,
-            "charge": entry.get("charge", {}),
+            "charge": charge,
         })
         processed["solar_total"] += entry.get("consumption", 0) or 0
 
     for entry in export_raw:
-        charge_info = entry.get("charge", {})
-        charge_type = charge_info.get("type", "DEBIT")
+        charge = entry.get("charge") or {}
+        charge_type = charge.get("type", "DEBIT") if isinstance(charge, dict) else "DEBIT"
         consumption = entry.get("consumption", 0) or 0
         slim_entry = {
             "periodFrom": entry.get("periodFrom"),
             "periodTo": entry.get("periodTo"),
             "consumption": consumption,
-            "charge": charge_info,
-            "rates": entry.get("rates"),
+            "charge": charge,
+            "rates": entry.get("rates") or [],
         }
         if charge_type == "CREDIT":
             processed["return_to_grid_entries"].append(slim_entry)
@@ -111,7 +115,7 @@ def _aggregate_hourly_rates(grid_entries: list[dict]) -> dict:
             if rate_type not in aggregation:
                 aggregation[rate_type] = {"consumption": 0, "charge": 0, "hours": 0, "_seen_hours": set()}
 
-            charge_obj = rate_entry.get("charge", {})
+            charge_obj = rate_entry.get("charge") or {}
             charge_value = abs(charge_obj.get("value", 0)) if isinstance(charge_obj, dict) else 0
 
             aggregation[rate_type]["consumption"] += rate_entry.get("consumption", 0)
@@ -129,21 +133,25 @@ def _aggregate_hourly_rates(grid_entries: list[dict]) -> dict:
 
 
 def _build_timeline(processed: dict) -> list[dict]:
-    """Build a unified hourly timeline from solar and grid entries."""
+    """Build a unified hourly timeline from solar and grid entries.
+
+    Handles charge: null and rates: null from the API by using `or {}` / `or []`.
+    When charge is null (common in hourly data), defaults to type=DEBIT, value=0.
+    """
     timeline = []
 
     for entry in processed["solar_entries"]:
         ts = _parse_timestamp(entry.get("periodFrom", ""))
         if ts is None:
             continue
-        charge_info = entry.get("charge", {})
+        charge = entry.get("charge") or {}
         timeline.append({
             "timestamp": ts,
             "hour": ts.hour,
-            "consumption": entry.get("consumption", 0),
+            "consumption": entry.get("consumption", 0) or 0,
             "type": "solar",
-            "charge_type": charge_info.get("type", "DEBIT"),
-            "charge_value": charge_info.get("value", 0),
+            "charge_type": charge.get("type", "DEBIT") if isinstance(charge, dict) else "DEBIT",
+            "charge_value": charge.get("value", 0) if isinstance(charge, dict) else 0,
         })
 
     for entry in processed["grid_entries"]:
@@ -151,13 +159,13 @@ def _build_timeline(processed: dict) -> list[dict]:
         if ts is None:
             continue
         rates_list = entry.get("rates") or []
-        charge_info = entry.get("charge", {})
+        charge = entry.get("charge") or {}
 
         if rates_list and isinstance(rates_list, list):
             for rate_entry in rates_list:
                 if not isinstance(rate_entry, dict):
                     continue
-                rate_charge = rate_entry.get("charge", {})
+                rate_charge = rate_entry.get("charge") or {}
                 timeline.append({
                     "timestamp": ts,
                     "hour": ts.hour,
@@ -167,13 +175,14 @@ def _build_timeline(processed: dict) -> list[dict]:
                     "charge_value": rate_charge.get("value", 0) if isinstance(rate_charge, dict) else 0,
                 })
         else:
+            # No rate breakdown — use entry-level charge (may be null)
             timeline.append({
                 "timestamp": ts,
                 "hour": ts.hour,
                 "consumption": entry.get("consumption", 0) or 0,
                 "type": "grid",
-                "charge_type": charge_info.get("type", "DEBIT"),
-                "charge_value": charge_info.get("value", 0),
+                "charge_type": charge.get("type", "DEBIT") if isinstance(charge, dict) else "DEBIT",
+                "charge_value": charge.get("value", 0) if isinstance(charge, dict) else 0,
             })
 
     timeline.sort(key=lambda x: x["timestamp"])

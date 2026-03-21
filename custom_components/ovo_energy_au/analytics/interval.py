@@ -10,6 +10,17 @@ from homeassistant.util import dt as dt_util
 _LOGGER = logging.getLogger(__name__)
 
 
+def _safe_charge(entry: dict) -> dict:
+    """Safely extract charge dict from an API entry.
+
+    The OVO API returns charge: null (not missing) for hourly data entries.
+    entry.get("charge", {}) returns None when key exists with null value.
+    This helper ensures we always get a dict.
+    """
+    charge = entry.get("charge")
+    return charge if isinstance(charge, dict) else {}
+
+
 def process_interval_data(data: dict) -> dict:
     """Process interval data from the OVO API.
 
@@ -77,7 +88,7 @@ def _process_period_latest(period: str, period_data: dict) -> dict:
     if "solar" in period_data and period_data["solar"]:
         latest = period_data["solar"][-1]
         result["solar_consumption"] = latest.get("consumption", 0)
-        result["solar_charge"] = latest.get("charge", {}).get("value", 0)
+        result["solar_charge"] = _safe_charge(latest).get("value", 0)
         result["solar_latest"] = latest
 
     # Export data - accumulate ALL entries for the latest period, separating CREDIT vs DEBIT
@@ -95,9 +106,9 @@ def _process_period_latest(period: str, period_data: dict) -> dict:
         for entry in entries:
             if entry.get("periodFrom") != latest_period:
                 continue
-            charge_type = entry.get("charge", {}).get("type", "DEBIT")
+            charge_type = _safe_charge(entry).get("type", "DEBIT")
             consumption = entry.get("consumption", 0)
-            charge_value = entry.get("charge", {}).get("value", 0)
+            charge_value = _safe_charge(entry).get("value", 0)
             if charge_type == "CREDIT":
                 result["return_to_grid"] += consumption
                 result["return_to_grid_charge"] += charge_value
@@ -136,7 +147,7 @@ def _extract_rate_breakdown(period: str, export_entry: dict) -> dict:
             if not rate_type:
                 continue
 
-            charge_obj = rate_entry.get("charge", {})
+            charge_obj = _safe_charge(rate_entry)
             charge_value = charge_obj.get("value", 0) if isinstance(charge_obj, dict) else 0
 
             pct = float(rate_entry.get("percentOfTotal", 0))
@@ -170,7 +181,7 @@ def _build_daily_map(daily_data: dict) -> dict:
             if date_key not in daily_map:
                 daily_map[date_key] = _new_daily_entry(entry_date, date_key)
             daily_map[date_key]["solar_consumption"] = entry.get("consumption", 0)
-            daily_map[date_key]["solar_charge"] = entry.get("charge", {}).get("value", 0)
+            daily_map[date_key]["solar_charge"] = _safe_charge(entry).get("value", 0)
         except (ValueError, TypeError):
             continue
 
@@ -189,9 +200,9 @@ def _build_daily_map(daily_data: dict) -> dict:
             daily_map[date_key].setdefault("periodFrom", entry.get("periodFrom"))
             daily_map[date_key].setdefault("periodTo", entry.get("periodTo"))
 
-            charge_type = entry.get("charge", {}).get("type", "DEBIT")
+            charge_type = _safe_charge(entry).get("type", "DEBIT")
             consumption = entry.get("consumption", 0)
-            charge_value = entry.get("charge", {}).get("value", 0)
+            charge_value = _safe_charge(entry).get("value", 0)
 
             if charge_type == "CREDIT":
                 daily_map[date_key]["return_to_grid"] += consumption
@@ -210,7 +221,7 @@ def _build_daily_map(daily_data: dict) -> dict:
                     if not rate_type:
                         continue
                     rate_consumption = rate_entry.get("consumption", 0)
-                    charge_obj = rate_entry.get("charge", {})
+                    charge_obj = _safe_charge(rate_entry)
                     rate_charge = abs(charge_obj.get("value", 0)) if isinstance(charge_obj, dict) else 0
 
                     daily_map[date_key]["grid_rates_kwh"][rate_type] = (
@@ -310,7 +321,7 @@ def _add_monthly_breakdowns(processed: dict, daily_data: dict, now) -> None:
                     "date": entry_date.strftime("%Y-%m-%d"),
                     "day": entry_date.day,
                     "consumption": entry.get("consumption", 0),
-                    "charge": entry.get("charge", {}).get("value", 0),
+                    "charge": _safe_charge(entry).get("value", 0),
                     "read_type": entry.get("readType", ""),
                 })
         except (ValueError, TypeError):
@@ -323,12 +334,12 @@ def _add_monthly_breakdowns(processed: dict, daily_data: dict, now) -> None:
         try:
             entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
             if entry_date.month == current_month and entry_date.year == current_year:
-                charge_type = entry.get("charge", {}).get("type", "DEBIT")
+                charge_type = _safe_charge(entry).get("type", "DEBIT")
                 daily_entry = {
                     "date": entry_date.strftime("%Y-%m-%d"),
                     "day": entry_date.day,
                     "consumption": entry.get("consumption", 0),
-                    "charge": entry.get("charge", {}).get("value", 0),
+                    "charge": _safe_charge(entry).get("value", 0),
                     "read_type": entry.get("readType", ""),
                     "charge_type": charge_type,
                 }
@@ -379,7 +390,7 @@ def _compute_all_time(monthly_data: dict) -> dict:
             rate_type = rate_entry.get("type")
             if not rate_type:
                 continue
-            charge_obj = rate_entry.get("charge", {})
+            charge_obj = _safe_charge(rate_entry)
             charge_value = charge_obj.get("value", 0) if isinstance(charge_obj, dict) else 0
 
             if rate_type not in all_time_rates:
@@ -390,7 +401,7 @@ def _compute_all_time(monthly_data: dict) -> dict:
     for solar_entry in (monthly_data.get("solar") or []):
         if isinstance(solar_entry, dict):
             all_time_solar_consumption += solar_entry.get("consumption", 0)
-            charge_obj = solar_entry.get("charge", {})
+            charge_obj = _safe_charge(solar_entry)
             if isinstance(charge_obj, dict):
                 all_time_solar_charge += abs(charge_obj.get("value", 0))
 

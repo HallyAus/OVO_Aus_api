@@ -206,9 +206,9 @@ def get_hourly_data_for_date(data: dict, entry_type: str, target_date) -> dict:
             continue
 
         consumption = entry.get("consumption", 0) or 0
-        charge_info = entry.get("charge", {})
-        charge_value = charge_info.get("value", 0) if isinstance(charge_info, dict) else 0
-        charge_type = charge_info.get("type", "") if isinstance(charge_info, dict) else ""
+        charge = entry.get("charge") or {}  # API returns charge: null, not missing
+        charge_value = charge.get("value", 0) if isinstance(charge, dict) else 0
+        charge_type = charge.get("type", "") if isinstance(charge, dict) else ""
 
         total += consumption
         hourly_values.append({
