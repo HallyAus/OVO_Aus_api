@@ -5,20 +5,20 @@ This integration provides comprehensive energy monitoring with daily breakdown d
 ## Available Sensors
 
 ### Daily Sensors (Today's Usage)
-- `sensor.daily_solar_consumption` - Solar energy consumed today (kWh)
-- `sensor.daily_grid_consumption` - Grid energy consumed today (kWh)
-- `sensor.daily_return_to_grid` - Energy exported to grid today (kWh)
-- `sensor.daily_solar_charge` - Cost of solar today ($)
-- `sensor.daily_grid_charge` - Cost of grid today ($)
-- `sensor.daily_return_to_grid_charge` - Credit from exports today ($)
+- `sensor.ovo_energy_au_daily_solar_consumption` - Solar energy consumed today (kWh)
+- `sensor.ovo_energy_au_daily_grid_consumption` - Grid energy consumed today (kWh)
+- `sensor.ovo_energy_au_daily_return_to_grid` - Energy exported to grid today (kWh)
+- `sensor.ovo_energy_au_daily_solar_charge` - Cost of solar today ($)
+- `sensor.ovo_energy_au_daily_grid_charge` - Cost of grid today ($)
+- `sensor.ovo_energy_au_daily_return_to_grid_charge` - Credit from exports today ($)
 
 ### Monthly Sensors (Current Month)
-- `sensor.monthly_solar_consumption` - Total solar this month (kWh)
-- `sensor.monthly_grid_consumption` - Total grid this month (kWh)
-- `sensor.monthly_return_to_grid` - Total exports this month (kWh)
-- `sensor.monthly_solar_charge` - Total solar cost this month ($)
-- `sensor.monthly_grid_charge` - Total grid cost this month ($)
-- `sensor.monthly_return_to_grid_charge` - Total export credit this month ($)
+- `sensor.ovo_energy_au_monthly_solar_consumption` - Total solar this month (kWh)
+- `sensor.ovo_energy_au_monthly_grid_consumption` - Total grid this month (kWh)
+- `sensor.ovo_energy_au_monthly_return_to_grid` - Total exports this month (kWh)
+- `sensor.ovo_energy_au_monthly_solar_charge` - Total solar cost this month ($)
+- `sensor.ovo_energy_au_monthly_grid_charge` - Total grid cost this month ($)
+- `sensor.ovo_energy_au_monthly_return_to_grid_charge` - Total export credit this month ($)
 
 **Monthly sensors include daily breakdown attributes:**
 - `daily_breakdown` - Array of daily entries with date, consumption, and charge
@@ -28,14 +28,14 @@ This integration provides comprehensive energy monitoring with daily breakdown d
 - `daily_charge_average` - Average cost per day
 
 ### Yearly Sensors
-- `sensor.yearly_solar_consumption` - Total solar this year (kWh)
-- `sensor.yearly_grid_consumption` - Total grid this year (kWh)
-- `sensor.yearly_grid_charge` - Total grid cost this year ($)
+- `sensor.ovo_energy_au_yearly_solar_consumption` - Total solar this year (kWh)
+- `sensor.ovo_energy_au_yearly_grid_consumption` - Total grid this year (kWh)
+- `sensor.ovo_energy_au_yearly_grid_charge` - Total grid cost this year ($)
 
 ### Hourly Sensors (Last 7 Days)
-- `sensor.hourly_solar_consumption` - Total solar over 7 days (kWh)
-- `sensor.hourly_grid_consumption` - Total grid over 7 days (kWh)
-- `sensor.hourly_return_to_grid` - Total exports over 7 days (kWh)
+- `sensor.ovo_energy_au_hourly_solar_consumption` - Total solar over 7 days (kWh)
+- `sensor.ovo_energy_au_hourly_grid_consumption` - Total grid over 7 days (kWh)
+- `sensor.ovo_energy_au_hourly_return_to_grid` - Total exports over 7 days (kWh)
 
 **Hourly sensors include entry arrays for detailed graphing:**
 - `entries` - Array of hourly data points with timestamps
@@ -112,7 +112,7 @@ type: custom:apexcharts-card
 header:
   title: Daily Solar Consumption
 series:
-  - entity: sensor.monthly_solar_consumption
+  - entity: sensor.ovo_energy_au_monthly_solar_consumption
     name: Solar kWh
     type: column
     color: orange
@@ -130,7 +130,7 @@ template:
       - name: "Today Solar Charge"
         state: >
           {% set today = now().strftime('%Y-%m-%d') %}
-          {% set breakdown = state_attr('sensor.monthly_solar_charge', 'daily_breakdown') %}
+          {% set breakdown = state_attr('sensor.ovo_energy_au_monthly_solar_charge', 'daily_breakdown') %}
           {% if breakdown %}
             {% set today_data = breakdown | selectattr('date', 'eq', today) | list %}
             {% if today_data %}
@@ -149,7 +149,7 @@ template:
 type: markdown
 content: |
   ## Daily Solar Breakdown
-  {% set breakdown = state_attr('sensor.monthly_solar_consumption', 'daily_breakdown') %}
+  {% set breakdown = state_attr('sensor.ovo_energy_au_monthly_solar_consumption', 'daily_breakdown') %}
   {% if breakdown %}
   | Date | kWh | Cost |
   |------|-----|------|

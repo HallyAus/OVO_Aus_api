@@ -7,7 +7,10 @@ from datetime import timedelta
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import (
+    TimestampDataUpdateCoordinator,
+    UpdateFailed,
+)
 from homeassistant.util import dt as dt_util
 
 from .analytics.hourly import process_hourly_data
@@ -25,7 +28,7 @@ from .models import PlanConfig
 _LOGGER = logging.getLogger(__name__)
 
 
-class OVOEnergyAUDataUpdateCoordinator(DataUpdateCoordinator):
+class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
     """Fetch and process data from OVO Energy Australia API."""
 
     def __init__(

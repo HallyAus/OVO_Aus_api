@@ -1,7 +1,7 @@
 # OVO Energy Australia for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.1.1-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
 
 Track solar generation, grid consumption, costs, EV charging, and plan savings in Home Assistant.

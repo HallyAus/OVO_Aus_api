@@ -5,6 +5,17 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.1] - 2026-04-22
+
+### Bug Fixes
+- **#66 / #65** - Fixed `AttributeError: 'OVOEnergyAUDataUpdateCoordinator' object has no attribute 'last_update_success_time'` spamming logs every coordinator refresh. Coordinator now inherits from `TimestampDataUpdateCoordinator`, which provides `last_update_success_time` as a proper datetime. Integration Health sensor now populates correctly.
+- **#64** - Fixed duplicate per-day sensors with `_2`, `_3`, `_4` suffixes. Dynamic day sensors (`OVODaySensor`, `OVODayRateSensor`) now include the day number in their display name so Home Assistant's entity-id slugification produces unique IDs. Affected sensors: `day_N_solar_consumption`, `day_N_grid_rate_*_consumption`, `day_N_grid_rate_*_charge`, etc.
+- **#54** - Fixed `DASHBOARD_GUIDE.md` sensor references missing the `ovo_energy_au_` entity prefix (e.g., `sensor.daily_solar_consumption` → `sensor.ovo_energy_au_daily_solar_consumption`). All daily/monthly/yearly/hourly references corrected.
+- **#58** - Bumped manifest version to 4.1.1 so HACS displays the semantic version. Note: a matching `v4.1.1` GitHub release/tag must be created for HACS to resolve the version correctly.
+
+### Known Issues
+- **#63** (feature request) - Manual peak/off-peak window config for the `OTHER` charge bucket on the 3 Free TOU plan is planned for a future release.
+
 ## [4.1.0] - 2026-03-21
 
 ### New Sensors
