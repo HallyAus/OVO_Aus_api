@@ -32,6 +32,10 @@ class _DataUpdateCoordinator:
     def __init__(self, *args, **kwargs):
         pass
 
+class _TimestampDataUpdateCoordinator(_DataUpdateCoordinator):
+    """Stub for TimestampDataUpdateCoordinator (adds last_update_success_time)."""
+    last_update_success_time = None
+
 class _UpdateFailed(Exception):
     """Stub for UpdateFailed."""
     pass
@@ -39,6 +43,7 @@ class _UpdateFailed(Exception):
 coordinator_mod = types.ModuleType("homeassistant.helpers.update_coordinator")
 coordinator_mod.CoordinatorEntity = _CoordinatorEntity
 coordinator_mod.DataUpdateCoordinator = _DataUpdateCoordinator
+coordinator_mod.TimestampDataUpdateCoordinator = _TimestampDataUpdateCoordinator
 coordinator_mod.UpdateFailed = _UpdateFailed
 sys.modules.setdefault("homeassistant.helpers.update_coordinator", coordinator_mod)
 

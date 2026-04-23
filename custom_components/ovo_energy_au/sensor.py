@@ -135,7 +135,9 @@ def _add_rate_sensors(sensors: list, coordinator, period: str, label: str) -> No
 
 def _add_dynamic_day_sensors(sensors: list, coordinator) -> None:
     """Add per-day sensors for the last 7 days."""
-    # Always create 7 day sensors regardless of initial data availability
+    # Always create 7 day sensors regardless of initial data availability.
+    # Each sensor name MUST include the day number so HA's has_entity_name=True
+    # slugification produces distinct entity_ids (avoids _2/_3 collision suffixes).
     for idx in range(7):
         day_num = idx + 1
         for key, name, unit, dc, sc, icon in [
@@ -149,21 +151,23 @@ def _add_dynamic_day_sensors(sensors: list, coordinator) -> None:
              SensorDeviceClass.MONETARY, SensorStateClass.TOTAL, "mdi:currency-usd"),
         ]:
             sensors.append(OVODaySensor(
-                coordinator, f"day_{day_num}_{key}", name, unit, dc, sc, icon, idx, key
+                coordinator, f"day_{day_num}_{key}", f"Day {day_num} {name}",
+                unit, dc, sc, icon, idx, key,
             ))
 
         # Per-rate breakdown for this day
         for rate_type in RATE_TYPES:
+            rate_label = rate_type.replace("_", " ").title()
             sensors.append(OVODayRateSensor(
                 coordinator, f"day_{day_num}_grid_rate_{rate_type.lower()}_consumption",
-                f"{rate_type.replace('_', ' ').title()} Consumption",
+                f"Day {day_num} {rate_label} Consumption",
                 UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL,
                 RATE_TYPE_ICONS.get(rate_type, "mdi:flash"), idx, rate_type, "grid_rates_kwh",
             ))
             is_free = rate_type == "FREE_3"
             sensors.append(OVODayRateSensor(
                 coordinator, f"day_{day_num}_grid_rate_{rate_type.lower()}_charge",
-                f"{rate_type.replace('_', ' ').title()} {'Savings' if is_free else 'Cost'}",
+                f"Day {day_num} {rate_label} {'Savings' if is_free else 'Cost'}",
                 "AUD", SensorDeviceClass.MONETARY, SensorStateClass.TOTAL,
                 "mdi:piggy-bank" if is_free else "mdi:currency-usd",
                 idx, rate_type, "grid_rates_aud",
