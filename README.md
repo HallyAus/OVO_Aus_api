@@ -36,18 +36,29 @@ Track solar generation, grid consumption, costs, rate breakdowns, and OVO plan s
 
 ---
 
-## 🎁 New to OVO Energy? Get $120-$180 Credit!
+## 💚 Support this project — it's my only income from it
 
-Not an OVO customer yet? Sign up using this referral link and we'll both get credit:
+If this integration saves you money or time, please use one of the referrals below. Both you and I get credit. This project is maintained in my spare time and referrals are the only thing funding ongoing development.
+
+### ⭐ Star this repo
+[**⭐ Star on GitHub**](https://github.com/HallyAus/OVO_Aus_api) — takes two seconds and genuinely helps. Stars surface the project to other OVO customers.
+
+### 🎁 OVO Energy referral — $120–$180 credit
+Not an OVO customer yet? Sign up using this referral link:
 
 **👉 [www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
 
-**Referral Benefits:**
 - ✅ **$120 credit** paid over 12 months on standard plans
 - ✅ **$180 credit** paid over 12 months if you choose The EV Plan
-- ✅ Both you and I receive the credit - it's a win-win!
+- ✅ Both you and I receive the credit — win-win
 
-*Join the OVO community and start tracking your energy with this integration!*
+### 🛰️ Starlink referral — 1 month free
+Running Home Assistant somewhere rural or need a reliable backup link?
+
+**👉 [starlink.com/residential?referral=RC-2455784-77014-69](https://starlink.com/residential?referral=RC-2455784-77014-69&app_source=share)**
+
+- ✅ One free month of Starlink service
+- ✅ Works anywhere with a clear view of sky
 
 ---
 
