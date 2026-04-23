@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 
+from homeassistant.util import dt as dt_util
+
 from ..const import AU_TIMEZONE
 from ..models import PlanConfig
 
@@ -84,8 +86,11 @@ def process_hourly_data(data: dict | None, plan_config: PlanConfig) -> dict:
     # TOU breakdown
     processed["time_of_use"] = _compute_tou_breakdown(timeline)
 
-    # Free and EV usage tracking (Bug 1 fix: use AEST instead of UTC)
-    now_aest = datetime.now(AU_TIMEZONE)
+    # Free and EV usage tracking (Bug 1 fix: use AEST instead of UTC).
+    # Use dt_util.now() so tests can freeze time via the HA mock; astimezone()
+    # ensures month/year comparison always happens in Australian Eastern time
+    # regardless of HA's configured timezone.
+    now_aest = dt_util.now().astimezone(AU_TIMEZONE)
     _add_usage_tracking(processed, timeline, plan_config, now_aest)
 
     # Heatmap
