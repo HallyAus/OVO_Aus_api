@@ -205,7 +205,7 @@ Go to https://jwt.io and paste tokens to decode:
 ```json
 {
   "iss": "https://login.ovoenergy.com.au/",
-  "sub": "auth0|68e5088a3d30935999afa84a",
+  "sub": "auth0|XXXXXXXXXXXXXXXXXXXXXXXX",
   "aud": "5JHnPn71qgV3LmF3I3xX0KvfRBdROVhR",
   "iat": 1737334000,
   "exp": 1737334300,  // ← 5 minutes later!
