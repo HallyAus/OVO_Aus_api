@@ -6,12 +6,22 @@
 
 Track solar generation, grid consumption, costs, EV charging, and plan savings in Home Assistant.
 
-## 🎁 Not an OVO customer? Get $120-$180 credit!
+## 💚 Support this project — it's my only income from it
 
+Referrals below are the only thing funding ongoing development. Both you and I get credit.
+
+### ⭐ [Star the repo on GitHub](https://github.com/HallyAus/OVO_Aus_api) — takes two seconds
+
+### 🎁 OVO Energy — $120-$180 credit
 👉 **[www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
 
 - ✅ $120 credit on standard plans / $180 on The EV Plan
-- ✅ Both you and the referrer get credit
+- ✅ Both you and the referrer get credit — paid over 12 months
+
+### 🛰️ Starlink — 1 month free
+👉 **[starlink.com/residential?referral=RC-2455784-77014-69](https://starlink.com/residential?referral=RC-2455784-77014-69&app_source=share)**
+
+- ✅ One free month of Starlink service
 
 ## ✨ Features
 
