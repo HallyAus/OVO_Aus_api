@@ -1,0 +1,70 @@
+name: Backfill v4.1.1 release body
+
+# One-shot: rewrites the v4.1.1 GitHub Release body so it carries the
+# referral + star block, matching the new release.yml template. Gets
+# deleted in the PR that removes this file after it runs.
+
+on:
+  push:
+    branches:
+      - 'ci/backfill-v4.1.1-release-body'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Write new release body
+        run: |
+          cat > body.md <<'EOF'
+          ## 💚 Support this project — it's my only income from it
+
+          Referrals below are the only thing funding ongoing development. Both you and I get credit.
+
+          ### ⭐ [Star on GitHub](https://github.com/HallyAus/OVO_Aus_api) — takes two seconds
+
+          ### 🎁 OVO Energy — $120–$180 credit
+          👉 **[www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
+
+          - ✅ $120 credit on standard plans / $180 on The EV Plan
+          - ✅ Paid over 12 months — both you and I get credit
+
+          ### 🛰️ Starlink — 1 month free
+          👉 **[starlink.com/residential?referral=RC-2455784-77014-69](https://starlink.com/residential?referral=RC-2455784-77014-69&app_source=share)**
+
+          ---
+
+          ## Bug Fixes
+
+          - **#66 / #65** — Fixed repeating `AttributeError` for `last_update_success_time`
+            that prevented the Integration Health sensor from loading and spammed logs
+            on every refresh cycle. Coordinator now inherits from
+            `TimestampDataUpdateCoordinator`.
+          - **#64** — Fixed duplicate per-day sensors with `_2`/`_3`/... suffixes. Dynamic
+            day sensors now prepend "Day N" to their display name so Home Assistant
+            slugifies them to unique entity_ids.
+          - **#54** — Fixed `DASHBOARD_GUIDE.md` sensor references missing the
+            `ovo_energy_au_` entity prefix.
+          - **#58** — Bumped version to 4.1.1 so HACS surfaces the semantic version.
+
+          ## Post-upgrade cleanup
+
+          Users who had v4.1.0 installed should delete the old `_2`/`_3`/... duplicate
+          entities in *Settings → Devices & Services → Entities*. The renamed entities
+          will populate automatically on the next refresh.
+
+          ## Coming in v4.2
+
+          - **#63** — Manual peak/off-peak window configuration for the `OTHER` charge
+            bucket on the 3 Free TOU plan.
+          EOF
+
+      - name: Patch v4.1.1 release body via GitHub API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rid=$(gh api repos/${{ github.repository }}/releases/tags/v4.1.1 --jq .id)
+          echo "Release id: $rid"
+          gh api -X PATCH repos/${{ github.repository }}/releases/$rid \
+            -f body="$(cat body.md)" --jq .html_url
