@@ -1,0 +1,83 @@
+name: Cut v4.1.1 Release
+
+# One-shot workflow: creates the v4.1.1 tag on main and publishes
+# a GitHub Release with the integration zip. Runs automatically on
+# push to this branch (the branch name is also the trigger), then
+# is deleted in the same PR that removes this file.
+#
+# Background: the CI environment that created the fix commits cannot
+# push tag refs (git proxy returns 403). This workflow runs inside
+# GitHub Actions, which has the permissions to push the tag.
+
+on:
+  push:
+    branches:
+      - 'ci/cut-v4.1.1'
+
+jobs:
+  cut-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main at latest commit
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Confirm manifest version matches 4.1.1
+        run: |
+          v=$(grep -oP '"version"\s*:\s*"\K[^"]+' custom_components/ovo_energy_au/manifest.json)
+          echo "manifest.json version: $v"
+          test "$v" = "4.1.1"
+
+      - name: Bail if tag already exists
+        run: |
+          if git ls-remote --tags origin | grep -q 'refs/tags/v4.1.1$'; then
+            echo "::warning::tag v4.1.1 already exists on origin; nothing to do"
+            exit 0
+          fi
+
+      - name: Build integration zip
+        run: |
+          cd custom_components
+          zip -r ../ovo_energy_au.zip ovo_energy_au/
+
+      - name: Create and push annotated tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a v4.1.1 -m "v4.1.1 — Fix crashing health sensor, duplicate day sensors, docs refs"
+          git push origin v4.1.1
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v4.1.1
+          name: v4.1.1
+          files: ovo_energy_au.zip
+          body: |
+            ## Bug Fixes
+
+            - **#66 / #65** — Fixed repeating `AttributeError` for `last_update_success_time`
+              that prevented the Integration Health sensor from loading and spammed logs
+              on every refresh cycle. Coordinator now inherits from
+              `TimestampDataUpdateCoordinator`.
+            - **#64** — Fixed duplicate per-day sensors with `_2`/`_3`/... suffixes. Dynamic
+              day sensors now prepend "Day N" to their display name so Home Assistant
+              slugifies them to unique entity_ids.
+            - **#54** — Fixed `DASHBOARD_GUIDE.md` sensor references missing the
+              `ovo_energy_au_` entity prefix.
+            - **#58** — Bumped version to 4.1.1 so HACS surfaces the semantic version.
+
+            ## Post-upgrade cleanup
+
+            Users who had v4.1.0 installed should delete the old `_2`/`_3`/... duplicate
+            entities in *Settings → Devices & Services → Entities*. The renamed entities
+            will populate automatically on the next refresh.
+
+            ## Coming in v4.2
+
+            - **#63** — Manual peak/off-peak window configuration for the `OTHER` charge
+              bucket on the 3 Free TOU plan.
