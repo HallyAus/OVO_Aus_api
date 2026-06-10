@@ -11,7 +11,7 @@
       },
       "reauth_confirm": {
         "title": "Re-authenticate with OVO Energy",
-        "description": "Your OVO Energy session has expired. Please sign in again to restore energy monitoring.\n\n**What happens next:**\n• Your credentials are still safely stored\n• Sensors will resume updating after re-authentication\n• This is a one-time action - automatic re-auth will continue\n\nEnter your OVO Energy credentials below:",
+        "description": "💚 **This project is free and open-source — referrals are my only income from it.**\n\n🎁 **New to OVO?** $120–$180 credit (both of us get paid): {ovo_url}\n🛰️ **Need internet?** 1 month free Starlink: {starlink_url}\n⭐ **Love the integration?** Star the repo: {github_url}\n\n---\n\nYour OVO Energy session has expired. Please sign in again to restore energy monitoring.\n\n**What happens next:**\n• Your credentials are still safely stored\n• Sensors will resume updating after re-authentication\n• This is a one-time action - automatic re-auth will continue\n\nEnter your OVO Energy credentials below:",
         "data": {
           "username": "Email Address",
           "password": "Password"
@@ -34,7 +34,7 @@
     "step": {
       "init": {
         "title": "Update Energy Plan Settings",
-        "description": "Modify your electricity plan and rates. Changes take effect immediately and update all cost calculations.\n\n**Tip:** If you've switched plans with OVO, update your selection here to ensure accurate cost tracking and savings calculations.\n\n**Free 3 plan:** OVO's API reports your peak/off-peak usage as \"Other\". Set the peak window hours below to split that usage into peak and off-peak. Leave both at the same value to disable.",
+        "description": "💚 **This project is free and open-source — referrals are my only income from it.**\n\n🎁 **New to OVO?** $120–$180 credit (both of us get paid): {ovo_url}\n🛰️ **Need internet?** 1 month free Starlink: {starlink_url}\n⭐ **Love the integration?** Star the repo: {github_url}\n\n---\n\nModify your electricity plan and rates. Changes take effect immediately and update all cost calculations.\n\n**Tip:** If you've switched plans with OVO, update your selection here to ensure accurate cost tracking and savings calculations.\n\n**Free 3 plan:** OVO's API reports your peak/off-peak usage as \"Other\". Set the peak window hours below to split that usage into peak and off-peak. Leave both at the same value to disable.",
         "data": {
           "plan_type": "Energy Plan",
           "peak_rate": "Peak Rate ($/kWh)",

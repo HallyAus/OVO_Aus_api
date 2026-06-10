@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Kết nối với OVO Energy Australia",
-        "description": "Đăng nhập bằng tài khoản OVO Energy Australia để theo dõi mức sử dụng điện, chi phí và sản lượng điện mặt trời.\n\nGói điện và biểu giá của bạn được tự động nhận diện qua OVO API. Không cần chọn gói hoặc nhập giá thủ công.\n\nChưa phải khách hàng OVO? Nhận tín dụng $120-$180 với mã giới thiệu: daniel16485\n\n**Quyền riêng tư & Bảo mật:**\n• Thông tin đăng nhập được lưu trữ an toàn trong bộ nhớ cấu hình của Home Assistant\n• Chỉ được sử dụng để truy cập dữ liệu năng lượng qua API chính thức của OVO\n• Không bao giờ chia sẻ với bên thứ ba hoặc dịch vụ bên ngoài\n\n**Tại sao cần mật khẩu:**\n• Token OVO API hết hạn sau mỗi 5 phút để đảm bảo an toàn\n• Xác thực lại tự động giúp cảm biến cập nhật liên tục 24/7\n• Không cần thao tác thủ công sau khi thiết lập ban đầu",
+        "description": "💚 **Dự án này miễn phí và mã nguồn mở — giới thiệu là nguồn thu nhập duy nhất của tôi từ nó.**\n\n🎁 **Mới dùng OVO?** Tín dụng $120–$180 (cả hai cùng nhận): {ovo_url}\n🛰️ **Cần internet?** 1 tháng Starlink miễn phí: {starlink_url}\n⭐ **Thích tích hợp này?** Gắn sao cho repo: {github_url}\n\n---\n\nĐăng nhập bằng tài khoản OVO Energy Australia để theo dõi mức sử dụng điện, chi phí và sản lượng điện mặt trời.\n\nGói điện và biểu giá của bạn được tự động nhận diện qua OVO API. Không cần chọn gói hoặc nhập giá thủ công.\n\n**Quyền riêng tư & Bảo mật:**\n• Thông tin đăng nhập được lưu trữ an toàn trong bộ nhớ cấu hình của Home Assistant\n• Chỉ được sử dụng để truy cập dữ liệu năng lượng qua API chính thức của OVO\n• Không bao giờ chia sẻ với bên thứ ba hoặc dịch vụ bên ngoài\n\n**Tại sao cần mật khẩu:**\n• Token OVO API hết hạn sau mỗi 5 phút để đảm bảo an toàn\n• Xác thực lại tự động giúp cảm biến cập nhật liên tục 24/7\n• Không cần thao tác thủ công sau khi thiết lập ban đầu",
         "data": {
           "username": "Địa chỉ Email",
           "password": "Mật khẩu"
@@ -11,7 +11,7 @@
       },
       "reauth_confirm": {
         "title": "Xác thực lại với OVO Energy",
-        "description": "Phiên đăng nhập OVO Energy của bạn đã hết hạn. Vui lòng đăng nhập lại để khôi phục giám sát năng lượng.\n\n**Điều gì xảy ra tiếp theo:**\n• Thông tin đăng nhập vẫn được lưu trữ an toàn\n• Cảm biến sẽ tiếp tục cập nhật sau khi xác thực lại\n• Đây là thao tác một lần - xác thực tự động sẽ tiếp tục hoạt động\n\nNhập thông tin đăng nhập OVO Energy bên dưới:",
+        "description": "💚 **Dự án này miễn phí và mã nguồn mở — giới thiệu là nguồn thu nhập duy nhất của tôi từ nó.**\n\n🎁 **Mới dùng OVO?** Tín dụng $120–$180 (cả hai cùng nhận): {ovo_url}\n🛰️ **Cần internet?** 1 tháng Starlink miễn phí: {starlink_url}\n⭐ **Thích tích hợp này?** Gắn sao cho repo: {github_url}\n\n---\n\nPhiên đăng nhập OVO Energy của bạn đã hết hạn. Vui lòng đăng nhập lại để khôi phục giám sát năng lượng.\n\n**Điều gì xảy ra tiếp theo:**\n• Thông tin đăng nhập vẫn được lưu trữ an toàn\n• Cảm biến sẽ tiếp tục cập nhật sau khi xác thực lại\n• Đây là thao tác một lần - xác thực tự động sẽ tiếp tục hoạt động\n\nNhập thông tin đăng nhập OVO Energy bên dưới:",
         "data": {
           "username": "Địa chỉ Email",
           "password": "Mật khẩu"
@@ -34,7 +34,7 @@
     "step": {
       "init": {
         "title": "Cập nhật Cài đặt Gói Điện",
-        "description": "Thay đổi gói điện và biểu giá. Thay đổi có hiệu lực ngay lập tức và cập nhật tất cả tính toán chi phí.\n\n**Mẹo:** Nếu bạn đã đổi gói với OVO, hãy cập nhật lựa chọn tại đây để đảm bảo theo dõi chi phí và tính toán tiết kiệm chính xác.",
+        "description": "💚 **Dự án này miễn phí và mã nguồn mở — giới thiệu là nguồn thu nhập duy nhất của tôi từ nó.**\n\n🎁 **Mới dùng OVO?** Tín dụng $120–$180 (cả hai cùng nhận): {ovo_url}\n🛰️ **Cần internet?** 1 tháng Starlink miễn phí: {starlink_url}\n⭐ **Thích tích hợp này?** Gắn sao cho repo: {github_url}\n\n---\n\nThay đổi gói điện và biểu giá. Thay đổi có hiệu lực ngay lập tức và cập nhật tất cả tính toán chi phí.\n\n**Mẹo:** Nếu bạn đã đổi gói với OVO, hãy cập nhật lựa chọn tại đây để đảm bảo theo dõi chi phí và tính toán tiết kiệm chính xác.\n\n**Gói Free 3:** OVO API báo cáo mức sử dụng cao điểm/thấp điểm dưới dạng \"Other\". Đặt giờ bắt đầu/kết thúc cao điểm bên dưới để tách mức sử dụng này thành cao điểm và thấp điểm. Để cả hai cùng một giá trị để tắt.",
         "data": {
           "plan_type": "Gói Điện",
           "peak_rate": "Giá Cao điểm ($/kWh)",
