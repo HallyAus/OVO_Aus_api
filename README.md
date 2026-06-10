@@ -8,7 +8,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore)](https://github.com/hacs/integration)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.2.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
@@ -71,7 +71,7 @@ The integration connects to OVO's GraphQL API and automatically detects your pla
 | Category | What You Get |
 |----------|-------------|
 | **Daily / Monthly / Yearly** | Solar generation, grid consumption, export -- both kWh and AUD |
-| **Last 7 Days with Rate Breakdown** | Per-day split by rate type (EV_OFFPEAK, FREE_3, PEAK, SHOULDER, OFFPEAK, OTHER) |
+| **Last 7 Days with Rate Breakdown** | Per-day split by rate type (EV_OFFPEAK, FREE_3, PEAK, SHOULDER, OFF_PEAK, OTHER) |
 | **OVO Savings** | Daily, monthly, and yearly savings vs the One Plan (calculated by OVO) |
 | **Hourly Data** | 7-day rolling window with per-hour granularity and heatmap sensor |
 | **Week-over-Week Comparison** | This week vs last week with percentage changes for solar, grid, and cost |
@@ -107,7 +107,7 @@ One user on the **EV Plan** sees:
 - **DST-aware** timezone handling using `ZoneInfo("Australia/Sydney")`
 - **Dynamic hourly sensors** that survive midnight without a restart
 - **Data-driven architecture** -- add sensors by editing a list, not writing classes
-- **65 automated tests** with CI/CD via GitHub Actions
+- **72 automated tests** with CI/CD via GitHub Actions
 - **HACS compatible** with one-click install
 
 ---
@@ -140,7 +140,11 @@ Or manually:
 3. Enter your OVO email and password
 4. Done -- your plan, rates, and 90+ sensors are created automatically
 
-> **Note:** OVO Energy **Australia** only. This integration does not work with OVO UK.
+> ⚠️ **Don't pick the built-in "OVO Energy" integration!** Home Assistant ships a core integration called **OVO Energy** for OVO **UK** (domain `ovo_energy`). Searching "OVO" shows both — you must select **OVO Energy Australia** (domain `ovo_energy_au`), the one provided by this repository. If your error log mentions `homeassistant/components/ovo_energy` or `No customer id set`, you added the wrong (UK) integration: remove it and add **OVO Energy Australia** instead.
+
+### Free 3 Plan: Peak/Off-Peak Split (Optional)
+
+On the **Free 3** plan, OVO's API reports your non-free usage as a single `OTHER` bucket even though you're billed peak/off-peak rates. To split it, open the integration's **Configure** dialog and set the **Peak Window Start/End Hour** (e.g., 15 and 21 for a 3 pm - 9 pm peak). Usage inside the window is counted as peak, the rest as off-peak. Leave both at the same value to disable.
 
 ---
 
@@ -171,7 +175,7 @@ Seven per-day sensors showing consumption and cost split by rate type:
 | `FREE_3` | Free electricity window (e.g., 11 am -- 2 pm) |
 | `PEAK` | Highest-cost period |
 | `SHOULDER` | Mid-cost period |
-| `OFFPEAK` | Standard off-peak |
+| `OFF_PEAK` | Standard off-peak |
 | `OTHER` | Catch-all for remaining intervals |
 
 Each day also includes counterfactual analysis showing what you would have paid on a different rate structure.
@@ -234,11 +238,11 @@ Copy any of these into your Lovelace dashboard configuration to get started. The
 type: entities
 title: Yesterday's Energy
 entities:
-  - sensor.ovo_energy_au_daily_solar_consumption
-  - sensor.ovo_energy_au_daily_grid_consumption
-  - sensor.ovo_energy_au_daily_return_to_grid
-  - sensor.ovo_energy_au_daily_grid_charge
-  - sensor.ovo_energy_au_daily_ovo_savings
+  - sensor.ovo_energy_au_yesterday_solar_consumption
+  - sensor.ovo_energy_au_yesterday_grid_consumption
+  - sensor.ovo_energy_au_yesterday_return_to_grid
+  - sensor.ovo_energy_au_yesterday_grid_charge
+  - sensor.ovo_energy_au_ovo_savings_ovo_savings_yesterday
 ```
 
 ---

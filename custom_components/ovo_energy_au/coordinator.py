@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 import logging
 from datetime import timedelta
 
@@ -22,7 +23,7 @@ from .api import (
     OVOEnergyAUApiClientCommunicationError,
     OVOEnergyAUApiClientError,
 )
-from .const import DOMAIN, FAST_UPDATE_INTERVAL
+from .const import AU_TIMEZONE, DOMAIN, FAST_UPDATE_INTERVAL
 from .models import PlanConfig
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,13 +63,17 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["product_agreements"] = await self.client.get_product_agreements(
                     self.account_id
                 )
+            except OVOEnergyAUApiClientAuthenticationError:
+                raise
             except Exception as err:
                 _LOGGER.error("Failed to fetch product agreements: %s", err)
                 processed["product_agreements"] = None
 
             # 3. Hourly data - fetch last 8 days to cover all 7-day-ago sensors
-            # and handle month boundaries (e.g., yesterday on the 1st)
-            now = dt_util.now()
+            # and handle month boundaries (e.g., yesterday on the 1st).
+            # Sydney time, not HA-local: near midnight an HA instance in
+            # another timezone would otherwise request the wrong date window
+            now = dt_util.now(AU_TIMEZONE)
             query_start = (now - timedelta(days=8)).strftime("%Y-%m-%d")
             query_end = now.strftime("%Y-%m-%d")
 
@@ -79,6 +84,8 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["hourly"] = process_hourly_data(
                     hourly_raw or {}, self.plan_config
                 )
+            except OVOEnergyAUApiClientAuthenticationError:
+                raise
             except Exception as err:
                 _LOGGER.warning("Failed to fetch hourly data: %s", err)
                 processed["hourly"] = process_hourly_data({}, self.plan_config)
@@ -106,12 +113,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
 
                 # Project full month
                 if mtd_days > 0:
-                    import calendar
-                    from datetime import datetime
-
-                    from .const import AU_TIMEZONE
-
-                    now_au = datetime.now(AU_TIMEZONE)
+                    now_au = dt_util.now(AU_TIMEZONE)
                     days_in_month = calendar.monthrange(now_au.year, now_au.month)[1]
                     daily_avg_net = mtd_bill / mtd_days
                     projected_bill = daily_avg_net * days_in_month
@@ -144,6 +146,8 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 if active:
                     processed["account_balance"] = active[0].get("customerOrientatedBalance")
                     processed["has_solar"] = active[0].get("hasSolar", False)
+            except OVOEnergyAUApiClientAuthenticationError:
+                raise
             except Exception as err:
                 _LOGGER.debug("Failed to fetch contact info: %s", err)
                 processed["account_balance"] = None
@@ -157,6 +161,8 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["api_timezone"] = usage_v2.get("timezone")
                 last_read = (usage_v2.get("lastMeterRead") or {}).get("date")
                 processed["last_meter_read"] = last_read
+            except OVOEnergyAUApiClientAuthenticationError:
+                raise
             except Exception as err:
                 _LOGGER.debug("Failed to fetch usage info: %s", err)
 

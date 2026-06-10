@@ -126,6 +126,8 @@ class TestHourlyProcessing:
         assert "other" in tou
 
     def test_ev_usage_tracked(self, sample_hourly_data, plan_config):
+        # conftest freezes dt_util.now() at 2026-03-20 to match the March
+        # fixture data — ev_usage is month-to-date relative to that clock
         result = process_hourly_data(sample_hourly_data, plan_config)
         # EV entries are hours 0-5 (charge_type=EV_OFFPEAK)
         ev = result["ev_usage"]
@@ -134,6 +136,93 @@ class TestHourlyProcessing:
     def test_heatmap_generated(self, sample_hourly_data, plan_config):
         result = process_hourly_data(sample_hourly_data, plan_config)
         assert len(result["hourly_heatmap"]) > 0
+
+
+class TestSplitOtherByWindow:
+    """Test re-bucketing OTHER usage into peak/off-peak (issue #63)."""
+
+    @staticmethod
+    def _make_data(hours_consumption):
+        """Build hourly export data with OTHER charge type at given local hours.
+
+        hours_consumption: list of (aest_hour, consumption, charge_dollars).
+        Timestamps are June (AEST, UTC+10): local hour H = UTC hour H-10.
+        """
+        export = []
+        for hour, consumption, charge in hours_consumption:
+            utc_hour = (hour - 10) % 24
+            # Pick the UTC date so the local date stays 2026-06-10
+            day = 9 if hour < 10 else 10
+            export.append({
+                "periodFrom": f"2026-06-{day:02d}T{utc_hour:02d}:00:00Z",
+                "consumption": consumption,
+                "charge": {"value": charge, "type": "OTHER"},
+                "rates": [],
+            })
+        return {"solar": [], "export": export}
+
+    def test_no_window_leaves_other_untouched(self):
+        plan = PlanConfig(plan_type="free_3")
+        data = self._make_data([(16, 2.0, 0.70), (3, 1.0, 0.18)])
+        result = process_hourly_data(data, plan)
+        tou = result["time_of_use"]
+        assert tou["other"]["consumption"] == 3.0
+        assert tou["peak"]["consumption"] == 0.0
+        assert tou["off_peak"]["consumption"] == 0.0
+
+    def test_window_splits_other_into_peak_and_off_peak(self):
+        plan = PlanConfig(plan_type="free_3", peak_start_hour=15, peak_end_hour=21)
+        data = self._make_data([
+            (16, 2.0, 0.70),  # inside window -> peak
+            (20, 1.5, 0.50),  # inside window -> peak
+            (3, 1.0, 0.18),   # outside -> off_peak
+            (22, 0.5, 0.09),  # outside (end-exclusive boundary passed) -> off_peak
+        ])
+        result = process_hourly_data(data, plan)
+        tou = result["time_of_use"]
+        assert tou["peak"]["consumption"] == 3.5
+        assert tou["peak"]["cost"] == 1.20
+        assert tou["off_peak"]["consumption"] == 1.5
+        assert tou["off_peak"]["cost"] == 0.27
+        assert tou["other"]["consumption"] == 0.0
+        assert tou["other"]["cost"] == 0.0
+
+    def test_window_boundaries_are_start_inclusive_end_exclusive(self):
+        plan = PlanConfig(plan_type="free_3", peak_start_hour=15, peak_end_hour=21)
+        data = self._make_data([(15, 1.0, 0.35), (21, 1.0, 0.18)])
+        result = process_hourly_data(data, plan)
+        tou = result["time_of_use"]
+        assert tou["peak"]["consumption"] == 1.0
+        assert tou["off_peak"]["consumption"] == 1.0
+
+    def test_overnight_window(self):
+        plan = PlanConfig(plan_type="free_3", peak_start_hour=21, peak_end_hour=7)
+        data = self._make_data([
+            (23, 1.0, 0.35),  # in overnight window -> peak
+            (3, 2.0, 0.70),   # in overnight window -> peak
+            (12, 1.5, 0.27),  # outside -> off_peak
+        ])
+        result = process_hourly_data(data, plan)
+        tou = result["time_of_use"]
+        assert tou["peak"]["consumption"] == 3.0
+        assert tou["off_peak"]["consumption"] == 1.5
+
+    def test_non_other_charge_types_unaffected(self):
+        plan = PlanConfig(plan_type="free_3", peak_start_hour=15, peak_end_hour=21)
+        data = {
+            "solar": [],
+            "export": [
+                {"periodFrom": "2026-06-10T06:00:00Z", "consumption": 2.0,
+                 "charge": {"value": 0.36, "type": "OFF_PEAK"}, "rates": []},
+                {"periodFrom": "2026-06-10T08:00:00Z", "consumption": 1.0,
+                 "charge": {"value": 0.0, "type": "FREE_3"}, "rates": []},
+            ],
+        }
+        result = process_hourly_data(data, plan)
+        tou = result["time_of_use"]
+        assert tou["off_peak"]["consumption"] == 2.0
+        assert tou["free"]["consumption"] == 1.0
+        assert tou["peak"]["consumption"] == 0.0
 
 
 class TestInsights:

@@ -17,6 +17,10 @@ CONF_SHOULDER_RATE = "shoulder_rate"
 CONF_OFF_PEAK_RATE = "off_peak_rate"
 CONF_EV_RATE = "ev_rate"
 CONF_FLAT_RATE = "flat_rate"
+# Free 3 plans report PEAK/OFF_PEAK usage as OTHER; these hours let users
+# re-bucket OTHER into peak/off-peak. start == end means disabled.
+CONF_PEAK_START_HOUR = "peak_start_hour"
+CONF_PEAK_END_HOUR = "peak_end_hour"
 
 # Plan types
 PLAN_FREE_3 = "free_3"

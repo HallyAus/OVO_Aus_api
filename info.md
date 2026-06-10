@@ -1,7 +1,7 @@
 # OVO Energy Australia for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-4.1.1-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.2.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
 
 Track solar generation, grid consumption, costs, EV charging, and plan savings in Home Assistant.
@@ -44,7 +44,7 @@ Referrals below are the only thing funding ongoing development. Both you and I g
 3. **Settings → Devices & Services → Add Integration → OVO Energy Australia**
 4. Enter your OVO email and password — everything else is automatic
 
-> **Note:** OVO Energy **Australia** only. Not compatible with OVO UK.
+> ⚠️ **Important:** When adding the integration, select **OVO Energy Australia** (`ovo_energy_au`) — NOT Home Assistant's built-in **OVO Energy** integration, which is for OVO **UK**. If your error log mentions `homeassistant/components/ovo_energy` or `No customer id set`, you added the wrong one.
 
 ## 📊 Dashboard Templates
 

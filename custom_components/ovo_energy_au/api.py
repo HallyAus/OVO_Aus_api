@@ -109,6 +109,10 @@ class OVOEnergyAUApiClient:
                     TOKEN_REFRESH_MAX_BUFFER_SECONDS,
                 ),
             )
+            # Never let the buffer consume the whole lifetime — a short-lived
+            # token would otherwise trigger re-auth on every single request
+            if token_lifetime > 0:
+                buffer_seconds = min(buffer_seconds, token_lifetime / 2)
         else:
             buffer_seconds = TOKEN_REFRESH_MIN_BUFFER_SECONDS
 
@@ -141,7 +145,7 @@ class OVOEnergyAUApiClient:
                 self._token_expires_at = self._token_created_at + timedelta(hours=1)
 
         token_lifetime = (self._token_expires_at - self._token_created_at).total_seconds()
-        _LOGGER.info(
+        _LOGGER.debug(
             "Tokens set. Lifetime: %d seconds (%.1f hours)",
             token_lifetime,
             token_lifetime / 3600,
@@ -205,9 +209,10 @@ class OVOEnergyAUApiClient:
                 OAUTH_LOGIN_URL, json=login_payload, headers=headers
             ) as response:
                 if response.status != 200:
-                    text = await response.text()
+                    # Don't include the response body — it may echo request
+                    # context (the payload contains the cleartext password)
                     raise OVOEnergyAUApiClientAuthenticationError(
-                        f"Login failed: {text[:200]}"
+                        f"Login failed with HTTP status {response.status}"
                     )
                 text = await response.text()
 
@@ -265,9 +270,11 @@ class OVOEnergyAUApiClient:
         except OVOEnergyAUApiClientError:
             raise
         except Exception as err:
-            _LOGGER.error("Authentication error: %s", err)
+            # Static messages only — the login payload holds the cleartext
+            # password, so never interpolate exception text into logs here
+            _LOGGER.error("Authentication error (%s)", type(err).__name__)
             raise OVOEnergyAUApiClientAuthenticationError(
-                f"Authentication failed: {err}"
+                "Authentication failed due to an unexpected error"
             ) from err
 
     async def _exchange_code_for_tokens(
@@ -482,7 +489,16 @@ class OVOEnergyAUApiClient:
             if err.status == 401 and not _retried:
                 _LOGGER.debug("Got 401, refreshing token and retrying")
                 self._access_token = None  # Force re-auth
-                await self._ensure_authenticated()
+                try:
+                    await self._ensure_authenticated()
+                except OVOEnergyAUApiClientError:
+                    raise
+                except Exception as reauth_err:
+                    # A network blip during the forced re-auth must still
+                    # surface as an auth failure so reauth is triggered
+                    raise OVOEnergyAUApiClientAuthenticationError(
+                        "Re-authentication after 401 failed"
+                    ) from reauth_err
                 # Retry the request once
                 return await self._graphql_request(
                     operation_name, query, variables, result_key,
@@ -531,13 +547,20 @@ class OVOEnergyAUApiClient:
         contact_info = await self.get_contact_info()
         accounts = contact_info.get("accounts", [])
         active = [a for a in accounts if not a.get("closed", False)]
-        if not active:
+        ids = [str(a["id"]) for a in active if a.get("id") is not None]
+        if not ids:
             raise OVOEnergyAUApiClientError("No active accounts found")
-        return [str(a["id"]) for a in active]
+        return ids
 
     async def get_account_id(self) -> str:
         """Get the primary active account ID."""
         ids = await self.get_account_ids()
+        if len(ids) > 1:
+            _LOGGER.warning(
+                "Multiple active OVO accounts found (%d); using the first (%s)",
+                len(ids),
+                ids[0],
+            )
         return ids[0]
 
     async def get_interval_data(self, account_id: str) -> dict[str, Any]:

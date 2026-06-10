@@ -133,7 +133,7 @@ ANALYTICS_SENSORS = [
     # Peak Usage
     ("peak_4hour_consumption", "Peak 4-Hour Consumption", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, None, "mdi:chart-bell-curve",
-     lambda d: (p := d.get("hourly", {}).get("peak_4hour_window")) and p.get("total_consumption"),
+     lambda d: (d.get("hourly", {}).get("peak_4hour_window") or {}).get("total_consumption"),
      "Peak Usage"),
 
     # Week Comparison
@@ -289,8 +289,10 @@ ANALYTICS_SENSORS = [
      lambda d: d.get("yearly", {}).get("ovo_savings"), "OVO Savings"),
 
     # EV Charging Tracker
+    # TOTAL_INCREASING: the value is a month-to-date running sum that resets
+    # at month rollover — plain TOTAL would record the reset as a negative delta
     ("monthly_ev_charging_kwh", "EV Charging This Month", UnitOfEnergy.KILO_WATT_HOUR,
-     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:ev-station",
+     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING, "mdi:ev-station",
      lambda d: d.get("monthly", {}).get("rate_breakdown", {}).get("EV_OFFPEAK", {}).get("consumption"),
      "EV Charging"),
 
@@ -300,7 +302,7 @@ ANALYTICS_SENSORS = [
      "EV Charging"),
 
     ("yearly_ev_charging_kwh", "EV Charging This Year", UnitOfEnergy.KILO_WATT_HOUR,
-     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:ev-station",
+     SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING, "mdi:ev-station",
      lambda d: d.get("yearly", {}).get("rate_breakdown", {}).get("EV_OFFPEAK", {}).get("consumption"),
      "EV Charging"),
 
@@ -327,13 +329,22 @@ ANALYTICS_SENSORS = [
      lambda d: d.get("bill_estimate", {}).get("daily_average_net"), "Bill Estimate"),
 ]
 
-# Rate types for per-day breakdown sensors
-RATE_TYPES = ["PEAK", "SHOULDER", "OFFPEAK", "EV_OFFPEAK", "OTHER", "FREE_3"]
+# Rate types for per-day breakdown sensors: API charge type -> sensor key
+# suffix. The suffix is part of each entity's unique_id, so "OFF_PEAK" keeps
+# its historical "offpeak" suffix even though the API key has an underscore.
+RATE_TYPES = {
+    "PEAK": "peak",
+    "SHOULDER": "shoulder",
+    "OFF_PEAK": "offpeak",
+    "EV_OFFPEAK": "ev_offpeak",
+    "OTHER": "other",
+    "FREE_3": "free_3",
+}
 
 RATE_TYPE_ICONS = {
     "PEAK": "mdi:arrow-up-bold",
     "SHOULDER": "mdi:minus",
-    "OFFPEAK": "mdi:arrow-down-bold",
+    "OFF_PEAK": "mdi:arrow-down-bold",
     "EV_OFFPEAK": "mdi:ev-station",
     "FREE_3": "mdi:gift",
     "OTHER": "mdi:chart-bar",

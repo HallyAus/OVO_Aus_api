@@ -17,6 +17,9 @@ class TestPlanConfig:
         assert pc.off_peak_rate == 0.18
         assert pc.ev_rate == 0.06
         assert pc.flat_rate == 0.28
+        assert pc.peak_start_hour is None
+        assert pc.peak_end_hour is None
+        assert pc.has_other_split_window is False
 
     def test_from_dict_with_all_fields(self):
         """from_dict should populate every field from the dict."""
@@ -83,4 +86,24 @@ class TestPlanConfig:
         assert set(d.keys()) == {
             "plan_type", "peak_rate", "shoulder_rate",
             "off_peak_rate", "ev_rate", "flat_rate",
+            "peak_start_hour", "peak_end_hour",
         }
+
+    def test_peak_window_roundtrip(self):
+        """peak_start_hour/peak_end_hour should survive to_dict/from_dict."""
+        original = PlanConfig(plan_type="free_3", peak_start_hour=15, peak_end_hour=21)
+        restored = PlanConfig.from_dict(original.to_dict())
+        assert restored.peak_start_hour == 15
+        assert restored.peak_end_hour == 21
+        assert restored.has_other_split_window is True
+
+    def test_has_other_split_window(self):
+        """Window is valid only when both hours set and different."""
+        assert PlanConfig(peak_start_hour=15, peak_end_hour=21).has_other_split_window
+        # Overnight window is valid
+        assert PlanConfig(peak_start_hour=21, peak_end_hour=7).has_other_split_window
+        # start == end means disabled
+        assert not PlanConfig(peak_start_hour=0, peak_end_hour=0).has_other_split_window
+        # Partially configured means disabled
+        assert not PlanConfig(peak_start_hour=15).has_other_split_window
+        assert not PlanConfig(peak_end_hour=21).has_other_split_window

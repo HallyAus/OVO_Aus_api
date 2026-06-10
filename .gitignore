@@ -68,6 +68,9 @@ logs/
 *.temp
 .cache/
 
+# Personal dev launchers (machine-specific, never commit)
+launch.cmd
+
 # Documentation build
 docs/_build/
 site/

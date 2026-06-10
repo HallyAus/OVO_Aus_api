@@ -155,18 +155,21 @@ def _add_dynamic_day_sensors(sensors: list, coordinator) -> None:
                 unit, dc, sc, icon, idx, key,
             ))
 
-        # Per-rate breakdown for this day
-        for rate_type in RATE_TYPES:
+        # Per-rate breakdown for this day. key_suffix preserves historical
+        # unique_ids (e.g. OFF_PEAK -> "offpeak") while rate_type matches
+        # the API charge type used in the data lookup. Names include the day
+        # number so slugification produces distinct entity_ids.
+        for rate_type, key_suffix in RATE_TYPES.items():
             rate_label = rate_type.replace("_", " ").title()
             sensors.append(OVODayRateSensor(
-                coordinator, f"day_{day_num}_grid_rate_{rate_type.lower()}_consumption",
+                coordinator, f"day_{day_num}_grid_rate_{key_suffix}_consumption",
                 f"Day {day_num} {rate_label} Consumption",
                 UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL,
                 RATE_TYPE_ICONS.get(rate_type, "mdi:flash"), idx, rate_type, "grid_rates_kwh",
             ))
             is_free = rate_type == "FREE_3"
             sensors.append(OVODayRateSensor(
-                coordinator, f"day_{day_num}_grid_rate_{rate_type.lower()}_charge",
+                coordinator, f"day_{day_num}_grid_rate_{key_suffix}_charge",
                 f"Day {day_num} {rate_label} {'Savings' if is_free else 'Cost'}",
                 "AUD", SensorDeviceClass.MONETARY, SensorStateClass.TOTAL,
                 "mdi:piggy-bank" if is_free else "mdi:currency-usd",
@@ -374,7 +377,8 @@ class OVODayRateSensor(OVOBaseSensor):
             return None
         all_daily = self.coordinator.data.get("all_daily_entries", [])
         if self._day_index >= len(all_daily):
-            return 0
+            # No history for this day yet — unavailable, not a real 0
+            return None
         day_data = all_daily[self._day_index]
         if self._rate_type == "FREE_3" and self._metric_key == "grid_rates_aud":
             return self._free3_savings(day_data)
@@ -728,11 +732,12 @@ class OVORateComparisonSensor(OVOBaseSensor):
             attrs["recommendation"] = "You may save more on a different plan. Contact OVO to compare options."
             attrs["rating"] = "Consider Switching"
 
-        # Project annual savings from monthly
+        # Project annual savings from monthly. Skip the first few days of a
+        # month — extrapolating 1-2 days of data to a year is wildly unstable.
         if monthly_savings > 0:
             now = datetime.now(AU_TIMEZONE)
             day_of_month = now.day
-            if day_of_month > 0:
+            if day_of_month >= 3:
                 projected_monthly = monthly_savings / day_of_month * 30.44
                 projected_annual = projected_monthly * 12
                 attrs["projected_annual_savings"] = round(projected_annual, 2)

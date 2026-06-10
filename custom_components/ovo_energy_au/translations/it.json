@@ -25,7 +25,9 @@
     },
     "abort": {
       "already_configured": "Questo account OVO Energy è già configurato in Home Assistant.",
-      "reauth_successful": "Ri-autenticazione riuscita! I sensori energetici riprenderanno l'aggiornamento."
+      "reauth_successful": "Ri-autenticazione riuscita! I sensori energetici riprenderanno l'aggiornamento.",
+      "reauth_account_mismatch": "Queste credenziali appartengono a un altro account OVO. Accedi con l'account con cui è stata configurata questa integrazione, oppure rimuovi e aggiungi nuovamente l'integrazione.",
+      "reauth_failed": "Ri-autenticazione fallita: la voce di configurazione originale non è stata trovata. Rimuovi e aggiungi nuovamente l'integrazione."
     }
   },
   "options": {
@@ -39,7 +41,9 @@
           "shoulder_rate": "Tariffa Intermedia ($/kWh)",
           "off_peak_rate": "Tariffa Fuori Punta ($/kWh)",
           "ev_rate": "Tariffa EV Off-Peak ($/kWh)",
-          "flat_rate": "Tariffa Unica ($/kWh)"
+          "flat_rate": "Tariffa Unica ($/kWh)",
+          "peak_start_hour": "Ora di Inizio Fascia di Punta (0-23)",
+          "peak_end_hour": "Ora di Fine Fascia di Punta (0-23)"
         }
       }
     }

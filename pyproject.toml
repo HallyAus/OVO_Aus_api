@@ -1,6 +1,6 @@
 [project]
 name = "ovo-energy-au"
-version = "4.1.0"
+version = "4.2.0"
 description = "OVO Energy Australia Home Assistant Integration"
 requires-python = ">=3.11"
 dependencies = [
@@ -15,6 +15,9 @@ dev = [
     "pytest-cov>=4.0",
     "ruff>=0.1.0",
     "mypy>=1.5",
+    # const.py loads ZoneInfo("Australia/Sydney") at import time; Windows and
+    # slim containers have no system tzdata, so tests need the package
+    "tzdata",
 ]
 
 [tool.pytest.ini_options]

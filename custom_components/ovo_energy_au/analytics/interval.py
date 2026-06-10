@@ -7,7 +7,18 @@ from datetime import datetime
 
 from homeassistant.util import dt as dt_util
 
+from ..const import AU_TIMEZONE
+
 _LOGGER = logging.getLogger(__name__)
+
+
+def _parse_entry_date(period_from: str) -> datetime:
+    """Parse an ISO timestamp and convert to Australian Eastern time.
+
+    Daily bucketing must use the AU-local date, otherwise entries near
+    midnight land on the wrong day (mirrors the hourly module's handling).
+    """
+    return datetime.fromisoformat(period_from.replace("Z", "+00:00")).astimezone(AU_TIMEZONE)
 
 
 def _safe_charge(entry: dict) -> dict:
@@ -70,7 +81,9 @@ def process_interval_data(data: dict) -> dict:
         all_daily_entries = sorted(daily_map.values(), key=lambda x: x["date"], reverse=True)[:90]
         processed["all_daily_entries"] = all_daily_entries
 
-        now = dt_util.now()
+        # Sydney time, so "current month" matches the AU billing day even
+        # when HA itself is configured for a different timezone
+        now = dt_util.now(AU_TIMEZONE)
         _add_aggregations(processed, all_daily_entries, now)
         _add_monthly_breakdowns(processed, daily_data, now)
 
@@ -139,7 +152,13 @@ def _process_period_latest(period: str, period_data: dict) -> dict:
                     merged_rates[rt] = {"consumption": 0, "charge": 0, "percent": 0, "available": True}
                 merged_rates[rt]["consumption"] += rd.get("consumption", 0)
                 merged_rates[rt]["charge"] += rd.get("charge", 0)
-                merged_rates[rt]["percent"] += rd.get("percent", 0)
+        # Percentages aren't additive across entries — recompute from the
+        # merged consumption so the values still sum to 100
+        total_merged = sum(rd["consumption"] for rd in merged_rates.values())
+        for rd in merged_rates.values():
+            rd["percent"] = (
+                round(rd["consumption"] / total_merged * 100, 2) if total_merged > 0 else 0
+            )
         result["rate_breakdown"] = merged_rates
 
     return result
@@ -189,7 +208,7 @@ def _build_daily_map(daily_data: dict) -> dict:
         if not period_from:
             continue
         try:
-            entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+            entry_date = _parse_entry_date(period_from)
             date_key = entry_date.strftime("%Y-%m-%d")
             if date_key not in daily_map:
                 daily_map[date_key] = _new_daily_entry(entry_date, date_key)
@@ -203,7 +222,7 @@ def _build_daily_map(daily_data: dict) -> dict:
         if not period_from:
             continue
         try:
-            entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+            entry_date = _parse_entry_date(period_from)
             date_key = entry_date.strftime("%Y-%m-%d")
             if date_key not in daily_map:
                 daily_map[date_key] = _new_daily_entry(entry_date, date_key)
@@ -328,7 +347,7 @@ def _add_monthly_breakdowns(processed: dict, daily_data: dict, now) -> None:
         if not period_from:
             continue
         try:
-            entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+            entry_date = _parse_entry_date(period_from)
             if entry_date.month == current_month and entry_date.year == current_year:
                 solar_breakdown.append({
                     "date": entry_date.strftime("%Y-%m-%d"),
@@ -345,7 +364,7 @@ def _add_monthly_breakdowns(processed: dict, daily_data: dict, now) -> None:
         if not period_from:
             continue
         try:
-            entry_date = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
+            entry_date = _parse_entry_date(period_from)
             if entry_date.month == current_month and entry_date.year == current_year:
                 charge_type = _safe_charge(entry).get("type", "DEBIT")
                 daily_entry = {

@@ -25,7 +25,9 @@
     },
     "abort": {
       "already_configured": "此 OVO Energy 账户已在 Home Assistant 中配置。",
-      "reauth_successful": "重新认证成功！您的能源传感器将恢复更新。"
+      "reauth_successful": "重新认证成功！您的能源传感器将恢复更新。",
+      "reauth_account_mismatch": "这些登录凭据属于另一个 OVO 账户。请使用设置此集成时所用的账户登录，或删除后重新添加集成。",
+      "reauth_failed": "重新认证失败：找不到原始配置条目。请删除并重新添加集成。"
     }
   },
   "options": {
@@ -39,7 +41,9 @@
           "shoulder_rate": "平峰费率 ($/kWh)",
           "off_peak_rate": "低谷费率 ($/kWh)",
           "ev_rate": "EV Off-Peak 费率 ($/kWh)",
-          "flat_rate": "统一费率 ($/kWh)"
+          "flat_rate": "统一费率 ($/kWh)",
+          "peak_start_hour": "高峰时段开始小时 (0-23)",
+          "peak_end_hour": "高峰时段结束小时 (0-23)"
         }
       }
     }

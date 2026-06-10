@@ -25,7 +25,9 @@
     },
     "abort": {
       "already_configured": "Tài khoản OVO Energy này đã được cấu hình trong Home Assistant.",
-      "reauth_successful": "Xác thực lại thành công! Cảm biến năng lượng sẽ tiếp tục cập nhật."
+      "reauth_successful": "Xác thực lại thành công! Cảm biến năng lượng sẽ tiếp tục cập nhật.",
+      "reauth_account_mismatch": "Thông tin đăng nhập này thuộc về một tài khoản OVO khác. Hãy đăng nhập bằng tài khoản đã được dùng để thiết lập tích hợp này, hoặc gỡ bỏ và thêm lại tích hợp.",
+      "reauth_failed": "Xác thực lại thất bại: không tìm thấy mục cấu hình ban đầu. Vui lòng gỡ bỏ và thêm lại tích hợp."
     }
   },
   "options": {
@@ -39,7 +41,9 @@
           "shoulder_rate": "Giá Bình thường ($/kWh)",
           "off_peak_rate": "Giá Thấp điểm ($/kWh)",
           "ev_rate": "Giá EV Off-Peak ($/kWh)",
-          "flat_rate": "Giá Đồng nhất ($/kWh)"
+          "flat_rate": "Giá Đồng nhất ($/kWh)",
+          "peak_start_hour": "Giờ Bắt đầu Cao điểm (0-23)",
+          "peak_end_hour": "Giờ Kết thúc Cao điểm (0-23)"
         }
       }
     }

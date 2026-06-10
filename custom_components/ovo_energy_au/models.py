@@ -136,6 +136,19 @@ class PlanConfig:
     off_peak_rate: float = 0.18
     ev_rate: float = 0.06
     flat_rate: float = 0.28
+    # User-configured window for splitting OTHER usage into peak/off-peak
+    # (Free 3 plans report TOU usage as OTHER). None or start == end disables it.
+    peak_start_hour: int | None = None
+    peak_end_hour: int | None = None
+
+    @property
+    def has_other_split_window(self) -> bool:
+        """Whether a valid peak window is configured for splitting OTHER usage."""
+        return (
+            self.peak_start_hour is not None
+            and self.peak_end_hour is not None
+            and self.peak_start_hour != self.peak_end_hour
+        )
 
     @classmethod
     def from_dict(cls, data: dict) -> PlanConfig:
@@ -147,6 +160,8 @@ class PlanConfig:
             off_peak_rate=data.get("off_peak_rate", 0.18),
             ev_rate=data.get("ev_rate", 0.06),
             flat_rate=data.get("flat_rate", 0.28),
+            peak_start_hour=data.get("peak_start_hour"),
+            peak_end_hour=data.get("peak_end_hour"),
         )
 
     def to_dict(self) -> dict:
@@ -158,4 +173,6 @@ class PlanConfig:
             "off_peak_rate": self.off_peak_rate,
             "ev_rate": self.ev_rate,
             "flat_rate": self.flat_rate,
+            "peak_start_hour": self.peak_start_hour,
+            "peak_end_hour": self.peak_end_hour,
         }

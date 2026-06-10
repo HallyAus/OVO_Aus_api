@@ -48,6 +48,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "off_peak_rate": entry.data.get("off_peak_rate", 0.18),
         "ev_rate": entry.data.get("ev_rate", 0.06),
         "flat_rate": entry.data.get("flat_rate", 0.28),
+        "peak_start_hour": entry.data.get("peak_start_hour"),
+        "peak_end_hour": entry.data.get("peak_end_hour"),
     })
 
     coordinator = OVOEnergyAUDataUpdateCoordinator(

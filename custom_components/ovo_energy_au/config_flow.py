@@ -22,7 +22,9 @@ from .const import (
     CONF_EV_RATE,
     CONF_FLAT_RATE,
     CONF_OFF_PEAK_RATE,
+    CONF_PEAK_END_HOUR,
     CONF_PEAK_RATE,
+    CONF_PEAK_START_HOUR,
     CONF_PLAN_TYPE,
     CONF_SHOULDER_RATE,
     DEFAULT_RATES,
@@ -103,6 +105,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._auth_data = {}
         self._detected_plan = None
         self._detected_rates = None
+        self._reauth_entry = None
 
     async def _detect_plan_from_api(self, client: OVOEnergyAUApiClient, account_id: str) -> None:
         """Fetch product agreements and detect plan/rates from API.
@@ -248,6 +251,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
         """Handle reauth when credentials expire."""
+        entry_id = self.context.get("entry_id")
+        self._reauth_entry = (
+            self.hass.config_entries.async_get_entry(entry_id) if entry_id else None
+        )
         self._auth_data = dict(entry_data)
         return await self.async_step_reauth_confirm()
 
@@ -264,9 +271,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input[CONF_USERNAME],
                     user_input[CONF_PASSWORD],
                 )
+                reauth_entry = self._reauth_entry
+                if reauth_entry is None:
+                    return self.async_abort(reason="reauth_failed")
+                # Reject credentials that belong to a different OVO account —
+                # the entry's unique_id (and all sensor unique_ids) are bound
+                # to the original account
+                if (
+                    reauth_entry.unique_id
+                    and info["account_id"] != reauth_entry.unique_id
+                ):
+                    return self.async_abort(reason="reauth_account_mismatch")
                 # Update the existing entry with new credentials
                 self.hass.config_entries.async_update_entry(
-                    self.hass.config_entries.async_get_entry(self.context["entry_id"]),
+                    reauth_entry,
                     data={
                         **self._auth_data,
                         CONF_USERNAME: user_input[CONF_USERNAME],
@@ -274,7 +292,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_ACCOUNT_ID: info["account_id"],
                     },
                 )
-                await self.hass.config_entries.async_reload(self.context["entry_id"])
+                await self.hass.config_entries.async_reload(reauth_entry.entry_id)
                 return self.async_abort(reason="reauth_successful")
             except CannotConnect:
                 errors["base"] = "cannot_connect"
@@ -316,6 +334,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
                 data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
                 data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+                # Optional window to split OTHER usage into peak/off-peak.
+                # start == end means disabled (Free 3 reports TOU as OTHER).
+                if CONF_PEAK_START_HOUR in user_input and CONF_PEAK_END_HOUR in user_input:
+                    data[CONF_PEAK_START_HOUR] = int(user_input[CONF_PEAK_START_HOUR])
+                    data[CONF_PEAK_END_HOUR] = int(user_input[CONF_PEAK_END_HOUR])
+                else:
+                    data.pop(CONF_PEAK_START_HOUR, None)
+                    data.pop(CONF_PEAK_END_HOUR, None)
                 # Remove unused rates
                 data.pop(CONF_EV_RATE, None)
                 data.pop(CONF_FLAT_RATE, None)
@@ -353,9 +379,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         current_off_peak = self.config_entry.data.get(CONF_OFF_PEAK_RATE, 0.18)
         current_ev = self.config_entry.data.get(CONF_EV_RATE, 0.06)
         current_flat = self.config_entry.data.get(CONF_FLAT_RATE, 0.28)
+        current_peak_start = self.config_entry.data.get(CONF_PEAK_START_HOUR, 0)
+        current_peak_end = self.config_entry.data.get(CONF_PEAK_END_HOUR, 0)
 
         # Build options schema
-        options_schema = vol.Schema({
+        schema_fields = {
             vol.Required(CONF_PLAN_TYPE, default=current_plan): vol.In({
                 PLAN_FREE_3: PLAN_NAMES[PLAN_FREE_3],
                 PLAN_EV: PLAN_NAMES[PLAN_EV],
@@ -367,7 +395,17 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(CONF_OFF_PEAK_RATE, default=current_off_peak): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
             vol.Optional(CONF_EV_RATE, default=current_ev): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
             vol.Optional(CONF_FLAT_RATE, default=current_flat): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-        })
+        }
+        # Free 3 plans report peak/off-peak usage as OTHER; offer a manual
+        # window so analytics can split it. start == end leaves it disabled.
+        if current_plan == PLAN_FREE_3:
+            schema_fields[vol.Optional(CONF_PEAK_START_HOUR, default=current_peak_start)] = vol.All(
+                vol.Coerce(int), vol.Range(min=0, max=23)
+            )
+            schema_fields[vol.Optional(CONF_PEAK_END_HOUR, default=current_peak_end)] = vol.All(
+                vol.Coerce(int), vol.Range(min=0, max=23)
+            )
+        options_schema = vol.Schema(schema_fields)
 
         return self.async_show_form(
             step_id="init",

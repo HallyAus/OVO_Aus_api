@@ -86,6 +86,10 @@ def process_hourly_data(data: dict | None, plan_config: PlanConfig) -> dict:
     # TOU breakdown
     processed["time_of_use"] = _compute_tou_breakdown(timeline)
 
+    # Re-bucket OTHER usage into peak/off-peak when the user configured a
+    # window (Free 3 plans report TOU usage as OTHER — issue #63)
+    _split_other_by_window(processed["time_of_use"], timeline, plan_config)
+
     # Free and EV usage tracking (Bug 1 fix: use AEST instead of UTC).
     # Use dt_util.now() so tests can freeze time via the HA mock; astimezone()
     # ensures month/year comparison always happens in Australian Eastern time
@@ -236,6 +240,51 @@ def _compute_tou_breakdown(timeline: list[dict]) -> dict:
     return tou
 
 
+def _split_other_by_window(
+    tou: dict,
+    timeline: list[dict],
+    plan_config: PlanConfig,
+) -> None:
+    """Re-bucket OTHER entries into peak/off_peak using the configured window.
+
+    Free 3 plans deliver PEAK/OFF_PEAK usage as OTHER, so users can configure
+    peak_start_hour/peak_end_hour to recover a TOU split. The window is
+    [start, end) in local Australian hours and supports overnight windows
+    (start > end, e.g. 21 -> 7). Mutates tou in place; no-op when the window
+    is not configured.
+    """
+    if not plan_config.has_other_split_window:
+        return
+
+    start = plan_config.peak_start_hour
+    end = plan_config.peak_end_hour
+
+    for entry in timeline:
+        if entry.get("charge_type") != "OTHER":
+            continue
+        consumption = entry["consumption"]
+        if consumption <= 0:
+            continue
+        charge_value = abs(entry.get("charge_value", 0))
+
+        hour = entry["hour"]
+        in_peak = (start <= hour < end) if start < end else (hour >= start or hour < end)
+        target = "peak" if in_peak else "off_peak"
+
+        tou[target]["consumption"] += consumption
+        tou[target]["cost"] += charge_value
+        tou[target]["hours"] += 1
+        tou["other"]["consumption"] -= consumption
+        tou["other"]["cost"] -= charge_value
+        tou["other"]["hours"] -= 1
+
+    # Re-round and clamp float residue from subtracting unrounded values
+    for period in tou:
+        tou[period]["consumption"] = max(0.0, round(tou[period]["consumption"], 2))
+        tou[period]["cost"] = max(0.0, round(tou[period]["cost"], 2))
+        tou[period]["hours"] = max(0, tou[period]["hours"])
+
+
 def _add_usage_tracking(
     processed: dict,
     timeline: list[dict],
@@ -360,6 +409,9 @@ def _find_peak_window(timeline: list[dict]) -> dict | None:
     peak_window = None
     for i in range(len(sorted_hours) - 3):
         window = sorted_hours[i:i + 4]
+        # Skip windows spanning data gaps — they aren't a real 4-hour block
+        if window[3]["timestamp"] - window[0]["timestamp"] != timedelta(hours=3):
+            continue
         total = sum(h["consumption"] for h in window)
         if total > max_consumption:
             max_consumption = total

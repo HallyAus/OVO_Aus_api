@@ -5,6 +5,34 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-06-11
+
+### New Features
+- **Free 3 Peak/Off-Peak Split (#63)** - New `peak_start_hour`/`peak_end_hour` options (shown for the Free 3 plan) re-bucket `OTHER` usage into peak/off-peak in the time-of-use breakdown. Supports overnight windows (e.g., 21 → 7); set both to the same value to disable
+
+### Bug Fixes
+- **CRITICAL: Fixed off-peak per-day rate sensors always reporting 0** - Sensors looked up `OFFPEAK` but the API charge type is `OFF_PEAK`; entity IDs are unchanged
+- **Fixed daily date bucketing using UTC dates** - Interval entries are now converted to `Australia/Sydney` before extracting the date, matching the hourly pipeline (entries near midnight no longer land on the wrong day)
+- **Fixed hourly query window using HA-local time** - The 8-day hourly fetch window now uses Sydney time, so HA instances configured in other timezones request the correct dates
+- **Fixed token-refresh loop with short-lived tokens** - The refresh buffer is now capped at half the token lifetime, preventing full re-authentication on every request
+- **Fixed reauth allowing a different OVO account** - Re-authenticating with credentials for another account now aborts with a clear error instead of silently repointing the entry
+- **Fixed rate-breakdown percentages exceeding 100%** - Percentages are recomputed after merging entries instead of being summed
+- **Fixed peak 4-hour window spanning data gaps** - Windows are now required to be 4 contiguous hours
+- **Fixed auth errors being swallowed by secondary fetches** - Authentication failures from product agreements/contact info/usage info now correctly trigger reauth
+- **Removed response body from login error messages** - Prevents any possibility of credential material reaching logs
+- **Day-rate sensors now report unavailable (not 0) when history is missing**
+- **EV charging monthly/yearly kWh sensors now use TOTAL_INCREASING** - Correct statistics at month/year rollover
+- **Annual savings projection skips the first 2 days of a month** - Avoids wildly unstable extrapolations
+
+### Improvements
+- README/info.md now warn against selecting HA's built-in **OVO Energy** (UK) integration (#72) and the quick-example entity IDs were corrected
+- Multi-account holders get a logged warning that the first account is used
+- Analytics now use a single mockable clock source (`dt_util.now(AU_TIMEZONE)`), making the test suite deterministic year-round
+- `tzdata` added to dev dependencies so tests run on Windows/slim containers
+- New tests: peak window splitting, PlanConfig window round-trip (72 tests total)
+
+---
+
 ## [4.1.1] - 2026-04-22
 
 ### Bug Fixes
@@ -13,8 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **#54** - Fixed `DASHBOARD_GUIDE.md` sensor references missing the `ovo_energy_au_` entity prefix (e.g., `sensor.daily_solar_consumption` → `sensor.ovo_energy_au_daily_solar_consumption`). All daily/monthly/yearly/hourly references corrected.
 - **#58** - Bumped manifest version to 4.1.1 so HACS displays the semantic version. Note: a matching `v4.1.1` GitHub release/tag must be created for HACS to resolve the version correctly.
 
-### Known Issues
-- **#63** (feature request) - Manual peak/off-peak window config for the `OTHER` charge bucket on the 3 Free TOU plan is planned for a future release.
+---
 
 ## [4.1.0] - 2026-03-21
 
