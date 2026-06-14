@@ -1,7 +1,8 @@
 """Tests for sensor definitions integrity."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from custom_components.ovo_energy_au.sensors.definitions import (
     ANALYTICS_SENSORS,
@@ -49,6 +50,59 @@ class TestSensorTupleStructure:
                 value_fn({})
             except Exception as exc:
                 pytest.fail(f"value_fn for {key!r} raised {type(exc).__name__}: {exc}")
+
+
+class TestTimeOfUseSensors:
+    """Verify the TOU peak/off-peak split sensors (#74) actually surface data.
+
+    Regression guard: v4.2.0 computed `hourly.time_of_use` (and re-bucketed
+    OTHER into peak/off-peak for Free 3) but exposed no sensor reading it, so
+    the values never reached Home Assistant. These assert the value_fns read
+    the correct path through a realistic coordinator.data dict.
+    """
+
+    TOU_KEYS = {
+        "tou_peak_consumption",
+        "tou_peak_cost",
+        "tou_off_peak_consumption",
+        "tou_off_peak_cost",
+    }
+
+    def _value_fn(self, key):
+        for sensor in ANALYTICS_SENSORS:
+            if sensor[0] == key:
+                return sensor[6]
+        raise AssertionError(f"sensor {key!r} not found in ANALYTICS_SENSORS")
+
+    def test_tou_sensors_exist(self):
+        """All four TOU split sensors must be defined."""
+        defined = {s[0] for s in ANALYTICS_SENSORS}
+        missing = self.TOU_KEYS - defined
+        assert not missing, f"TOU sensors missing from ANALYTICS_SENSORS: {missing}"
+
+    def test_tou_value_fns_read_real_data(self):
+        """value_fns must extract peak/off_peak consumption & cost from the
+        coordinator.data[hourly][time_of_use] structure produced by
+        analytics.hourly._compute_tou_breakdown / _split_other_by_window."""
+        data = {
+            "hourly": {
+                "time_of_use": {
+                    "peak": {"consumption": 3.5, "cost": 1.20, "hours": 4},
+                    "off_peak": {"consumption": 1.5, "cost": 0.27, "hours": 3},
+                    "other": {"consumption": 0.0, "cost": 0.0, "hours": 0},
+                }
+            }
+        }
+        assert self._value_fn("tou_peak_consumption")(data) == 3.5
+        assert self._value_fn("tou_peak_cost")(data) == 1.20
+        assert self._value_fn("tou_off_peak_consumption")(data) == 1.5
+        assert self._value_fn("tou_off_peak_cost")(data) == 0.27
+
+    def test_tou_value_fns_handle_missing_hourly(self):
+        """No hourly/time_of_use data yet → None, never an exception."""
+        for key in self.TOU_KEYS:
+            assert self._value_fn(key)({}) is None
+            assert self._value_fn(key)({"hourly": {}}) is None
 
 
 class TestRateTypes:

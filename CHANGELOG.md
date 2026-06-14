@@ -5,6 +5,16 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.1] - 2026-06-14
+
+### Bug Fixes
+- **Peak/Off-Peak TOU sensors now exposed (#74)** - v4.2.0 computed the time-of-use peak/off-peak split (and re-bucketed `OTHER` usage into peak/off-peak for Free 3 plans) but never surfaced it as entities, so the calculated values were unreachable in Home Assistant. Four new sensors expose it: `tou_peak_consumption`, `tou_peak_cost`, `tou_off_peak_consumption`, `tou_off_peak_cost` (grouped under a "Time of Use" device, last-7-days window). They populate for Free 3 plans once the peak window is configured, and for any plan with native PEAK/OFF_PEAK rate types
+
+### Tests
+- New real-data regression tests assert the TOU value functions read the correct `hourly.time_of_use` path (75 tests total)
+
+---
+
 ## [4.2.0] - 2026-06-11
 
 ### New Features

@@ -136,6 +136,31 @@ ANALYTICS_SENSORS = [
      lambda d: (d.get("hourly", {}).get("peak_4hour_window") or {}).get("total_consumption"),
      "Peak Usage"),
 
+    # Time of Use (peak/off-peak split). Surfaces analytics.hourly's
+    # `time_of_use` breakdown — including the OTHER usage that
+    # `_split_other_by_window` re-buckets into peak/off-peak for Free 3 plans
+    # (#63/#74), plus the native PEAK/OFF_PEAK split for any plan that has those
+    # rate types. Without these the computed split was never exposed as entities.
+    ("tou_peak_consumption", "Peak Consumption (Last 7 Days)", UnitOfEnergy.KILO_WATT_HOUR,
+     SensorDeviceClass.ENERGY, None, "mdi:arrow-up-bold",
+     lambda d: d.get("hourly", {}).get("time_of_use", {}).get("peak", {}).get("consumption"),
+     "Time of Use"),
+
+    ("tou_peak_cost", "Peak Cost (Last 7 Days)", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:currency-usd",
+     lambda d: d.get("hourly", {}).get("time_of_use", {}).get("peak", {}).get("cost"),
+     "Time of Use"),
+
+    ("tou_off_peak_consumption", "Off-Peak Consumption (Last 7 Days)", UnitOfEnergy.KILO_WATT_HOUR,
+     SensorDeviceClass.ENERGY, None, "mdi:arrow-down-bold",
+     lambda d: d.get("hourly", {}).get("time_of_use", {}).get("off_peak", {}).get("consumption"),
+     "Time of Use"),
+
+    ("tou_off_peak_cost", "Off-Peak Cost (Last 7 Days)", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:currency-usd",
+     lambda d: d.get("hourly", {}).get("time_of_use", {}).get("off_peak", {}).get("cost"),
+     "Time of Use"),
+
     # Week Comparison
     ("week_comparison_solar", "Solar Consumption (This Week)", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, None, "mdi:compare-horizontal",
