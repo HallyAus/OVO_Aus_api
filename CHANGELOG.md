@@ -5,6 +5,15 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.2] - 2026-06-14
+
+### Bug Fixes
+- **Peak/Off-Peak TOU split now actually works on real data (#74)** - The v4.2.1 sensors read 0 in production. Verified against the live API: `GetHourlyData` returns `rates: null` and `charge: null` for every hour, so rate-less grid usage was defaulting to the `shoulder` bucket and `_split_other_by_window` (which only re-buckets `OTHER`) never matched. Rate-less hourly grid usage is now labelled `OTHER`, so the configured Free 3 peak window correctly splits it into peak/off-peak by hour. The unit tests now use realistic rate-less fixtures (matching the actual API) so this can't regress
+- **Time-of-use no longer counts solar generation** - `_compute_tou_breakdown` now only sums grid entries; solar entries were inflating the breakdown
+
+### Changed
+- **Removed `tou_peak_cost` / `tou_off_peak_cost` sensors** - The hourly API provides no per-hour cost, so these could only ever read 0. The `tou_peak_consumption` / `tou_off_peak_consumption` (kWh) sensors remain and now populate correctly for Free 3 plans with a configured peak window
+
 ## [4.2.1] - 2026-06-14
 
 ### Bug Fixes

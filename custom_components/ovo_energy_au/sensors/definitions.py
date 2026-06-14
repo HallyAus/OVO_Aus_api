@@ -136,29 +136,21 @@ ANALYTICS_SENSORS = [
      lambda d: (d.get("hourly", {}).get("peak_4hour_window") or {}).get("total_consumption"),
      "Peak Usage"),
 
-    # Time of Use (peak/off-peak split). Surfaces analytics.hourly's
-    # `time_of_use` breakdown — including the OTHER usage that
-    # `_split_other_by_window` re-buckets into peak/off-peak for Free 3 plans
-    # (#63/#74), plus the native PEAK/OFF_PEAK split for any plan that has those
-    # rate types. Without these the computed split was never exposed as entities.
+    # Time of Use (peak/off-peak split). Surfaces the Free 3 window split that
+    # analytics.hourly._split_other_by_window computes from hourly GRID
+    # consumption (#63/#74). CONSUMPTION ONLY: the OVO hourly API returns no
+    # per-hour cost/rate data (charge/rates are null), so peak/off-peak COST
+    # cannot be derived (it would always be 0) — only the kWh split is real.
+    # Populates for Free 3 plans once the peak window is configured; 0 for plans
+    # without a configured window.
     ("tou_peak_consumption", "Peak Consumption (Last 7 Days)", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, None, "mdi:arrow-up-bold",
      lambda d: d.get("hourly", {}).get("time_of_use", {}).get("peak", {}).get("consumption"),
      "Time of Use"),
 
-    ("tou_peak_cost", "Peak Cost (Last 7 Days)", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:currency-usd",
-     lambda d: d.get("hourly", {}).get("time_of_use", {}).get("peak", {}).get("cost"),
-     "Time of Use"),
-
     ("tou_off_peak_consumption", "Off-Peak Consumption (Last 7 Days)", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, None, "mdi:arrow-down-bold",
      lambda d: d.get("hourly", {}).get("time_of_use", {}).get("off_peak", {}).get("consumption"),
-     "Time of Use"),
-
-    ("tou_off_peak_cost", "Off-Peak Cost (Last 7 Days)", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:currency-usd",
-     lambda d: d.get("hourly", {}).get("time_of_use", {}).get("off_peak", {}).get("cost"),
      "Time of Use"),
 
     # Week Comparison

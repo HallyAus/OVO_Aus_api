@@ -63,9 +63,7 @@ class TestTimeOfUseSensors:
 
     TOU_KEYS = {
         "tou_peak_consumption",
-        "tou_peak_cost",
         "tou_off_peak_consumption",
-        "tou_off_peak_cost",
     }
 
     def _value_fn(self, key):
@@ -75,28 +73,30 @@ class TestTimeOfUseSensors:
         raise AssertionError(f"sensor {key!r} not found in ANALYTICS_SENSORS")
 
     def test_tou_sensors_exist(self):
-        """All four TOU split sensors must be defined."""
+        """Both TOU split consumption sensors must be defined. (Cost sensors are
+        intentionally absent: the hourly API has no per-hour cost data.)"""
         defined = {s[0] for s in ANALYTICS_SENSORS}
         missing = self.TOU_KEYS - defined
         assert not missing, f"TOU sensors missing from ANALYTICS_SENSORS: {missing}"
+        # Cost sensors must NOT exist (would always read 0).
+        assert "tou_peak_cost" not in defined
+        assert "tou_off_peak_cost" not in defined
 
     def test_tou_value_fns_read_real_data(self):
-        """value_fns must extract peak/off_peak consumption & cost from the
+        """value_fns must extract peak/off_peak consumption from the
         coordinator.data[hourly][time_of_use] structure produced by
         analytics.hourly._compute_tou_breakdown / _split_other_by_window."""
         data = {
             "hourly": {
                 "time_of_use": {
-                    "peak": {"consumption": 3.5, "cost": 1.20, "hours": 4},
-                    "off_peak": {"consumption": 1.5, "cost": 0.27, "hours": 3},
+                    "peak": {"consumption": 3.5, "cost": 0.0, "hours": 4},
+                    "off_peak": {"consumption": 1.5, "cost": 0.0, "hours": 3},
                     "other": {"consumption": 0.0, "cost": 0.0, "hours": 0},
                 }
             }
         }
         assert self._value_fn("tou_peak_consumption")(data) == 3.5
-        assert self._value_fn("tou_peak_cost")(data) == 1.20
         assert self._value_fn("tou_off_peak_consumption")(data) == 1.5
-        assert self._value_fn("tou_off_peak_cost")(data) == 0.27
 
     def test_tou_value_fns_handle_missing_hourly(self):
         """No hourly/time_of_use data yet → None, never an exception."""

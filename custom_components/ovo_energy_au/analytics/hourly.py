@@ -184,13 +184,20 @@ def _build_timeline(processed: dict) -> list[dict]:
                     "charge_value": rate_charge.get("value", 0) if isinstance(rate_charge, dict) else 0,
                 })
         else:
-            # No rate breakdown — use entry-level charge (may be null)
+            # No rate breakdown. The OVO hourly API returns rates: null AND
+            # charge: null, so there is no per-hour rate/cost signal at all —
+            # entry-level charge.type is only a DEBIT/CREDIT direction, never a
+            # TOU rate. Label this as unclassified grid usage ("other") so the
+            # Free 3 peak/off-peak window split (_split_other_by_window) can
+            # re-bucket it by hour. Previously this defaulted to "DEBIT" ->
+            # "shoulder", which silently broke the #63/#74 split on real data
+            # (the split only re-buckets entries labelled "OTHER").
             timeline.append({
                 "timestamp": ts,
                 "hour": ts.hour,
                 "consumption": entry.get("consumption", 0) or 0,
                 "type": "grid",
-                "charge_type": charge.get("type", "DEBIT") if isinstance(charge, dict) else "DEBIT",
+                "charge_type": "OTHER",
                 "charge_value": charge.get("value", 0) if isinstance(charge, dict) else 0,
             })
 
@@ -221,7 +228,11 @@ def _compute_tou_breakdown(timeline: list[dict]) -> dict:
     }
 
     for entry in timeline:
-        charge_type = entry.get("charge_type", "DEBIT")
+        # TOU is a breakdown of GRID consumption by time of use; solar
+        # generation entries are not grid usage and must not inflate it.
+        if entry.get("type") != "grid":
+            continue
+        charge_type = entry.get("charge_type", "OTHER")
         consumption = entry["consumption"]
         charge_value = abs(entry.get("charge_value", 0))
 

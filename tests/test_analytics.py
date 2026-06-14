@@ -1,6 +1,5 @@
 """Tests for analytics processing modules."""
 
-import pytest
 
 from custom_components.ovo_energy_au.analytics.hourly import process_hourly_data
 from custom_components.ovo_energy_au.analytics.insights import compute_insights
@@ -139,31 +138,38 @@ class TestHourlyProcessing:
 
 
 class TestSplitOtherByWindow:
-    """Test re-bucketing OTHER usage into peak/off-peak (issue #63)."""
+    """Test re-bucketing OTHER usage into peak/off-peak (issue #63/#74).
+
+    These use REALISTIC hourly data: the OVO hourly API returns ``charge: null``
+    and ``rates: null`` for every entry (no per-hour rate/cost signal), so the
+    split must work off hour-of-day alone. The earlier fixture fabricated
+    ``charge.type == "OTHER"`` and cost values that the API never sends, which is
+    why the broken v4.2.1 build passed tests yet read 0 against real data.
+    """
 
     @staticmethod
     def _make_data(hours_consumption):
-        """Build hourly export data with OTHER charge type at given local hours.
+        """Build realistic hourly export data (charge=null, rates=null).
 
-        hours_consumption: list of (aest_hour, consumption, charge_dollars).
+        hours_consumption: list of (aest_hour, consumption).
         Timestamps are June (AEST, UTC+10): local hour H = UTC hour H-10.
         """
         export = []
-        for hour, consumption, charge in hours_consumption:
+        for hour, consumption in hours_consumption:
             utc_hour = (hour - 10) % 24
             # Pick the UTC date so the local date stays 2026-06-10
             day = 9 if hour < 10 else 10
             export.append({
                 "periodFrom": f"2026-06-{day:02d}T{utc_hour:02d}:00:00Z",
                 "consumption": consumption,
-                "charge": {"value": charge, "type": "OTHER"},
-                "rates": [],
+                "charge": None,  # real hourly API
+                "rates": None,   # real hourly API
             })
         return {"solar": [], "export": export}
 
     def test_no_window_leaves_other_untouched(self):
         plan = PlanConfig(plan_type="free_3")
-        data = self._make_data([(16, 2.0, 0.70), (3, 1.0, 0.18)])
+        data = self._make_data([(16, 2.0), (3, 1.0)])
         result = process_hourly_data(data, plan)
         tou = result["time_of_use"]
         assert tou["other"]["consumption"] == 3.0
@@ -171,25 +177,26 @@ class TestSplitOtherByWindow:
         assert tou["off_peak"]["consumption"] == 0.0
 
     def test_window_splits_other_into_peak_and_off_peak(self):
+        """Regression for #74: real (rate-less) hourly consumption must split."""
         plan = PlanConfig(plan_type="free_3", peak_start_hour=15, peak_end_hour=21)
         data = self._make_data([
-            (16, 2.0, 0.70),  # inside window -> peak
-            (20, 1.5, 0.50),  # inside window -> peak
-            (3, 1.0, 0.18),   # outside -> off_peak
-            (22, 0.5, 0.09),  # outside (end-exclusive boundary passed) -> off_peak
+            (16, 2.0),  # inside window -> peak
+            (20, 1.5),  # inside window -> peak
+            (3, 1.0),   # outside -> off_peak
+            (22, 0.5),  # outside (end-exclusive boundary passed) -> off_peak
         ])
         result = process_hourly_data(data, plan)
         tou = result["time_of_use"]
         assert tou["peak"]["consumption"] == 3.5
-        assert tou["peak"]["cost"] == 1.20
         assert tou["off_peak"]["consumption"] == 1.5
-        assert tou["off_peak"]["cost"] == 0.27
         assert tou["other"]["consumption"] == 0.0
-        assert tou["other"]["cost"] == 0.0
+        # Cost is unavailable from hourly data (charge is null) -> always 0.
+        assert tou["peak"]["cost"] == 0.0
+        assert tou["off_peak"]["cost"] == 0.0
 
     def test_window_boundaries_are_start_inclusive_end_exclusive(self):
         plan = PlanConfig(plan_type="free_3", peak_start_hour=15, peak_end_hour=21)
-        data = self._make_data([(15, 1.0, 0.35), (21, 1.0, 0.18)])
+        data = self._make_data([(15, 1.0), (21, 1.0)])
         result = process_hourly_data(data, plan)
         tou = result["time_of_use"]
         assert tou["peak"]["consumption"] == 1.0
@@ -198,24 +205,43 @@ class TestSplitOtherByWindow:
     def test_overnight_window(self):
         plan = PlanConfig(plan_type="free_3", peak_start_hour=21, peak_end_hour=7)
         data = self._make_data([
-            (23, 1.0, 0.35),  # in overnight window -> peak
-            (3, 2.0, 0.70),   # in overnight window -> peak
-            (12, 1.5, 0.27),  # outside -> off_peak
+            (23, 1.0),  # in overnight window -> peak
+            (3, 2.0),   # in overnight window -> peak
+            (12, 1.5),  # outside -> off_peak
         ])
         result = process_hourly_data(data, plan)
         tou = result["time_of_use"]
         assert tou["peak"]["consumption"] == 3.0
         assert tou["off_peak"]["consumption"] == 1.5
 
-    def test_non_other_charge_types_unaffected(self):
+    def test_solar_entries_excluded_from_tou(self):
+        """Solar generation is not grid usage and must not inflate the split."""
+        plan = PlanConfig(plan_type="free_3", peak_start_hour=15, peak_end_hour=21)
+        data = {
+            "solar": [{"periodFrom": "2026-06-10T06:00:00Z", "consumption": 9.0,
+                       "charge": None}],
+            "export": [{"periodFrom": "2026-06-10T06:00:00Z", "consumption": 2.0,
+                        "charge": None, "rates": None}],  # local 16:00 -> peak
+        }
+        result = process_hourly_data(data, plan)
+        tou = result["time_of_use"]
+        assert tou["peak"]["consumption"] == 2.0
+        total = sum(b["consumption"] for b in tou.values())
+        assert total == 2.0  # solar 9.0 not counted anywhere in TOU
+
+    def test_rates_present_classified_by_type_not_window(self):
+        """If the API ever DOES return hourly rates, entries are classified by
+        rate type and the window split only touches unclassified OTHER usage."""
         plan = PlanConfig(plan_type="free_3", peak_start_hour=15, peak_end_hour=21)
         data = {
             "solar": [],
             "export": [
-                {"periodFrom": "2026-06-10T06:00:00Z", "consumption": 2.0,
-                 "charge": {"value": 0.36, "type": "OFF_PEAK"}, "rates": []},
-                {"periodFrom": "2026-06-10T08:00:00Z", "consumption": 1.0,
-                 "charge": {"value": 0.0, "type": "FREE_3"}, "rates": []},
+                {"periodFrom": "2026-06-10T06:00:00Z", "consumption": 2.0, "charge": None,
+                 "rates": [{"type": "OFF_PEAK", "consumption": 2.0,
+                            "charge": {"value": 0.36, "type": "DEBIT"}}]},
+                {"periodFrom": "2026-06-10T08:00:00Z", "consumption": 1.0, "charge": None,
+                 "rates": [{"type": "FREE_3", "consumption": 1.0,
+                            "charge": {"value": 0.0, "type": "DEBIT"}}]},
             ],
         }
         result = process_hourly_data(data, plan)
