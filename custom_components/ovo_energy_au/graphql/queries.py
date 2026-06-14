@@ -208,3 +208,25 @@ query GetStatements($input: GetAccountInfoInput!) {
   }
 }
 """
+
+# Payments + refer-a-friend. NOTE: raf sub-fields each take their own required
+# `input` arg (unusual), so $input is reused on referralCode/totalEarned/referrals.
+GET_ACCOUNT_EXTRAS = """
+query GetAccountExtras($input: GetAccountInfoInput!) {
+  GetAccountInfo(input: $input) {
+    id
+    payments {
+      amount
+      date
+      type
+    }
+    raf {
+      referralCode(input: $input)
+      totalEarned(input: $input)
+      referrals(input: $input) {
+        status
+      }
+    }
+  }
+}
+"""

@@ -5,6 +5,15 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2026-06-14
+
+### New Features
+- **Payment history** - New `GetAccountExtras` query exposes your payments (verified live). A `Latest Payment` sensor shows the most recent amount, with date, type (DIRECT_DEBIT / TOP_UP), payment count, and a `recent_payments` history list in its attributes
+- **Refer-a-friend earnings** - A `Referral Earnings` sensor shows your total OVO referral credit earned, with your referral code and referral count in attributes (the raf API sub-fields take a per-field `input` arg, handled in the query)
+
+### Maintenance
+- `tests/` now passes `ruff check` cleanly (removed unused imports, sorted imports, moved conftest's datetime import out of the post-mock block). No behaviour change
+
 ## [4.4.0] - 2026-06-14
 
 ### New Features

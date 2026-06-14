@@ -182,6 +182,43 @@ class TestEnergyDashboardSensor:
         assert sol.native_value == 92.36
 
 
+class TestPaymentAndReferralSensors:
+    """Payments + refer-a-friend sensors (verified against live data)."""
+
+    def _coord(self, data):
+        c = MagicMock()
+        c.account_id = "123"
+        c.data = data
+        return c
+
+    def test_latest_payment(self):
+        from custom_components.ovo_energy_au.sensor import OVOLatestPaymentSensor
+        c = self._coord({
+            "latest_payment": {"amount": 120, "date": "2026-05-14", "type": "DIRECT_DEBIT"},
+            "payments": [{"amount": 120, "date": "2026-05-14", "type": "DIRECT_DEBIT"}],
+        })
+        s = OVOLatestPaymentSensor(c)
+        assert s.native_value == 120.0
+        attrs = s.extra_state_attributes
+        assert attrs["date"] == "2026-05-14"
+        assert attrs["payment_type"] == "DIRECT_DEBIT"
+        assert attrs["payment_count"] == 1
+
+    def test_referral(self):
+        from custom_components.ovo_energy_au.sensor import OVOReferralSensor
+        c = self._coord({"referral": {"code": "daniel16485", "total_earned": 45.03,
+                                      "referral_count": 2}})
+        s = OVOReferralSensor(c)
+        assert s.native_value == 45.03
+        assert s.extra_state_attributes["referral_code"] == "daniel16485"
+        assert s.extra_state_attributes["referrals"] == 2
+
+    def test_empty_safe(self):
+        from custom_components.ovo_energy_au.sensor import OVOLatestPaymentSensor, OVOReferralSensor
+        assert OVOLatestPaymentSensor(self._coord(None)).native_value is None
+        assert OVOReferralSensor(self._coord({})).native_value is None
+
+
 class TestRateTypes:
     """Verify RATE_TYPES and RATE_TYPE_ICONS consistency."""
 

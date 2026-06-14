@@ -35,6 +35,7 @@ from .const import (
     TOKEN_REFRESH_MIN_BUFFER_SECONDS,
 )
 from .graphql.queries import (
+    GET_ACCOUNT_EXTRAS,
     GET_CONTACT_INFO,
     GET_HOURLY_DATA,
     GET_INTERVAL_DATA,
@@ -617,6 +618,17 @@ class OVOEnergyAUApiClient:
         return await self._graphql_request(
             operation_name="GetStatements",
             query=GET_STATEMENTS,
+            variables={"input": {"id": account_id, "system": "KALUZA"}},
+            result_key="GetAccountInfo",
+            referer_path="/billing",
+            allow_null_result=True,
+        )
+
+    async def get_account_extras(self, account_id: str) -> dict[str, Any]:
+        """Get payments + refer-a-friend details for an account."""
+        return await self._graphql_request(
+            operation_name="GetAccountExtras",
+            query=GET_ACCOUNT_EXTRAS,
             variables={"input": {"id": account_id, "system": "KALUZA"}},
             result_key="GetAccountInfo",
             referer_path="/billing",

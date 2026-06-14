@@ -1,9 +1,7 @@
 """Tests for hourly data helper functions in sensors/base.py."""
 
-import pytest
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime
 from unittest.mock import patch
-from zoneinfo import ZoneInfo
 
 from custom_components.ovo_energy_au.sensors.base import (
     AU_TIMEZONE,

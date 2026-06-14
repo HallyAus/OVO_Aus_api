@@ -1,6 +1,5 @@
 """Tests for PlanConfig data model."""
 
-import pytest
 
 from custom_components.ovo_energy_au.models import PlanConfig
 

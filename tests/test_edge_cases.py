@@ -4,13 +4,11 @@ These cover null fields, missing keys, flat-rate users, and other
 scenarios that have caused issues in production.
 """
 
-import pytest
 
-from custom_components.ovo_energy_au.analytics.interval import process_interval_data
 from custom_components.ovo_energy_au.analytics.hourly import process_hourly_data
 from custom_components.ovo_energy_au.analytics.insights import compute_insights
+from custom_components.ovo_energy_au.analytics.interval import process_interval_data
 from custom_components.ovo_energy_au.models import PlanConfig
-from custom_components.ovo_energy_au.sensors.definitions import get_rate_value
 
 
 class TestNullSolarAndExport:

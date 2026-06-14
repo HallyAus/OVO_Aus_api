@@ -170,6 +170,35 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["statements"] = []
                 processed["latest_bill"] = {}
 
+            # 4d. Payments + refer-a-friend
+            try:
+                extras = await self.client.get_account_extras(self.account_id)
+                payments = sorted(
+                    (extras or {}).get("payments") or [],
+                    key=lambda p: p.get("date") or "",
+                    reverse=True,
+                )
+                processed["payments"] = payments
+                processed["latest_payment"] = (
+                    {"amount": payments[0].get("amount"),
+                     "date": payments[0].get("date"),
+                     "type": payments[0].get("type")}
+                    if payments else {}
+                )
+                raf = (extras or {}).get("raf") or {}
+                processed["referral"] = {
+                    "code": raf.get("referralCode"),
+                    "total_earned": raf.get("totalEarned"),
+                    "referral_count": len(raf.get("referrals") or []),
+                }
+            except OVOEnergyAUApiClientAuthenticationError:
+                raise
+            except Exception as err:
+                _LOGGER.debug("Failed to fetch account extras: %s", err)
+                processed["payments"] = []
+                processed["latest_payment"] = {}
+                processed["referral"] = {}
+
             # 5. Account balance from contact info
             try:
                 contact_info = await self.client.get_contact_info()

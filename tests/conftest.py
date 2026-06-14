@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sys
 import types
+from datetime import UTC
+from datetime import datetime as _dt
 from unittest.mock import MagicMock
 
 # Mock homeassistant module so imports don't fail outside HA
@@ -55,9 +57,8 @@ sensor_mod.SensorStateClass = MagicMock()
 sys.modules.setdefault("homeassistant.components.sensor", sensor_mod)
 
 # Mock dt_util.now() to return a real datetime
-from datetime import datetime as _dt, timezone as _tz
 dt_mock = MagicMock()
-dt_mock.now = MagicMock(return_value=_dt(2026, 3, 20, 12, 0, 0, tzinfo=_tz.utc))
+dt_mock.now = MagicMock(return_value=_dt(2026, 3, 20, 12, 0, 0, tzinfo=UTC))
 util_mock = MagicMock()
 util_mock.dt = dt_mock
 sys.modules.setdefault("homeassistant.util", util_mock)
@@ -69,9 +70,9 @@ sys.modules.setdefault("aiohttp", ha_mock)
 sys.modules.setdefault("jwt", ha_mock)
 sys.modules.setdefault("voluptuous", ha_mock)
 
-import pytest
+import pytest  # noqa: E402
 
-from custom_components.ovo_energy_au.models import PlanConfig
+from custom_components.ovo_energy_au.models import PlanConfig  # noqa: E402
 
 
 @pytest.fixture

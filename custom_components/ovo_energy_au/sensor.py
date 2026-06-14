@@ -82,9 +82,11 @@ async def async_setup_entry(
     # ── Plan comparison / recommendation ──
     sensors.append(OVORateComparisonSensor(coordinator))
 
-    # ── Real bills + last-3-days (rich attributes) ──
+    # ── Real bills + last-3-days + payments + referral (rich attributes) ──
     sensors.append(OVOLatestBillSensor(coordinator))
     sensors.append(OVOLast3DaysSensor(coordinator))
+    sensors.append(OVOLatestPaymentSensor(coordinator))
+    sensors.append(OVOReferralSensor(coordinator))
 
     # ── HA Energy Dashboard (cumulative month-to-date, total + last_reset) ──
     sensors.append(OVOEnergyDashboardSensor(
@@ -938,5 +940,62 @@ class OVOEnergyDashboardSensor(OVOBaseSensor):
         """Start of the current month (AEST) — when the monthly total reset."""
         now = datetime.now(AU_TIMEZONE)
         return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+class OVOLatestPaymentSensor(OVOBaseSensor):
+    """Most recent payment — amount as state, date/type/history in attributes."""
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "latest_payment", "Latest Payment", "Payments")
+        self._attr_icon = "mdi:cash-register"
+        self._attr_native_unit_of_measurement = "AUD"
+        self._attr_device_class = SensorDeviceClass.MONETARY
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        amt = (self.coordinator.data.get("latest_payment") or {}).get("amount")
+        return round(float(amt), 2) if amt is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        if not self.coordinator.data:
+            return {}
+        lp = self.coordinator.data.get("latest_payment") or {}
+        payments = self.coordinator.data.get("payments") or []
+        return {
+            "date": lp.get("date"),
+            "payment_type": lp.get("type"),
+            "payment_count": len(payments),
+            "recent_payments": payments[:12],
+        }
+
+
+class OVOReferralSensor(OVOBaseSensor):
+    """Refer-a-friend earnings — total earned as state, code/count in attributes."""
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "referral_earnings", "Referral Earnings", "Referrals")
+        self._attr_icon = "mdi:account-multiple-plus"
+        self._attr_native_unit_of_measurement = "AUD"
+        self._attr_device_class = SensorDeviceClass.MONETARY
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        earned = (self.coordinator.data.get("referral") or {}).get("total_earned")
+        return round(float(earned), 2) if earned is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        if not self.coordinator.data:
+            return {}
+        ref = self.coordinator.data.get("referral") or {}
+        return {
+            "referral_code": ref.get("code"),
+            "referrals": ref.get("referral_count"),
+        }
 
 
