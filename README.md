@@ -30,6 +30,9 @@ Track solar generation, grid consumption, costs, rate breakdowns, and OVO plan s
 
 > *"Use the Force wisely, young Padawan. Monitor your energy, you must."* -- Yoda (probably)
 
+### 🎁 New to OVO? Get **$120–$180 credit** with my referral 👉 **[ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
+It costs you nothing extra, both of us get credit, and it's the only thing funding this project. 💚
+
 [Features](#features) · [Quick Start](#quick-start) · [Sensors](#sensors) · [Dashboards](#dashboard-examples) · [Contributing](#contributing)
 
 </div>
