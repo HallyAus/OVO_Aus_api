@@ -5,6 +5,11 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2026-06-14
+
+### New Features
+- **Home Assistant Energy Dashboard support (#73)** - Three purpose-built sensors feed HA's built-in Energy Dashboard: `energy_grid_import`, `energy_grid_export`, `energy_solar_production`. They expose cumulative month-to-date totals with `state_class=total` and a monthly `last_reset` — the form the Energy Dashboard expects — so the existing point-in-time "Yesterday" sensors no longer need to be (incorrectly) used there. Add them under Settings → Energy. (OVO publishes usage ~1 day delayed, so the dashboard fills in a day behind.)
+
 ## [4.3.0] - 2026-06-14
 
 ### New Features

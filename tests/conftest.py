@@ -20,8 +20,9 @@ sys.modules.setdefault("homeassistant.helpers.aiohttp_client", ha_mock)
 # in OVOBaseSensor(CoordinatorEntity, SensorEntity) doesn't hit a metaclass conflict.
 class _CoordinatorEntity:
     """Stub for homeassistant.helpers.update_coordinator.CoordinatorEntity."""
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, coordinator=None, *args, **kwargs):
+        # Mirror the real CoordinatorEntity, which exposes self.coordinator.
+        self.coordinator = coordinator
 
 class _SensorEntity:
     """Stub for homeassistant.components.sensor.SensorEntity."""

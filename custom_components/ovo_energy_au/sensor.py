@@ -86,6 +86,17 @@ async def async_setup_entry(
     sensors.append(OVOLatestBillSensor(coordinator))
     sensors.append(OVOLast3DaysSensor(coordinator))
 
+    # ── HA Energy Dashboard (cumulative month-to-date, total + last_reset) ──
+    sensors.append(OVOEnergyDashboardSensor(
+        coordinator, "energy_grid_import", "Grid Import (Energy Dashboard)",
+        "grid_consumption", "mdi:transmission-tower-import"))
+    sensors.append(OVOEnergyDashboardSensor(
+        coordinator, "energy_grid_export", "Grid Export (Energy Dashboard)",
+        "return_to_grid", "mdi:transmission-tower-export"))
+    sensors.append(OVOEnergyDashboardSensor(
+        coordinator, "energy_solar_production", "Solar Production (Energy Dashboard)",
+        "solar_consumption", "mdi:solar-power"))
+
     async_add_entities(sensors)
 
 
@@ -890,5 +901,42 @@ class OVOLast3DaysSensor(OVOBaseSensor):
             return {}
         days = self.coordinator.data.get("last_3_days") or []
         return {"days": days, "day_count": len(days)}
+
+
+class OVOEnergyDashboardSensor(OVOBaseSensor):
+    """Cumulative month-to-date energy sensor for HA's built-in Energy Dashboard (#73).
+
+    OVO exposes period totals, not a raw meter reading, so this uses
+    state_class=TOTAL with last_reset at the start of the current month — the
+    pattern Home Assistant expects for period-based sources. The monthly
+    grid/export/solar aggregate accumulates through the month and resets on the
+    1st (signalled via last_reset), so the Energy Dashboard derives correct
+    daily and monthly figures. Add these under Settings -> Energy.
+    """
+
+    def __init__(self, coordinator, key, name, data_key, icon):
+        super().__init__(coordinator, key, name, "Energy Dashboard")
+        self._data_key = data_key
+        self._icon = icon
+        self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+        self._attr_device_class = SensorDeviceClass.ENERGY
+        self._attr_state_class = SensorStateClass.TOTAL
+
+    @property
+    def icon(self) -> str:
+        return self._icon
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        val = (self.coordinator.data.get("monthly") or {}).get(self._data_key)
+        return round(float(val), 3) if val is not None else None
+
+    @property
+    def last_reset(self) -> datetime:
+        """Start of the current month (AEST) — when the monthly total reset."""
+        now = datetime.now(AU_TIMEZONE)
+        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 

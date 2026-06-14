@@ -145,6 +145,43 @@ class TestBillAndTariffSensors:
             assert self._vfn(key)({"product_agreements": None}) is None
 
 
+class TestEnergyDashboardSensor:
+    """Energy Dashboard cumulative sensors (#73)."""
+
+    def _coord(self, data):
+        c = MagicMock()
+        c.account_id = "123"
+        c.data = data
+        return c
+
+    def test_reads_monthly_total_and_resets_monthly(self):
+        from custom_components.ovo_energy_au.sensor import OVOEnergyDashboardSensor
+        c = self._coord({"monthly": {"grid_consumption": 841.31, "return_to_grid": 12.0,
+                                     "solar_consumption": 92.36}})
+        s = OVOEnergyDashboardSensor(c, "energy_grid_import", "Grid Import",
+                                     "grid_consumption", "mdi:transmission-tower-import")
+        assert s.native_value == 841.31
+        # last_reset is the first of the current month (so HA handles the monthly reset)
+        assert s.last_reset.day == 1
+        assert s.last_reset.hour == 0
+
+    def test_none_when_no_data(self):
+        from custom_components.ovo_energy_au.sensor import OVOEnergyDashboardSensor
+        s = OVOEnergyDashboardSensor(self._coord(None), "energy_grid_import", "Grid Import",
+                                     "grid_consumption", "mdi:transmission-tower-import")
+        assert s.native_value is None
+
+    def test_export_and_solar_keys(self):
+        from custom_components.ovo_energy_au.sensor import OVOEnergyDashboardSensor
+        c = self._coord({"monthly": {"return_to_grid": 12.0, "solar_consumption": 92.36}})
+        exp = OVOEnergyDashboardSensor(c, "energy_grid_export", "Grid Export",
+                                       "return_to_grid", "mdi:x")
+        sol = OVOEnergyDashboardSensor(c, "energy_solar_production", "Solar",
+                                       "solar_consumption", "mdi:x")
+        assert exp.native_value == 12.0
+        assert sol.native_value == 92.36
+
+
 class TestRateTypes:
     """Verify RATE_TYPES and RATE_TYPE_ICONS consistency."""
 

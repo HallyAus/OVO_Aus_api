@@ -8,7 +8,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore)](https://github.com/hacs/integration)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.3.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.4.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
@@ -62,6 +62,20 @@ Running Home Assistant somewhere rural or need a reliable backup link?
 
 - ✅ One free month of Starlink service
 - ✅ Works anywhere with a clear view of sky
+
+---
+
+## ⚡ Home Assistant Energy Dashboard
+
+The integration ships three sensors purpose-built for HA's built-in **Energy Dashboard** (Settings → Energy). In each picker, choose the matching sensor from the **Energy Dashboard** device:
+
+| Dashboard slot | Pick the sensor named |
+|----------------|-----------------------|
+| **Grid consumption** | *Grid Import (Energy Dashboard)* |
+| **Return to grid** | *Grid Export (Energy Dashboard)* |
+| **Solar production** | *Solar Production (Energy Dashboard)* |
+
+These are cumulative month-to-date totals (`state_class: total` with a monthly `last_reset`), which is the form the Energy Dashboard expects — so daily and monthly bars populate correctly. Note OVO publishes usage with about a day's delay, so the dashboard fills in a day behind.
 
 ---
 
