@@ -5,6 +5,14 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.0] - 2026-06-14
+
+### New Features
+- **OVO Flex onboarding status** - New diagnostic sensor `flex_onboarded` ("Onboarded"/"Not Onboarded"). The field name (`flex { hasOnboarded }`) was recovered by scanning the OVO web app's bundled GraphQL operations; `hasOnboarded` is the only field the API exposes under `flex` (no balance/VPP data exists). Folded into the existing account-extras query (no extra request)
+
+### Notes
+- `GetNotificationInfo` is intentionally **not** exposed: its input requires an `fcmToken` (a mobile push-notification token) that a Home Assistant integration cannot provide. This was confirmed against the live API. The OVO GraphQL surface is now fully mapped and everything usable from a server-side integration is exposed
+
 ## [4.5.0] - 2026-06-14
 
 ### New Features

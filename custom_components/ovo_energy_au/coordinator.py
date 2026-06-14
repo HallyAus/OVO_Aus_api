@@ -191,6 +191,9 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                     "total_earned": raf.get("totalEarned"),
                     "referral_count": len(raf.get("referrals") or []),
                 }
+                processed["flex"] = {
+                    "onboarded": ((extras or {}).get("flex") or {}).get("hasOnboarded"),
+                }
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
@@ -198,6 +201,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["payments"] = []
                 processed["latest_payment"] = {}
                 processed["referral"] = {}
+                processed["flex"] = {}
 
             # 5. Account balance from contact info
             try:

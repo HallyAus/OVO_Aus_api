@@ -87,6 +87,7 @@ async def async_setup_entry(
     sensors.append(OVOLast3DaysSensor(coordinator))
     sensors.append(OVOLatestPaymentSensor(coordinator))
     sensors.append(OVOReferralSensor(coordinator))
+    sensors.append(OVOFlexSensor(coordinator))
 
     # ── HA Energy Dashboard (cumulative month-to-date, total + last_reset) ──
     sensors.append(OVOEnergyDashboardSensor(
@@ -997,5 +998,30 @@ class OVOReferralSensor(OVOBaseSensor):
             "referral_code": ref.get("code"),
             "referrals": ref.get("referral_count"),
         }
+
+
+class OVOFlexSensor(OVOBaseSensor):
+    """OVO Flex onboarding status (diagnostic).
+
+    The OVO API's `flex` object exposes a single field, `hasOnboarded` — there is
+    no balance/credits/VPP data in the API (confirmed by scanning the web app's
+    GraphQL operations). GetNotificationInfo is intentionally not surfaced: its
+    input requires an `fcmToken` (a mobile push token) that an HA integration
+    does not have.
+    """
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "flex_onboarded", "OVO Flex Onboarded", "General")
+        self._attr_icon = "mdi:account-star"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> str | None:
+        if not self.coordinator.data:
+            return None
+        onboarded = (self.coordinator.data.get("flex") or {}).get("onboarded")
+        if onboarded is None:
+            return None
+        return "Onboarded" if onboarded else "Not Onboarded"
 
 

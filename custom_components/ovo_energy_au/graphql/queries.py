@@ -215,6 +215,9 @@ GET_ACCOUNT_EXTRAS = """
 query GetAccountExtras($input: GetAccountInfoInput!) {
   GetAccountInfo(input: $input) {
     id
+    flex {
+      hasOnboarded
+    }
     payments {
       amount
       date

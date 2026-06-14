@@ -218,6 +218,14 @@ class TestPaymentAndReferralSensors:
         assert OVOLatestPaymentSensor(self._coord(None)).native_value is None
         assert OVOReferralSensor(self._coord({})).native_value is None
 
+    def test_flex_onboarded(self):
+        from custom_components.ovo_energy_au.sensor import OVOFlexSensor
+        assert OVOFlexSensor(self._coord({"flex": {"onboarded": True}})).native_value == "Onboarded"
+        assert OVOFlexSensor(self._coord({"flex": {"onboarded": False}})).native_value == "Not Onboarded"
+        # No flex data yet -> None (unknown), never a crash
+        assert OVOFlexSensor(self._coord({"flex": {}})).native_value is None
+        assert OVOFlexSensor(self._coord(None)).native_value is None
+
 
 class TestRateTypes:
     """Verify RATE_TYPES and RATE_TYPE_ICONS consistency."""
