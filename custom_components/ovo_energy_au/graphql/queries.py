@@ -179,3 +179,32 @@ query GetProductAgreements($input: GetAccountInfoInput!) {
   }
 }
 """
+
+GET_STATEMENTS = """
+query GetStatements($input: GetAccountInfoInput!) {
+  GetAccountInfo(input: $input) {
+    id
+    statements {
+      id
+      periodFrom
+      periodTo
+      issueDate
+      openingBalance {
+        value
+        type
+      }
+      closingBalance {
+        value
+        type
+      }
+      charges {
+        total {
+          value
+          type
+        }
+      }
+      downloadUrl
+    }
+  }
+}
+"""

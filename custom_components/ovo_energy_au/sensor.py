@@ -82,6 +82,10 @@ async def async_setup_entry(
     # ── Plan comparison / recommendation ──
     sensors.append(OVORateComparisonSensor(coordinator))
 
+    # ── Real bills + last-3-days (rich attributes) ──
+    sensors.append(OVOLatestBillSensor(coordinator))
+    sensors.append(OVOLast3DaysSensor(coordinator))
+
     async_add_entities(sensors)
 
 
@@ -810,5 +814,81 @@ class OVOHourlyDaySensor(OVOBaseSensor):
             "hourly_values": result["hourly_data"],
             "data_points": len(result["hourly_data"]),
         }
+
+
+class OVOLatestBillSensor(OVOBaseSensor):
+    """Most recent issued bill — amount as state, period/balances/PDF in attributes."""
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator, "latest_bill", "Latest Bill", "Bills")
+        self._attr_icon = "mdi:receipt-text"
+        self._attr_native_unit_of_measurement = "AUD"
+        self._attr_device_class = SensorDeviceClass.MONETARY
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        total = (self.coordinator.data.get("latest_bill") or {}).get("total")
+        return round(float(total), 2) if total is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        if not self.coordinator.data:
+            return {}
+        bill = self.coordinator.data.get("latest_bill") or {}
+        statements = self.coordinator.data.get("statements") or []
+        return {
+            "period_from": bill.get("period_from"),
+            "period_to": bill.get("period_to"),
+            "issue_date": bill.get("issue_date"),
+            "opening_balance": bill.get("opening_balance"),
+            "closing_balance": bill.get("closing_balance"),
+            "download_url": bill.get("download_url"),
+            "statement_count": len(statements),
+            "recent_bills": [
+                {
+                    "period_from": s.get("periodFrom"),
+                    "period_to": s.get("periodTo"),
+                    "issue_date": s.get("issueDate"),
+                    "total": ((s.get("charges") or {}).get("total") or {}).get("value"),
+                    "closing_balance": (s.get("closingBalance") or {}).get("value"),
+                    "download_url": s.get("downloadUrl"),
+                }
+                for s in statements[:12]
+            ],
+        }
+
+
+class OVOLast3DaysSensor(OVOBaseSensor):
+    """Last 3 days of grid usage — total kWh as state, per-day detail in attributes.
+
+    Surfaces coordinator.data["last_3_days"], which was computed every refresh but
+    previously had no entity (orphan analytics, same class as #74).
+    """
+
+    def __init__(self, coordinator):
+        super().__init__(
+            coordinator, "last_3_days_grid", "Grid Consumption (Last 3 Days)", "Last 3 Days"
+        )
+        self._attr_icon = "mdi:calendar-range"
+        self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+        self._attr_device_class = SensorDeviceClass.ENERGY
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        days = self.coordinator.data.get("last_3_days") or []
+        if not days:
+            return None
+        return round(sum(d.get("grid_consumption", 0) or 0 for d in days), 2)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        if not self.coordinator.data:
+            return {}
+        days = self.coordinator.data.get("last_3_days") or []
+        return {"days": days, "day_count": len(days)}
 
 

@@ -45,18 +45,21 @@ INTERNAL_NAMESPACES = {
     "hourly.hourly_rates_breakdown",  # redundant: per-rate split already surfaced via {period}.rate_breakdown
     "hourly.ev_usage_monthly",        # redundant copy of monthly EV (monthly_ev_charging_* sensors exist)
     "hourly.ev_usage_yearly",         # bounded by the ~7-day hourly window; a "yearly" sensor would mislead
+    # The hourly free/EV trackers CANNOT be populated: GetHourlyData returns no
+    # rate labels (rates: null), so an hour's charge_type is never FREE/EV_OFFPEAK
+    # and these stay 0 (verified on live data). The REAL free/EV figures are
+    # exposed from interval rate_breakdown ({period}_free_3_*, {period}_ev_offpeak_*,
+    # and the monthly/yearly EV charging sensors).
+    "hourly.free_usage",
+    "hourly.ev_usage",
+    "hourly.ev_usage_weekly",
 }
 
 # Produced user-facing data NOT yet surfaced — documented tech debt, same bug
-# class as #74. Listed so this contract passes today while keeping the gaps
-# visible. When one is exposed as a sensor, REMOVE it here (the second test
-# enforces that). See the orphan-namespace audit for rationale.
-KNOWN_UNEXPOSED_GAPS = {
-    "last_3_days",          # full daily-entry list; direct twin of the exposed last_7_days
-    "hourly.free_usage",    # MTD FREE_3 {consumption, cost_saved, hours}; cost_saved exposed nowhere
-    "hourly.ev_usage",      # MTD EV {consumption, cost, cost_saved, hours}; cost_saved unique
-    "hourly.ev_usage_weekly",  # last-7-days EV; there is no weekly EV sensor at all
-}
+# class as #74. When one is exposed as a sensor, REMOVE it here (the second test
+# enforces that). Currently empty: last_3_days is exposed via OVOLast3DaysSensor,
+# and the hourly free/EV trackers were reclassified as internal (above).
+KNOWN_UNEXPOSED_GAPS: set = set()
 
 
 def _produced_namespaces(interval_data, hourly_data, plan_config) -> set[str]:

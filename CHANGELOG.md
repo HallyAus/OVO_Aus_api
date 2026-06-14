@@ -5,6 +5,16 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-06-14
+
+### New Features
+- **Real bills (statements)** - New `GetStatements` query exposes your actual issued bills (verified against the live API). New sensors: `latest_bill_amount`, `latest_bill_closing_balance`, `latest_bill_opening_balance`, plus a `Latest Bill` sensor whose attributes include the billing period, issue date, balances, a PDF `download_url`, and a `recent_bills` list. This is real billed data, complementing the existing `bill_estimate_*` projections
+- **Real plan rates as sensors (#63)** - New `Tariff Rates` sensors surface your actual plan rates from the API (`tariff_peak_rate`, `tariff_shoulder_rate`, `tariff_off_peak_rate`, `tariff_ev_off_peak_rate`, `tariff_feed_in_rate`, `tariff_standing_charge`). The manual rate config is already auto-populated from the API at setup; these expose the live values too
+- **`Grid Consumption (Last 3 Days)` sensor** - Surfaces the previously-computed-but-unexposed `last_3_days` aggregation (orphan-namespace gap), with per-day detail in attributes
+
+### Notes
+- The hourly free/EV usage trackers (`hourly.free_usage`, `hourly.ev_usage`, `hourly.ev_usage_weekly`) are intentionally **not** exposed: the hourly API returns no rate labels, so they always compute 0 (verified). The real free/EV figures are exposed via the interval `rate_breakdown` sensors (`{period}_free_3_*`, `{period}_ev_offpeak_*`, EV charging sensors)
+
 ## [4.2.2] - 2026-06-14
 
 ### Bug Fixes

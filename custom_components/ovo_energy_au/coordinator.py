@@ -138,6 +138,38 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 _LOGGER.debug("Failed to calculate bill estimate: %s", err)
                 processed["bill_estimate"] = {}
 
+            # 4c. Billing statements (real bills with PDF links)
+            try:
+                stmt_result = await self.client.get_statements(self.account_id)
+                statements = (stmt_result or {}).get("statements") or []
+                # Newest first (by issue date, falling back to period end)
+                statements = sorted(
+                    statements,
+                    key=lambda s: s.get("issueDate") or s.get("periodTo") or "",
+                    reverse=True,
+                )
+                processed["statements"] = statements
+                if statements:
+                    latest = statements[0]
+                    charges_total = ((latest.get("charges") or {}).get("total") or {})
+                    processed["latest_bill"] = {
+                        "total": charges_total.get("value"),
+                        "closing_balance": (latest.get("closingBalance") or {}).get("value"),
+                        "opening_balance": (latest.get("openingBalance") or {}).get("value"),
+                        "period_from": latest.get("periodFrom"),
+                        "period_to": latest.get("periodTo"),
+                        "issue_date": latest.get("issueDate"),
+                        "download_url": latest.get("downloadUrl"),
+                    }
+                else:
+                    processed["latest_bill"] = {}
+            except OVOEnergyAUApiClientAuthenticationError:
+                raise
+            except Exception as err:
+                _LOGGER.debug("Failed to fetch statements: %s", err)
+                processed["statements"] = []
+                processed["latest_bill"] = {}
+
             # 5. Account balance from contact info
             try:
                 contact_info = await self.client.get_contact_info()

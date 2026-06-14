@@ -105,6 +105,46 @@ class TestTimeOfUseSensors:
             assert self._value_fn(key)({"hourly": {}}) is None
 
 
+class TestBillAndTariffSensors:
+    """Real-bill (statements) and API-rate sensors (#74 follow-ups)."""
+
+    def _vfn(self, key):
+        for s in ANALYTICS_SENSORS:
+            if s[0] == key:
+                return s[6]
+        raise AssertionError(f"{key!r} not in ANALYTICS_SENSORS")
+
+    def test_latest_bill_value_fns(self):
+        data = {"latest_bill": {"total": 78.5, "closing_balance": 24.5, "opening_balance": 55.05}}
+        assert self._vfn("latest_bill_amount")(data) == 78.5
+        assert self._vfn("latest_bill_closing_balance")(data) == 24.5
+        assert self._vfn("latest_bill_opening_balance")(data) == 55.05
+
+    def test_latest_bill_empty_safe(self):
+        for key in ("latest_bill_amount", "latest_bill_closing_balance",
+                    "latest_bill_opening_balance"):
+            assert self._vfn(key)({}) is None
+
+    def test_tariff_rate_value_fns_convert_cents_to_dollars(self):
+        data = {"product_agreements": {"productAgreements": [
+            {"product": {"unitRatesCentsPerKWH": {"peak": 37.18, "shoulder": 25.0,
+                                                  "offPeak": 18.0, "evOffPeak": 8.0,
+                                                  "feedInTariff": 3.3},
+                         "standingChargeCentsPerDay": 110.0}}]}}
+        assert self._vfn("tariff_peak_rate")(data) == 0.3718
+        assert self._vfn("tariff_shoulder_rate")(data) == 0.25
+        assert self._vfn("tariff_off_peak_rate")(data) == 0.18
+        assert self._vfn("tariff_ev_off_peak_rate")(data) == 0.08
+        assert self._vfn("tariff_feed_in_rate")(data) == 0.033
+        assert self._vfn("tariff_standing_charge")(data) == 1.10
+
+    def test_tariff_rate_empty_safe(self):
+        for key in ("tariff_peak_rate", "tariff_shoulder_rate", "tariff_off_peak_rate",
+                    "tariff_ev_off_peak_rate", "tariff_feed_in_rate", "tariff_standing_charge"):
+            assert self._vfn(key)({}) is None
+            assert self._vfn(key)({"product_agreements": None}) is None
+
+
 class TestRateTypes:
     """Verify RATE_TYPES and RATE_TYPE_ICONS consistency."""
 
