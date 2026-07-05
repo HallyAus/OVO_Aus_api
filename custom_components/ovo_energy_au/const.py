@@ -21,6 +21,8 @@ CONF_FLAT_RATE = "flat_rate"
 # re-bucket OTHER into peak/off-peak. start == end means disabled.
 CONF_PEAK_START_HOUR = "peak_start_hour"
 CONF_PEAK_END_HOUR = "peak_end_hour"
+# Day of the month the OVO billing cycle starts (1-31). 1 = calendar month.
+CONF_BILLING_CYCLE_DAY = "billing_cycle_day"
 
 # Plan types
 PLAN_FREE_3 = "free_3"

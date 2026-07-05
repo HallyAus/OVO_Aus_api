@@ -3,13 +3,22 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 
 from homeassistant.util import dt as dt_util
 
 from ..const import AU_TIMEZONE
+from .billing import current_cycle_bounds, previous_cycle_bounds
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _entry_date(entry: dict) -> date | None:
+    """Return a daily entry's calendar date from its year/month/day fields."""
+    try:
+        return date(entry["year"], entry["month"], entry["day"])
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def _parse_entry_date(period_from: str) -> datetime:
@@ -32,8 +41,12 @@ def _safe_charge(entry: dict) -> dict:
     return charge if isinstance(charge, dict) else {}
 
 
-def process_interval_data(data: dict) -> dict:
+def process_interval_data(data: dict, billing_cycle_day: int = 1) -> dict:
     """Process interval data from the OVO API.
+
+    ``billing_cycle_day`` (1-31) sets which day the billing cycle starts, so
+    month-to-date and last-cycle aggregations follow the user's real bill
+    period. The default of 1 gives calendar-month boundaries.
 
     The API returns arrays of historical data:
     - daily: individual day entries (latest = yesterday, available at 6am)
@@ -84,8 +97,8 @@ def process_interval_data(data: dict) -> dict:
         # Sydney time, so "current month" matches the AU billing day even
         # when HA itself is configured for a different timezone
         now = dt_util.now(AU_TIMEZONE)
-        _add_aggregations(processed, all_daily_entries, now)
-        _add_monthly_breakdowns(processed, daily_data, now)
+        _add_aggregations(processed, all_daily_entries, now, billing_cycle_day)
+        _add_monthly_breakdowns(processed, daily_data, now, billing_cycle_day)
 
     # All-time aggregation from monthly data
     if "monthly" in data and isinstance(data.get("monthly"), dict):
@@ -305,10 +318,13 @@ def _aggregate_period(entries: list[dict]) -> dict:
     }
 
 
-def _add_aggregations(processed: dict, all_daily: list[dict], now) -> None:
-    """Add last_3_days, last_7_days, month_to_date, last_month aggregations."""
-    current_month = now.month
-    current_year = now.year
+def _add_aggregations(processed: dict, all_daily: list[dict], now, billing_cycle_day: int = 1) -> None:
+    """Add last_3_days, last_7_days, month_to_date, last_month aggregations.
+
+    ``month_to_date`` and ``last_month`` follow the configured billing cycle
+    (``billing_cycle_day``); with the default of 1 they are calendar months.
+    """
+    today = now.date()
 
     # Last 3 days (oldest to newest)
     processed["last_3_days"] = list(reversed(all_daily[:3])) if all_daily else []
@@ -318,23 +334,28 @@ def _add_aggregations(processed: dict, all_daily: list[dict], now) -> None:
     if last_7:
         processed["last_7_days"] = _aggregate_period(last_7)
 
-    # Month to date
-    mtd = [d for d in all_daily if d["month"] == current_month and d["year"] == current_year]
+    # Month to date — current billing cycle so far
+    cycle_start, cycle_next = current_cycle_bounds(today, billing_cycle_day)
+    mtd = [
+        d for d in all_daily
+        if (ed := _entry_date(d)) is not None and cycle_start <= ed < cycle_next
+    ]
     if mtd:
         processed["month_to_date"] = _aggregate_period(mtd)
 
-    # Last month
-    last_month_num = current_month - 1 if current_month > 1 else 12
-    last_month_year = current_year if current_month > 1 else current_year - 1
-    last_month = [d for d in all_daily if d["month"] == last_month_num and d["year"] == last_month_year]
+    # Last month — the previous complete billing cycle
+    prev_start, prev_next = previous_cycle_bounds(today, billing_cycle_day)
+    last_month = [
+        d for d in all_daily
+        if (ed := _entry_date(d)) is not None and prev_start <= ed < prev_next
+    ]
     if last_month:
         processed["last_month"] = _aggregate_period(last_month)
 
 
-def _add_monthly_breakdowns(processed: dict, daily_data: dict, now) -> None:
-    """Add current month daily breakdown lists for graphing."""
-    current_month = now.month
-    current_year = now.year
+def _add_monthly_breakdowns(processed: dict, daily_data: dict, now, billing_cycle_day: int = 1) -> None:
+    """Add current billing-cycle daily breakdown lists for graphing."""
+    cycle_start, cycle_next = current_cycle_bounds(now.date(), billing_cycle_day)
     solar_entries = daily_data.get("solar") or []
     export_entries = daily_data.get("export") or []
 
@@ -348,7 +369,7 @@ def _add_monthly_breakdowns(processed: dict, daily_data: dict, now) -> None:
             continue
         try:
             entry_date = _parse_entry_date(period_from)
-            if entry_date.month == current_month and entry_date.year == current_year:
+            if cycle_start <= entry_date.date() < cycle_next:
                 solar_breakdown.append({
                     "date": entry_date.strftime("%Y-%m-%d"),
                     "day": entry_date.day,
@@ -365,7 +386,7 @@ def _add_monthly_breakdowns(processed: dict, daily_data: dict, now) -> None:
             continue
         try:
             entry_date = _parse_entry_date(period_from)
-            if entry_date.month == current_month and entry_date.year == current_year:
+            if cycle_start <= entry_date.date() < cycle_next:
                 charge_type = _safe_charge(entry).get("type", "DEBIT")
                 daily_entry = {
                     "date": entry_date.strftime("%Y-%m-%d"),

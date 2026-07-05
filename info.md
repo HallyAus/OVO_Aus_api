@@ -1,7 +1,7 @@
 # OVO Energy Australia for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-4.6.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.7.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
 
 Track solar generation, grid consumption, costs, EV charging, and plan savings in Home Assistant.
@@ -12,11 +12,11 @@ Referrals below are the only thing funding ongoing development. Both you and I g
 
 ### ⭐ [Star the repo on GitHub](https://github.com/HallyAus/OVO_Aus_api) — takes two seconds
 
-### 🎁 OVO Energy — $120-$180 credit
-👉 **[www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
+### 🎁 OVO Energy — $180 credit
+👉 **[ovoreferralcode.com](https://ovoreferralcode.com/)** (code `daniel16485`) — or [ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
 
-- ✅ $120 credit on standard plans / $180 on The EV Plan
-- ✅ Both you and the referrer get credit — paid over 12 months
+- ✅ $180 credit (incl. GST) on all eligible plans — including The EV Plan (no EV required)
+- ✅ Both you and the referrer get $180 — paid as $15/month over 12 months
 
 ### 🛰️ Starlink — 1 month free
 👉 **[starlink.com/residential?referral=RC-2455784-77014-69](https://starlink.com/residential?referral=RC-2455784-77014-69&app_source=share)**

@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-import calendar
 from datetime import datetime
 
 from homeassistant.util import dt as dt_util
 
 from ..const import AU_TIMEZONE
+from .billing import current_cycle_bounds
 
 
-def compute_insights(processed: dict) -> None:
+def compute_insights(processed: dict, billing_cycle_day: int = 1) -> None:
     """Add all analytics insights to the processed data dict (in-place).
 
     This computes: week comparison, weekday/weekend analysis, self-sufficiency,
     high usage days, cost per kWh, monthly projection, return-to-grid analysis.
+
+    ``billing_cycle_day`` (1-31) aligns the monthly projection to the user's
+    billing cycle; the default of 1 gives a calendar month.
     """
     all_daily = processed.get("all_daily_entries", [])
     if not all_daily:
@@ -25,7 +28,7 @@ def compute_insights(processed: dict) -> None:
     _add_self_sufficiency(processed, all_daily)
     _add_high_usage_days(processed, all_daily)
     _add_cost_per_kwh(processed, all_daily)
-    _add_monthly_projection(processed)
+    _add_monthly_projection(processed, billing_cycle_day)
     _add_return_to_grid_analysis(processed, all_daily)
 
 
@@ -169,8 +172,8 @@ def _add_cost_per_kwh(processed: dict, all_daily: list[dict]) -> None:
     }
 
 
-def _add_monthly_projection(processed: dict) -> None:
-    """Monthly cost projection from month-to-date data."""
+def _add_monthly_projection(processed: dict, billing_cycle_day: int = 1) -> None:
+    """Billing-cycle cost projection from period-to-date data."""
     mtd = processed.get("month_to_date", {})
     mtd_days = mtd.get("days", 0)
     if not mtd_days:
@@ -181,12 +184,12 @@ def _add_monthly_projection(processed: dict) -> None:
         mtd.get("solar_charge", 0) + mtd.get("grid_charge", 0)
     )
 
-    # Use AEST for month info (Australian integration); dt_util keeps it
-    # mockable in tests
+    # Use AEST for the cycle window (Australian integration); dt_util keeps it
+    # mockable in tests. days_in_month holds the current cycle length, which
+    # equals the calendar-month length when billing_cycle_day == 1.
     now = dt_util.now(AU_TIMEZONE)
-    current_month = now.month
-    current_year = now.year
-    days_in_month = calendar.monthrange(current_year, current_month)[1]
+    cycle_start, cycle_next = current_cycle_bounds(now.date(), billing_cycle_day)
+    days_in_month = (cycle_next - cycle_start).days
     days_remaining = days_in_month - mtd_days
 
     daily_avg = mtd_cost / mtd_days

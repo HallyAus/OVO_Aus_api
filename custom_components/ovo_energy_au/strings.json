@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to OVO Energy Australia",
-        "description": "💚 **This project is free and open-source — referrals are my only income from it.**\n\n🎁 **New to OVO?** $120–$180 credit (both of us get paid): {ovo_url}\n🛰️ **Need internet?** 1 month free Starlink: {starlink_url}\n⭐ **Love the integration?** Star the repo: {github_url}\n\n---\n\nSign in with your OVO Energy Australia account to track energy usage, costs, and solar generation.\n\nYour energy plan and rates are automatically detected from OVO's API. No manual plan selection or rate entry required.\n\n**Privacy & Security:**\n• Credentials stored in Home Assistant's configuration storage\n• Used only to access your energy data via OVO's official API\n• Never shared with third parties or external services\n\n**Why your password is required:**\n• OVO API tokens expire every 5 minutes for security\n• Automatic re-authentication keeps sensors updating 24/7\n• No manual intervention needed after initial setup",
+        "description": "💚 **This project is free and open-source — referrals are my only income from it.**\n\n🎁 **New to OVO?** $180 credit (both of us get paid): {ovo_url}\n🛰️ **Need internet?** 1 month free Starlink: {starlink_url}\n⭐ **Love the integration?** Star the repo: {github_url}\n\n---\n\nSign in with your OVO Energy Australia account to track energy usage, costs, and solar generation.\n\nYour energy plan and rates are automatically detected from OVO's API. No manual plan selection or rate entry required.\n\n**Privacy & Security:**\n• Credentials stored in Home Assistant's configuration storage\n• Used only to access your energy data via OVO's official API\n• Never shared with third parties or external services\n\n**Why your password is required:**\n• OVO API tokens expire every 5 minutes for security\n• Automatic re-authentication keeps sensors updating 24/7\n• No manual intervention needed after initial setup",
         "data": {
           "username": "Email Address",
           "password": "Password"
@@ -11,7 +11,7 @@
       },
       "reauth_confirm": {
         "title": "Re-authenticate with OVO Energy",
-        "description": "💚 **This project is free and open-source — referrals are my only income from it.**\n\n🎁 **New to OVO?** $120–$180 credit (both of us get paid): {ovo_url}\n🛰️ **Need internet?** 1 month free Starlink: {starlink_url}\n⭐ **Love the integration?** Star the repo: {github_url}\n\n---\n\nYour OVO Energy session has expired. Please sign in again to restore energy monitoring.\n\n**What happens next:**\n• Your credentials are still safely stored\n• Sensors will resume updating after re-authentication\n• This is a one-time action - automatic re-auth will continue\n\nEnter your OVO Energy credentials below:",
+        "description": "💚 **This project is free and open-source — referrals are my only income from it.**\n\n🎁 **New to OVO?** $180 credit (both of us get paid): {ovo_url}\n🛰️ **Need internet?** 1 month free Starlink: {starlink_url}\n⭐ **Love the integration?** Star the repo: {github_url}\n\n---\n\nYour OVO Energy session has expired. Please sign in again to restore energy monitoring.\n\n**What happens next:**\n• Your credentials are still safely stored\n• Sensors will resume updating after re-authentication\n• This is a one-time action - automatic re-auth will continue\n\nEnter your OVO Energy credentials below:",
         "data": {
           "username": "Email Address",
           "password": "Password"
@@ -34,7 +34,7 @@
     "step": {
       "init": {
         "title": "Update Energy Plan Settings",
-        "description": "💚 **This project is free and open-source — referrals are my only income from it.**\n\n🎁 **New to OVO?** $120–$180 credit (both of us get paid): {ovo_url}\n🛰️ **Need internet?** 1 month free Starlink: {starlink_url}\n⭐ **Love the integration?** Star the repo: {github_url}\n\n---\n\nModify your electricity plan and rates. Changes take effect immediately and update all cost calculations.\n\n**Tip:** If you've switched plans with OVO, update your selection here to ensure accurate cost tracking and savings calculations.\n\n**Free 3 plan:** OVO's API reports your peak/off-peak usage as \"Other\". Set the peak window hours below to split that usage into peak and off-peak. Leave both at the same value to disable.",
+        "description": "💚 **This project is free and open-source — referrals are my only income from it.**\n\n🎁 **New to OVO?** $180 credit (both of us get paid): {ovo_url}\n🛰️ **Need internet?** 1 month free Starlink: {starlink_url}\n⭐ **Love the integration?** Star the repo: {github_url}\n\n---\n\nModify your electricity plan and rates. Changes take effect immediately and update all cost calculations.\n\n**Tip:** If you've switched plans with OVO, update your selection here to ensure accurate cost tracking and savings calculations.\n\n**Billing cycle:** If your OVO bill doesn't start on the 1st, set the **Billing Cycle Start Day** to the day your cycle begins (e.g. 24 for a 24th–23rd cycle). Month-to-date usage, daily averages and bill estimates then follow your real billing period. Leave it at 1 for a calendar month.\n\n**Free 3 plan:** OVO's API reports your peak/off-peak usage as \"Other\". Set the peak window hours below to split that usage into peak and off-peak. Leave both at the same value to disable.",
         "data": {
           "plan_type": "Energy Plan",
           "peak_rate": "Peak Rate ($/kWh)",
@@ -42,6 +42,7 @@
           "off_peak_rate": "Off-Peak Rate ($/kWh)",
           "ev_rate": "EV Off-Peak Rate ($/kWh)",
           "flat_rate": "Flat Rate ($/kWh)",
+          "billing_cycle_day": "Billing Cycle Start Day (1-31)",
           "peak_start_hour": "Peak Window Start Hour (0-23)",
           "peak_end_hour": "Peak Window End Hour (0-23)"
         }

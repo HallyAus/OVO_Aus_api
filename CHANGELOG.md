@@ -5,6 +5,14 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.0] - 2026-07-05
+
+### New Features
+- **Configurable billing cycle start day (#75)** - New **Billing Cycle Start Day (1-31)** option in the integration's Configure dialog. If your OVO bill doesn't start on the 1st (e.g. a 24th–23rd cycle), set it to the day your cycle begins and the **Month to Date**, **Last Month**, **Bill Estimate**, and **Monthly Forecast** sensors follow your real billing period instead of the calendar month. Defaults to 1 (calendar month), so existing installs are unchanged. Per-month clamping handles short months and the value survives year boundaries.
+
+### Notes
+- The **This Month** / **This Year** / **OVO Savings (This Month)** / **EV Charging This Month** sensors are sourced directly from OVO's own monthly/yearly API aggregation (what the OVO app shows) and continue to use OVO's periods. Billing-cycle awareness applies to the figures the integration derives from daily data.
+
 ## [4.6.0] - 2026-06-14
 
 ### New Features

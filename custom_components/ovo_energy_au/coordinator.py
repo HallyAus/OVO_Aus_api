@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import calendar
 import logging
 from datetime import timedelta
 
@@ -14,6 +13,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 from homeassistant.util import dt as dt_util
 
+from .analytics.billing import current_cycle_bounds
 from .analytics.hourly import process_hourly_data
 from .analytics.insights import compute_insights
 from .analytics.interval import process_interval_data
@@ -56,7 +56,9 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
         try:
             # 1. Interval data (daily/monthly/yearly)
             interval_data = await self.client.get_interval_data(self.account_id)
-            processed = process_interval_data(interval_data)
+            processed = process_interval_data(
+                interval_data, self.plan_config.billing_cycle_day
+            )
 
             # 2. Product agreements (plan info)
             try:
@@ -91,7 +93,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["hourly"] = process_hourly_data({}, self.plan_config)
 
             # 4. Analytics insights
-            compute_insights(processed)
+            compute_insights(processed, self.plan_config.billing_cycle_day)
 
             # 4b. Calculate bill estimate
             try:
@@ -111,10 +113,14 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 mtd_standing = standing_daily * mtd_days
                 mtd_bill = mtd_grid + mtd_standing - mtd_solar_credit
 
-                # Project full month
+                # Project the full billing cycle (calendar month when the
+                # billing cycle day is 1)
                 if mtd_days > 0:
                     now_au = dt_util.now(AU_TIMEZONE)
-                    days_in_month = calendar.monthrange(now_au.year, now_au.month)[1]
+                    cycle_start, cycle_next = current_cycle_bounds(
+                        now_au.date(), self.plan_config.billing_cycle_day
+                    )
+                    days_in_month = (cycle_next - cycle_start).days
                     daily_avg_net = mtd_bill / mtd_days
                     projected_bill = daily_avg_net * days_in_month
                     remaining_bill = daily_avg_net * (days_in_month - mtd_days)

@@ -85,7 +85,7 @@ class TestPlanConfig:
         assert set(d.keys()) == {
             "plan_type", "peak_rate", "shoulder_rate",
             "off_peak_rate", "ev_rate", "flat_rate",
-            "peak_start_hour", "peak_end_hour",
+            "peak_start_hour", "peak_end_hour", "billing_cycle_day",
         }
 
     def test_peak_window_roundtrip(self):

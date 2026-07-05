@@ -19,6 +19,7 @@ from .api import (
 )
 from .const import (
     CONF_ACCOUNT_ID,
+    CONF_BILLING_CYCLE_DAY,
     CONF_EV_RATE,
     CONF_FLAT_RATE,
     CONF_OFF_PEAK_RATE,
@@ -326,6 +327,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             data = dict(self.config_entry.data)
             data[CONF_PLAN_TYPE] = user_input[CONF_PLAN_TYPE]
 
+            # Billing cycle start day applies to every plan type.
+            data[CONF_BILLING_CYCLE_DAY] = int(user_input.get(CONF_BILLING_CYCLE_DAY, 1))
+
             # Update rates based on plan type
             plan_type = user_input[CONF_PLAN_TYPE]
             default_rates = DEFAULT_RATES.get(plan_type, {})
@@ -381,6 +385,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         current_flat = self.config_entry.data.get(CONF_FLAT_RATE, 0.28)
         current_peak_start = self.config_entry.data.get(CONF_PEAK_START_HOUR, 0)
         current_peak_end = self.config_entry.data.get(CONF_PEAK_END_HOUR, 0)
+        current_billing_cycle_day = self.config_entry.data.get(CONF_BILLING_CYCLE_DAY, 1)
 
         # Build options schema
         schema_fields = {
@@ -395,6 +400,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(CONF_OFF_PEAK_RATE, default=current_off_peak): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
             vol.Optional(CONF_EV_RATE, default=current_ev): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
             vol.Optional(CONF_FLAT_RATE, default=current_flat): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
+            # Billing cycle start day (1-31). 1 keeps the calendar-month behaviour.
+            vol.Optional(CONF_BILLING_CYCLE_DAY, default=current_billing_cycle_day): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=31)
+            ),
         }
         # Free 3 plans report peak/off-peak usage as OTHER; offer a manual
         # window so analytics can split it. start == end leaves it disabled.

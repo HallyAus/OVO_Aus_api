@@ -140,6 +140,9 @@ class PlanConfig:
     # (Free 3 plans report TOU usage as OTHER). None or start == end disables it.
     peak_start_hour: int | None = None
     peak_end_hour: int | None = None
+    # Day of the month the OVO billing cycle starts (1-31). 1 = calendar month.
+    # Drives cycle-aware month-to-date, last-cycle and bill-projection figures.
+    billing_cycle_day: int = 1
 
     @property
     def has_other_split_window(self) -> bool:
@@ -162,6 +165,7 @@ class PlanConfig:
             flat_rate=data.get("flat_rate", 0.28),
             peak_start_hour=data.get("peak_start_hour"),
             peak_end_hour=data.get("peak_end_hour"),
+            billing_cycle_day=data.get("billing_cycle_day", 1) or 1,
         )
 
     def to_dict(self) -> dict:
@@ -175,4 +179,5 @@ class PlanConfig:
             "flat_rate": self.flat_rate,
             "peak_start_hour": self.peak_start_hour,
             "peak_end_hour": self.peak_end_hour,
+            "billing_cycle_day": self.billing_cycle_day,
         }

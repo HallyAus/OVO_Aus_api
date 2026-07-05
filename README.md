@@ -1,5 +1,11 @@
 # OVO Energy Australia for Home Assistant
 
+> ### 🎁 New to OVO? Get **$180 credit** — referral code `daniel16485`
+>
+> Sign up through **[👉 ovoreferralcode.com](https://ovoreferralcode.com/)** and get **$180 off your bills**, paid as **$15/month for 12 months**. You get $180, I get $180 — and referrals are the **only** thing funding this project. 💚
+>
+> Available on **every eligible plan** (including The EV Plan — no EV required) across NSW, VIC, QLD & SA. Prefer the direct link? [ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+
 <div align="center">
 
 <img src="images/logo.svg" alt="OVO Energy Australia" width="280"/>
@@ -8,7 +14,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore)](https://github.com/hacs/integration)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.6.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.7.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
@@ -30,8 +36,8 @@ Track solar generation, grid consumption, costs, rate breakdowns, and OVO plan s
 
 > *"Use the Force wisely, young Padawan. Monitor your energy, you must."* -- Yoda (probably)
 
-### 🎁 New to OVO? Get **$120–$180 credit** with my referral 👉 **[ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
-It costs you nothing extra, both of us get credit, and it's the only thing funding this project. 💚
+### 🎁 New to OVO? Get **$180 credit** 👉 **[ovoreferralcode.com](https://ovoreferralcode.com/)** — code `daniel16485`
+It costs you nothing extra, both of us get $180, and it's the only thing funding this project. 💚
 
 [Features](#features) · [Quick Start](#quick-start) · [Sensors](#sensors) · [Dashboards](#dashboard-examples) · [Contributing](#contributing)
 
@@ -46,14 +52,15 @@ If this integration saves you money or time, please use one of the referrals bel
 ### ⭐ Star this repo
 [**⭐ Star on GitHub**](https://github.com/HallyAus/OVO_Aus_api) — takes two seconds and genuinely helps. Stars surface the project to other OVO customers.
 
-### 🎁 OVO Energy referral — $120–$180 credit
-Not an OVO customer yet? Sign up using this referral link:
+### 🎁 OVO Energy referral — $180 credit
+Not an OVO customer yet? Sign up through my referral site (the code `daniel16485` attaches automatically):
 
-**👉 [www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)**
+**👉 [ovoreferralcode.com](https://ovoreferralcode.com/)** — or use the direct link: [ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
 
-- ✅ **$120 credit** paid over 12 months on standard plans
-- ✅ **$180 credit** paid over 12 months if you choose The EV Plan
-- ✅ Both you and I receive the credit — win-win
+- ✅ **$180 credit** (incl. GST), paid as $15/month over 12 months
+- ✅ Available on **all eligible plans** — including The EV Plan (no EV required)
+- ✅ Both you and I receive the full $180 — win-win
+- ✅ NSW, VIC, QLD & SA · must be your first OVO energy market contract
 
 ### 🛰️ Starlink referral — 1 month free
 Running Home Assistant somewhere rural or need a reliable backup link?
