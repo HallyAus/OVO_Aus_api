@@ -321,6 +321,26 @@ automation:
 
 ## Troubleshooting
 
+### "Unknown error occurred" / "No customer id set" on first setup
+
+**Symptom:** When adding the integration you get **"Unknown error occurred"** in the UI, and the logs show something like:
+
+```
+File ".../homeassistant/components/ovo_energy/config_flow.py", line 57, in async_step_user
+File ".../site-packages/ovoenergy/__init__.py", line 100, in customer_id
+    raise OVOEnergyNoCustomer("No customer id set")
+ovoenergy.exceptions.OVOEnergyNoCustomer: No customer id set
+```
+
+**Cause:** You selected Home Assistant's **built-in "OVO Energy"** integration (domain `ovo_energy`), which is for OVO **UK**. Searching "OVO" in *Add Integration* shows **both** it and this one, so it's easy to pick the wrong entry. The paths `homeassistant/components/ovo_energy` and the `ovoenergy` PyPI package above belong to that UK integration — **not** to this one (`ovo_energy_au`, which has no `customerId` concept and never loads the `ovoenergy` library).
+
+**How to tell which one you're in:** this **OVO Energy Australia** flow asks only for **email + password** (Account ID is detected automatically). The built-in **UK** flow additionally shows an optional **Account ID** field.
+
+**Fix:**
+1. Remove the wrongly-added **OVO Energy** (UK) entry: **Settings → Devices & Services**, find "OVO Energy", ⋮ → **Delete**.
+2. **Settings → Devices & Services → + Add Integration**, and select **OVO Energy Australia** (domain `ovo_energy_au`).
+3. Enter your OVO **Australia** email and password.
+
 ### HACS Shows "Repository structure is not compliant"
 
 **Solution:** Make sure you're using the latest version of HACS and the repository URL is correct.
