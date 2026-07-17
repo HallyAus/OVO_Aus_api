@@ -4,6 +4,14 @@ on:
   push:
     tags:
       - 'v*'
+  # Cloud/agent sessions can push branches but not tags — dispatching with a
+  # tag input lets the release run from main and create the tag itself
+  # (action-gh-release tags the commit the run is on when the tag is missing).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v4.7.1); created at the run's commit if it does not exist"
+        required: true
 
 jobs:
   release:
@@ -23,15 +31,16 @@ jobs:
       - name: Build release notes (referrals + auto-generated changelog)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          tag="${GITHUB_REF#refs/tags/}"
+          tag="${INPUT_TAG:-${GITHUB_REF#refs/tags/}}"
           prev="$(gh api repos/${{ github.repository }}/releases/latest --jq .tag_name 2>/dev/null || echo '')"
           if [ -n "$prev" ] && [ "$prev" != "$tag" ]; then
             auto=$(gh api -X POST repos/${{ github.repository }}/releases/generate-notes \
-              -f tag_name="$tag" -f previous_tag_name="$prev" --jq .body)
+              -f tag_name="$tag" -f target_commitish="$GITHUB_SHA" -f previous_tag_name="$prev" --jq .body)
           else
             auto=$(gh api -X POST repos/${{ github.repository }}/releases/generate-notes \
-              -f tag_name="$tag" --jq .body)
+              -f tag_name="$tag" -f target_commitish="$GITHUB_SHA" --jq .body)
           fi
           {
             echo '## 💚 Support this project — it'"'"'s my only income from it'
@@ -58,5 +67,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: ovo_energy_au.zip
           body_path: release-notes.md
