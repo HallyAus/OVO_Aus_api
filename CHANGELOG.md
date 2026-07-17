@@ -5,6 +5,13 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.1] - 2026-07-17
+
+### Bug Fixes
+- **Per-kWh rate sensors no longer truncated to 2 decimals** - The **Peak Rate**, **Shoulder Rate**, **Off-Peak Rate**, **EV Off-Peak Rate**, **Feed-in Tariff**, **Cost per kWh** (overall/grid/solar) and **Export Rate per kWh** sensors were rounded to 2 decimal places in Home Assistant, so a $0.3718/kWh peak rate showed as $0.37 and a 3.3c feed-in tariff as $0.03 (a 9% error). AUD/kWh sensors now keep 4 decimals; all other sensors are unchanged
+- **Multi-account: Account Balance now comes from the right account** - The balance and solar flag were read from the first active account returned by the API instead of the account this integration is configured for. Customers with more than one active OVO account could see another account's balance
+- **Config flow shows the right error** - A missing account ID after a successful login was reported as "cannot connect" instead of an authentication problem
+
 ## [4.7.0] - 2026-07-05
 
 ### New Features
