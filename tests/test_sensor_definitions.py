@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from custom_components.ovo_energy_au.sensors.base import OVOEnergySensor
 from custom_components.ovo_energy_au.sensors.definitions import (
     ANALYTICS_SENSORS,
     ENERGY_SENSORS,
@@ -12,6 +13,37 @@ from custom_components.ovo_energy_au.sensors.definitions import (
     calculate_free_savings,
     get_rate_value,
 )
+
+
+class TestSensorStatePrecision:
+    """OVOEnergySensor state precision: 4 decimals for per-kWh rates, 2 otherwise.
+
+    Regression guard: the tariff/cost-per-kWh value_fns return 4-decimal rates
+    (e.g. 0.3718 AUD/kWh), but native_value used to round every sensor to 2
+    decimals, truncating them to 0.37 in HA.
+    """
+
+    def _make_sensor(self, unit, value):
+        coordinator = MagicMock()
+        coordinator.account_id = "12345"
+        coordinator.data = {"present": True}
+        return OVOEnergySensor(
+            coordinator, "test_key", "Test", unit, None, None, "mdi:flash",
+            lambda d: value,
+        )
+
+    def test_per_kwh_rates_keep_4_decimals(self):
+        assert self._make_sensor("AUD/kWh", 0.3718).native_value == 0.3718
+        assert self._make_sensor("AUD/kWh", 0.033).native_value == 0.033
+
+    def test_monetary_rounds_to_2_decimals(self):
+        assert self._make_sensor("AUD", 12.3456).native_value == 12.35
+
+    def test_unitless_rounds_to_2_decimals(self):
+        assert self._make_sensor(None, 1.239).native_value == 1.24
+
+    def test_none_value_is_unavailable(self):
+        assert self._make_sensor("AUD/kWh", None).native_value is None
 
 
 class TestSensorTupleStructure:

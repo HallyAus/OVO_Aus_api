@@ -85,6 +85,10 @@ async def validate_input(hass: HomeAssistant, username: str, password: str) -> d
             "client": client,  # Return authenticated client to reuse
         }
 
+    except InvalidAuth:
+        # Raised above when no account ID comes back — don't let the generic
+        # handler below re-label it as a connection problem
+        raise
     except OVOEnergyAUApiClientAuthenticationError as err:
         _LOGGER.error("Failed to authenticate with OVO Energy API: %s", err)
         raise InvalidAuth from err

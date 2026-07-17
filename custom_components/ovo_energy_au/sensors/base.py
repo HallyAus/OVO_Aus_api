@@ -76,7 +76,12 @@ class OVOEnergySensor(OVOBaseSensor):
             return None
         try:
             value = self._value_fn(self.coordinator.data)
-            return round(float(value), 2) if value is not None else None
+            if value is None:
+                return None
+            # Per-kWh rates need 4 decimals — 2 would truncate e.g. a
+            # $0.3718/kWh tariff to $0.37 or a 3.3c feed-in tariff to $0.03
+            precision = 4 if self._unit and self._unit.endswith("/kWh") else 2
+            return round(float(value), precision)
         except Exception as err:
             _LOGGER.debug("Sensor %s error: %s", self._sensor_key, err)
             return None

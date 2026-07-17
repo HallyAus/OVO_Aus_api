@@ -214,9 +214,15 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 contact_info = await self.client.get_contact_info()
                 accounts = contact_info.get("accounts", [])
                 active = [a for a in accounts if not a.get("closed", False)]
-                if active:
-                    processed["account_balance"] = active[0].get("customerOrientatedBalance")
-                    processed["has_solar"] = active[0].get("hasSolar", False)
+                # Match this entry's account — a multi-account customer must
+                # not see another account's balance (fall back to the first)
+                account = next(
+                    (a for a in active if str(a.get("id")) == str(self.account_id)),
+                    active[0] if active else None,
+                )
+                if account:
+                    processed["account_balance"] = account.get("customerOrientatedBalance")
+                    processed["has_solar"] = account.get("hasSolar", False)
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
