@@ -82,3 +82,29 @@ async def test_billing_overview_is_added_to_coordinator_data():
 
     assert result["billing_information"]["minimumDirectDebitAmount"] == 40
     assert result["unbilled_charges"]["billProgress"] == 50
+
+
+@pytest.mark.asyncio
+async def test_vehicle_discovery_does_not_trust_unrelated_flex_flag():
+    client = MagicMock()
+    client.get_interval_data = AsyncMock(return_value={})
+    client.get_product_agreements = AsyncMock(return_value={"productAgreements": []})
+    client.get_hourly_data = AsyncMock(return_value={})
+    client.get_statements = AsyncMock(return_value={})
+    client.get_account_extras = AsyncMock(
+        return_value={"flex": {"hasOnboarded": False}}
+    )
+    vehicle = {"id": "opaque-vehicle", "name": "Connected EV"}
+    client.get_vehicle_data = AsyncMock(return_value=[vehicle])
+    client.get_billing_overview = AsyncMock(return_value={})
+    client.get_contact_info = AsyncMock(return_value={"accounts": []})
+    client.get_usage_info = AsyncMock(return_value={})
+
+    coordinator = OVOEnergyAUDataUpdateCoordinator(
+        MagicMock(), client, "account", PlanConfig()
+    )
+    result = await coordinator._async_update_data()
+
+    assert result["flex"]["onboarded"] is False
+    assert result["vehicles"] == [vehicle]
+    client.get_vehicle_data.assert_awaited_once_with("account")

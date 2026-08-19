@@ -222,21 +222,18 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["flex"] = {}
 
             # 4e. Read-only Kaluza vehicle telemetry, preferences, schedules,
-            # charge plan, and monthly device energy.  A definite non-Flex
-            # account skips the extra endpoints; unknown status is still
-            # probed because older accounts may not return hasOnboarded.
-            if processed.get("flex", {}).get("onboarded") is False:
+            # charge plan, and monthly device energy. `flex.hasOnboarded` is a
+            # separate MyOVO feature flag and is not a reliable EV Control
+            # indicator, so vehicle discovery must be probed independently.
+            try:
+                processed["vehicles"] = await self.client.get_vehicle_data(
+                    self.account_id
+                )
+            except OVOEnergyAUApiClientAuthenticationError:
+                raise
+            except Exception as err:
+                _LOGGER.debug("Vehicle data is unavailable: %s", err)
                 processed["vehicles"] = []
-            else:
-                try:
-                    processed["vehicles"] = await self.client.get_vehicle_data(
-                        self.account_id
-                    )
-                except OVOEnergyAUApiClientAuthenticationError:
-                    raise
-                except Exception as err:
-                    _LOGGER.debug("Vehicle data is unavailable: %s", err)
-                    processed["vehicles"] = []
 
             # 4f. Direct debit + current unbilled charge summary
             try:

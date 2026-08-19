@@ -5,6 +5,17 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.8.1] - 2026-08-19
+
+> - **OVO referral code:** `daniel16485`
+> - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+> - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
+
+### Fixed
+- Restored category-specific Home Assistant devices after 4.8.0 incorrectly merged approximately 281 entities onto the single account device. Entities are grouped by their existing categories again, with the account device retained as their parent.
+- Connected-vehicle discovery no longer depends on `flex.hasOnboarded`. That GraphQL flag describes a separate MyOVO Flex state and can be false for an account that has a valid EV Control vehicle, which caused all 19 vehicle entities to be skipped in 4.8.0.
+- Added regressions covering category device identifiers and vehicle discovery when the unrelated Flex flag is false.
+
 ## [4.8.0] - 2026-08-19
 
 > - **OVO referral code:** `daniel16485`

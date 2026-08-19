@@ -48,7 +48,7 @@ class TestSensorStatePrecision:
     def test_none_value_is_unavailable(self):
         assert self._make_sensor("AUD/kWh", None).native_value is None
 
-    def test_noisy_history_defaults_disabled_and_uses_account_device(self):
+    def test_noisy_history_defaults_disabled_and_uses_category_device(self):
         coordinator = MagicMock()
         coordinator.account_id = "12345"
         coordinator.data = {"present": True}
@@ -64,7 +64,10 @@ class TestSensorStatePrecision:
             "Hourly Data",
         )
         assert sensor._attr_entity_registry_enabled_default is False
-        assert sensor.device_info["identifiers"] == {("ovo_energy_au", "12345")}
+        assert sensor.device_info["identifiers"] == {
+            ("ovo_energy_au", "12345_Hourly Data")
+        }
+        assert sensor.device_info["via_device"] == ("ovo_energy_au", "12345")
 
 
 class TestSensorTupleStructure:

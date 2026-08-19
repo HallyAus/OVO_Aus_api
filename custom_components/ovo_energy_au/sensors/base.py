@@ -52,10 +52,13 @@ class OVOBaseSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self) -> dict[str, Any]:
         return {
-            "identifiers": {(DOMAIN, self.coordinator.account_id)},
-            "name": "OVO Energy AU",
+            "identifiers": {
+                (DOMAIN, f"{self.coordinator.account_id}_{self._device_category}")
+            },
+            "name": f"OVO Energy AU - {self._device_category}",
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
+            "via_device": (DOMAIN, self.coordinator.account_id),
         }
 
 

@@ -120,8 +120,9 @@ and [options reload](https://developers.home-assistant.io/docs/core/integration/
 - Account IDs and NMIs were removed from Recorder-visible diagnostic attributes.
 - Signed bill download URLs were removed from entity attributes and recent-bill
   history.
-- Entities now belong to one account device instead of creating a device for
-  every display category.
+- Account entities retain category-specific devices linked to one parent account
+  device, keeping the large entity set navigable without exposing account IDs
+  as Recorder attributes.
 - Detailed daily/hourly history entities remain available but start disabled to
   reduce Recorder, registry, and update load. This follows Home Assistant's
   [disabled-by-default guidance](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-disabled-by-default/).
@@ -138,6 +139,8 @@ and [options reload](https://developers.home-assistant.io/docs/core/integration/
   uses only GET requests.
 - Multi-vehicle discovery is supported, including vehicles that appear after
   integration setup.
+- Vehicle discovery is independent of the unrelated `flex.hasOnboarded` flag;
+  a false Flex value cannot suppress an EV Control vehicle.
 - Nineteen entities per vehicle expose automation-friendly battery, range,
   cable, mode, boost, charge-limit, timestamp, power, SOC, energy and cost
   values plus complete privacy-safe status, preferences, schedule and charge
@@ -160,7 +163,7 @@ and [options reload](https://developers.home-assistant.io/docs/core/integration/
 
 ## Validation
 
-- `python -m pytest tests -q`: **133 passed**
+- `python -m pytest tests -q`: **134 passed**
 - `python -m ruff check custom_components/ovo_energy_au tests`: **passed**
 - Python bytecode compilation: passed
 - JSON translation/manifest parsing: passed
@@ -196,7 +199,7 @@ final staging check.
 
 ## Release target
 
-The audited changes are versioned as **4.8.0** and are intended to be committed,
+The audited changes are versioned as **4.8.1** and are intended to be committed,
 pushed, tagged, and published together with a verified forward-slash release
 archive. The GitHub release is the deployment record; this report describes the
 source and validation performed before that release was created.

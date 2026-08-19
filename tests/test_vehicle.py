@@ -11,6 +11,7 @@ from custom_components.ovo_energy_au.sensors.vehicle import (
     OVOVehiclePreferencesSensor,
     OVOVehicleScheduleSensor,
     OVOVehicleStatusSensor,
+    create_vehicle_sensors,
 )
 from custom_components.ovo_energy_au.vehicle import (
     OVOVehicleApiClient,
@@ -299,3 +300,7 @@ def test_vehicle_sensors_surface_metrics_and_rich_attributes():
     plan = OVOVehicleChargePlanSensor(coordinator, vehicle)
     assert plan.native_value == "Scheduled"
     assert plan.extra_state_attributes["next_interval"]["charge_limit_percent"] == 80
+
+    complete_set = create_vehicle_sensors(coordinator, vehicle)
+    assert len(complete_set) == 19
+    assert len({sensor._attr_unique_id for sensor in complete_set}) == 19

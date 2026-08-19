@@ -806,10 +806,13 @@ class OVORateComparisonSensor(OVOBaseSensor):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, self.coordinator.account_id)},
-            "name": "OVO Energy AU",
+            "identifiers": {
+                (DOMAIN, f"{self.coordinator.account_id}_OVO Savings")
+            },
+            "name": "OVO Energy AU - OVO Savings",
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
+            "via_device": (DOMAIN, self.coordinator.account_id),
         }
 
 
