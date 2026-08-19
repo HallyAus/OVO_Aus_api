@@ -20,10 +20,27 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload an entry after its user-adjustable options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up integration-wide service actions."""
+
+    async def handle_refresh_data(call: ServiceCall) -> None:
+        """Refresh every loaded OVO config entry."""
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            coordinator = getattr(entry, "runtime_data", None)
+            if coordinator is not None:
+                await coordinator.async_request_refresh()
+
+    hass.services.async_register(DOMAIN, "refresh_data", handle_refresh_data)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OVO Energy Australia from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
-
     session = async_get_clientsession(hass)
     username = entry.data.get(CONF_USERNAME)
     password = entry.data.get(CONF_PASSWORD)
@@ -41,44 +58,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except OVOEnergyAUApiClientAuthenticationError as err:
         raise ConfigEntryAuthFailed(err) from err
 
-    plan_config = PlanConfig.from_dict({
-        "plan_type": entry.data.get("plan_type", "basic"),
-        "peak_rate": entry.data.get("peak_rate", 0.35),
-        "shoulder_rate": entry.data.get("shoulder_rate", 0.25),
-        "off_peak_rate": entry.data.get("off_peak_rate", 0.18),
-        "ev_rate": entry.data.get("ev_rate", 0.06),
-        "flat_rate": entry.data.get("flat_rate", 0.28),
-        "peak_start_hour": entry.data.get("peak_start_hour"),
-        "peak_end_hour": entry.data.get("peak_end_hour"),
-        "billing_cycle_day": entry.data.get("billing_cycle_day", 1),
-    })
+    # Authentication remains in entry.data; user-adjustable plan settings live
+    # in entry.options. The merge keeps existing pre-migration entries working.
+    plan_config = PlanConfig.from_dict({**entry.data, **entry.options})
 
     coordinator = OVOEnergyAUDataUpdateCoordinator(
         hass, client=client, account_id=account_id, plan_config=plan_config
     )
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+    entry.runtime_data = coordinator
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    # Register services only once
-    if not hass.services.has_service(DOMAIN, "refresh_data"):
-        async def handle_refresh_data(call: ServiceCall) -> None:
-            """Handle manual refresh - refreshes all coordinators."""
-            for _entry_id, coord in hass.data.get(DOMAIN, {}).items():
-                await coord.async_request_refresh()
-
-        hass.services.async_register(DOMAIN, "refresh_data", handle_refresh_data)
 
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        hass.data[DOMAIN].pop(entry.entry_id)
-        # Clean up when last entry is removed
-        if not hass.data[DOMAIN]:
-            hass.services.async_remove(DOMAIN, "refresh_data")
-            del hass.data[DOMAIN]
-    return unload_ok
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

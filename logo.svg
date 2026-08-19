@@ -1,22 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="200" height="80">
-  <defs>
-    <style>
-      .ovo-text {
-        font-family: Arial, Helvetica, sans-serif;
-        font-weight: 700;
-        font-size: 48px;
-        fill: #00A859;
-      }
-      .energy-text {
-        font-family: Arial, Helvetica, sans-serif;
-        font-weight: 400;
-        font-size: 14px;
-        fill: #333333;
-      }
-    </style>
-  </defs>
-
-  <!-- OVO Logo -->
-  <text x="100" y="50" class="ovo-text" text-anchor="middle">OVO</text>
-  <text x="100" y="68" class="energy-text" text-anchor="middle">ENERGY AU</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 170" role="img" aria-labelledby="title">
+  <title id="title">OVO Energy Australia</title>
+  <g fill="#007A4D">
+    <path transform="translate(10 10) scale(6.2)" fill-rule="nonzero" d="M4.038 7.125c1.257 0 2.438.375 3.352 1.012l-.342-.862h3.619l1.219 4.275.266.975s.153-.488.267-.975l1.257-4.275h3.62l-.306.9c.915-.675 2.096-1.013 3.353-1.013.19 0 .343 0 .533.038L19.01.3.267 5.25l.723 2.7a5.868 5.868 0 0 1 3.048-.825zM20.343 10.238c-1.105 0-1.79.825-1.79 1.837 0 1.088.723 1.8 1.79 1.8 1.067 0 1.79-.75 1.79-1.8 0-.15 0-.3-.038-.412l-.076-.226c-.229-.712-.838-1.2-1.676-1.2zM5.79 12.037c0-1.012-.685-1.837-1.79-1.837s-1.79.825-1.79 1.838c0 1.087.723 1.8 1.79 1.8 1.067.037 1.79-.713 1.79-1.8zM20.343 16.837c-2.629 0-4.8-1.462-5.22-3.937l-1.485 3.787h-2.933L9.219 12.9C8.8 15.375 6.629 16.837 4 16.837c-.19 0-.419 0-.61-.037l1.867 6.9L24 18.75l-.724-2.663c-.8.488-1.828.75-2.933.75z"/>
+    <text x="165" y="112" font-family="Arial, Helvetica, sans-serif" font-size="86" font-weight="300">energy</text>
+  </g>
 </svg>

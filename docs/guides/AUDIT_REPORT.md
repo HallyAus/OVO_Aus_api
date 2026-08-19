@@ -1,388 +1,202 @@
-# OVO Energy Australia Integration - Code Audit Report
-
-**Date**: 2026-03-19
-**Version Audited**: 3.1.7
-**Auditor**: Claude (Automated Code Review)
-
----
-
-## 🎯 Executive Summary
-
-Overall **Rating**: ⭐⭐⭐⭐☆ (4/5 - Good)
-
-The integration is **well-structured** with solid error handling and authentication. However, there are **minor issues** that should be addressed for production readiness.
-
-### Strengths ✅
-- Excellent error handling hierarchy
-- Proper OAuth2/PKCE implementation
-- Good separation of concerns
-- Comprehensive GraphQL API coverage
-- Robust token refresh mechanism
-
-### Areas for Improvement ⚠️
-- Bare except clauses (code smell)
-- Unused variables
-- Missing type hints in some places
-- Potential race conditions
-- Memory considerations for large datasets
-
----
-
-## 🔍 Detailed Findings
-
-### 1. **Critical Issues** 🔴 (0)
-None found.
-
----
-
-### 2. **High Priority** 🟠 (3)
-
-#### 2.1 Bare `except:` Clauses
-**Location**:
-- `__init__.py:806, 1046, 1063`
-- `sensor.py:1699, 1858`
-
-**Issue**: Bare except clauses catch ALL exceptions including `SystemExit`, `KeyboardInterrupt`, which can mask serious errors.
-
-**Example**:
-```python
-# __init__.py:806
-except:
-    continue
-```
-
-**Recommendation**:
-```python
-except Exception:  # Or more specific exception
-    continue
-```
-
-**Impact**: Can hide critical errors and make debugging difficult.
-
----
-
-#### 2.2 Unused Variable in `api.py:133`
-**Location**: `api.py:133`
-
-**Issue**:
-```python
-token_lifetime = (self._token_expires_at - self._token_created_at).total_seconds()
-# Variable defined but never used
-```
-
-**Recommendation**: Remove unused variable or add logging:
-```python
-token_lifetime = (self._token_expires_at - self._token_created_at).total_seconds()
-_LOGGER.debug("Token lifetime: %d seconds", token_lifetime)
-```
-
----
-
-#### 2.3 Potential Memory Issue with Large Hourly Data
-**Location**: `__init__.py` (hourly data storage)
-
-**Issue**: Storing 7 days × 24 hours × 3 types = ~504+ entries in memory per update.
-
-**Current**:
-```python
-hourly_data = await self.client.get_hourly_data(
-    self.account_id,
-    query_start,
-    query_end,
-)
-# Stores all entries in coordinator.data["hourly"]
-```
-
-**Recommendation**: Consider:
-1. Limiting to last 48 hours for most sensors
-2. Using HA's built-in statistics for long-term data
-3. Pagination if API supports it
-
----
-
-### 3. **Medium Priority** 🟡 (5)
-
-#### 3.1 Missing Error Handling for Date Parsing
-**Location**: `sensor.py:89-96` in `_get_yesterday_hourly_data()`
-
-**Issue**:
-```python
-timestamp = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
-# No validation that period_from is a valid ISO format
-```
-
-**Recommendation**:
-```python
-try:
-    timestamp = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
-except (ValueError, AttributeError) as err:
-    _LOGGER.warning("Invalid timestamp format: %s", period_from)
-    continue
-```
-
----
-
-#### 3.2 Hardcoded Magic Numbers
-**Location**: Various files
-
-**Examples**:
-- `api.py:94`: `buffer_seconds = min(token_lifetime * 0.2, 120)` - Magic 0.2 and 120
-- `__init__.py:261`: `timedelta(days=7)` - Magic 7
-
-**Recommendation**: Define constants:
-```python
-# const.py
-TOKEN_REFRESH_BUFFER_PERCENT = 0.2
-TOKEN_REFRESH_MAX_BUFFER_SECONDS = 120
-HOURLY_DATA_LOOKBACK_DAYS = 7
-```
-
----
-
-#### 3.3 No Rate Limiting Protection
-**Location**: `api.py` (all API methods)
-
-**Issue**: No protection against API rate limits.
-
-**Recommendation**: Add rate limiting:
-```python
-from aiohttp import ClientTimeout
-from asyncio import sleep
-
-class OVOEnergyAUApiClient:
-    def __init__(self, ...):
-        self._last_request_time = None
-        self._min_request_interval = 1.0  # 1 second between requests
-
-    async def _rate_limit(self):
-        if self._last_request_time:
-            elapsed = time.time() - self._last_request_time
-            if elapsed < self._min_request_interval:
-                await sleep(self._min_request_interval - elapsed)
-        self._last_request_time = time.time()
-```
-
----
-
-#### 3.4 Potential Race Condition in Token Refresh
-**Location**: `api.py:371-394` `_ensure_authenticated()`
-
-**Issue**: No lock on token refresh - multiple concurrent calls could trigger duplicate refreshes.
-
-**Recommendation**:
-```python
-import asyncio
-
-class OVOEnergyAUApiClient:
-    def __init__(self, ...):
-        self._refresh_lock = asyncio.Lock()
-
-    async def _ensure_authenticated(self):
-        async with self._refresh_lock:
-            # existing code
-```
-
----
-
-#### 3.5 Inconsistent Null Handling
-**Location**: `__init__.py` (data processing)
-
-**Example**:
-```python
-# Sometimes uses .get() with default
-solar_consumption = entry.get("solar_consumption", 0)
-
-# Sometimes doesn't
-if entry["solar_consumption"] > 0:  # Could raise KeyError
-```
-
-**Recommendation**: Consistent use of `.get()` with defaults.
-
----
-
-### 4. **Low Priority** 🟢 (4)
-
-#### 4.1 Missing Docstrings
-**Location**: Various helper functions
-
-**Example**: Helper functions in `sensor.py` missing detailed docstrings.
-
-**Recommendation**: Add comprehensive docstrings following Google style.
-
----
-
-#### 4.2 Long Functions
-**Location**:
-- `__init__.py:_async_update_data()` - 500+ lines
-- `sensor.py:extra_state_attributes()` - 200+ lines
-
-**Recommendation**: Break into smaller, testable functions.
-
----
-
-#### 4.3 Logging Inconsistency
-**Example**:
-```python
-# Sometimes uses .error()
-_LOGGER.error("Connection test failed: %s", err)
-
-# Sometimes uses .warning()
-_LOGGER.warning("Re-authentication failed: %s.", err)
-```
-
-**Recommendation**: Establish logging level guidelines.
-
----
-
-#### 4.4 Type Hints Incomplete
-**Location**: Several functions miss return type hints or parameter types.
-
-**Recommendation**: Add complete type hints for all public methods.
-
----
-
-## 🔒 Security Audit
-
-### ✅ **Security - Good Practices**
-1. ✅ Uses PKCE for OAuth (recommended for native apps)
-2. ✅ Secure random generation with `secrets` module
-3. ✅ No hardcoded credentials
-4. ✅ Proper JWT validation (signature checking disabled for ID token inspection only)
-5. ✅ HTTPS URLs for all API calls
-6. ✅ Passwords not logged
-
-### ⚠️ **Security - Concerns**
-1. ⚠️ Credentials stored in memory (acceptable for HA but note it)
-2. ⚠️ No password complexity validation
-3. ⚠️ No session timeout beyond token expiry
-
-**Verdict**: Security is **solid** for a Home Assistant integration.
-
----
-
-## ⚡ Performance Audit
-
-### Issues Identified:
-1. **Large Data Structures**: 7 days of hourly data kept in memory
-2. **No Caching**: API calls don't use response caching
-3. **Synchronous Processing**: Some data transformations could be optimized
-
-### Recommendations:
-```python
-# Consider using HA's recorder for long-term data
-from homeassistant.components import recorder
-
-# Or limit in-memory data
-HOURLY_DATA_RETENTION_HOURS = 48  # Instead of 7 days
-```
-
----
-
-## 🧪 Testing Coverage
-
-### Observations:
-- ❌ No unit tests found
-- ❌ No integration tests found
-- ❌ No test fixtures
-
-### Recommendations:
-Create test suite:
-```
-tests/
-  __init__.py
-  test_api.py
-  test_coordinator.py
-  test_sensors.py
-  fixtures/
-    api_responses.json
-```
-
----
-
-## 📚 Code Quality Metrics
-
-| Metric | Score | Target |
-|--------|-------|--------|
-| Compilation | ✅ Pass | Pass |
-| Error Handling | 8/10 | 9/10 |
-| Type Hints | 6/10 | 9/10 |
-| Documentation | 7/10 | 9/10 |
-| Code Duplication | 7/10 | 8/10 |
-| Modularity | 8/10 | 8/10 |
-
----
-
-## 🎯 Priority Action Items
-
-### Must Fix (Before Production)
-1. Replace all bare `except:` with `except Exception:`
-2. Remove unused variable `token_lifetime`
-3. Add token refresh lock to prevent race conditions
-
-### Should Fix (Next Release)
-1. Add proper error handling for date parsing
-2. Extract magic numbers to constants
-3. Add rate limiting protection
-
-### Nice to Have
-1. Add comprehensive unit tests
-2. Break down large functions
-3. Add complete type hints
-4. Improve logging consistency
-
----
-
-## 📈 Recommendations for Next Version (3.2.0)
-
-### Architecture Improvements
-1. **Separate Data Layer**: Move data processing to separate module
-2. **Add Caching**: Implement response caching for repeated queries
-3. **Event-Based Updates**: Consider WebSocket/SSE if API supports it
-
-### New Features
-1. **Diagnostic Sensors**: Add API health/status sensors
-2. **Cost Calculations**: More detailed cost breakdowns
-3. **Alerts**: Notify on high usage or cost spikes
-
-### Developer Experience
-1. Add `CONTRIBUTING.md`
-2. Add `TESTING.md`
-3. Set up GitHub Actions CI/CD
-4. Add pre-commit hooks
-
----
-
-## ✅ Compliance Checklist
-
-- [x] Home Assistant Integration Requirements
-- [x] OAuth 2.0 Best Practices
-- [x] Python 3.11+ Compatibility
-- [x] Async/Await Patterns
-- [x] Config Flow Implementation
-- [ ] Unit Test Coverage (0%)
-- [x] Error Handling
-- [x] Logging
-- [ ] Complete Type Hints
-- [x] Manifest Schema
-
----
-
-## 🎓 Learning Resources
-
-For addressing findings:
-1. [Home Assistant Integration Quality Scale](https://developers.home-assistant.io/docs/integration_quality_scale_index)
-2. [Python Exception Handling Best Practices](https://docs.python.org/3/tutorial/errors.html)
-3. [Async/Await Patterns](https://docs.python.org/3/library/asyncio.html)
-
----
-
-## 📞 Contact
-
-For questions about this audit, refer to the commit:
-- **Session**: https://claude.ai/code/session_016A8VQRybhA9b9Sdq5W3RTL
-- **Date**: 2026-03-19
-- **Version**: 3.1.7
-
----
-
-**Overall Assessment**: The integration is **production-ready** with minor improvements needed. The core functionality is solid, but addressing the bare except clauses and adding tests would significantly improve maintainability.
+# OVO Energy Australia integration audit
+
+**Audit date:** 19 August 2026
+
+**Code baseline:** manifest/source version 4.7.1 / `c3bb4df`
+
+**Latest GitHub release during audit:** v4.7.0
+
+**Scope:** complete repository, Home Assistant integration lifecycle, Auth0/API
+client, GraphQL coverage, sensors and analytics, config/reauth/options flows,
+privacy, tests, blueprints, installers, translations, documentation, and a
+read-only authenticated probe of the current MyOVO/Flex web platform.
+
+No credential, token, account number, NMI, address, bill URL, vehicle ID, VIN,
+balance, payment detail, or customer-specific value is stored in this report.
+The temporary browser credential profile and authenticated session were deleted
+after the probe.
+
+## Outcome
+
+The integration was functional and its analytics test suite was healthy, but the
+audit found correctness, privacy, lifecycle, load, documentation, and test gaps.
+The coordinated remediation resolves the actionable defects listed below and
+adds the useful billing and privacy-filtered connected-vehicle surfaces
+confirmed by the live portal.
+
+The project was first fast-forwarded to the 4.7.1 source baseline, which already
+fixed per-kWh precision, multi-account balance matching, and invalid-auth error
+mapping. That source version had not yet been published as the latest GitHub
+release during the audit.
+
+## Live platform map
+
+The current MyOVO portal uses Auth0 authorization-code flow with PKCE and a
+GraphQL API at `my.ovoenergy.com.au/graphql`. A read-only route sweep observed
+these operations:
+
+- Account: `GetAccountContacts`, `GetContactInfo`, `GetUsageInfo`
+- Usage/plan: `GetIntervalData`, `GetHourlyData`, `GetProductAgreements`
+- Billing: `GetBillingInformation`, `GetPaymentDetails`, `GetStatements`,
+  `GetUnbilledCharges`
+- Other: `GetFlex`, `GetRafTotalEarned`, `GetConcession`, `GetLifeSupport`
+
+The integration already covered usage, plan, statements, payments, referrals,
+account balance, and Flex onboarding. This remediation adds a deliberately
+minimal billing query for direct-debit and unbilled-charge summaries. It does
+not request masked bank/card/BPAY identifiers from `GetPaymentDetails`.
+
+### Separate Kaluza Flex surface
+
+The EV Control route also revealed a distinct Kaluza/Firebase surface:
+
+- account-scoped token exchange;
+- vehicle/device registration and telemetry;
+- charge plan and charging-time endpoints;
+- monthly EV energy-consumption documents.
+
+Those responses include control-adjacent data plus vehicle state, location/home
+flags, VIN, and device identifiers. A second read-only sweep of the EV dashboard,
+charge-limit, charging-time, demand-period, and solar-status routes confirmed the
+complete GET contract and did not invoke any write/control action.
+
+The implementation now covers registration/readiness, live telemetry, charging
+preferences, all charge-plan intervals, charging-time and demand-period settings,
+monthly EV kWh/cost/rate/source detail, and vendor credential health. Raw
+account/user/device and optimisation IDs, VIN, coordinates/home-presence flags,
+tokens, tariff IDs, and certificate-install URLs are discarded before data
+reaches the coordinator. Stable Home Assistant device identifiers use a one-way
+hash. Remote charging/settings/removal actions remain outside the verified and
+safe boundary.
+
+## Resolved findings
+
+### Authentication and transport
+
+- OAuth `state` was generated but not checked at callback; it is now compared in
+  constant time before code exchange.
+- OIDC `nonce` was generated but not checked; the returned ID-token nonce is now
+  validated before tokens are accepted.
+- Five-minute token rotation preferred resubmitting the password. Refresh tokens
+  are now used first, with credential login only after an explicit refresh-token
+  rejection.
+- Request throttling used wall-clock time and could misbehave after clock jumps;
+  it now uses `time.monotonic()`.
+- PyJWT's minimum was stale. The integration now requires the current 2.13 line
+  with a `<3` compatibility bound.
+
+### Home Assistant lifecycle and configuration
+
+- Runtime coordinator storage now uses `ConfigEntry.runtime_data`.
+- `refresh_data` is registered once from integration-level `async_setup`, not
+  per config entry, and is documented as an action.
+- Plan settings are now stored in config-entry options. An entry update listener
+  reloads the integration after changes without requiring Home Assistant's newer
+  `OptionsFlowWithReload` helper; existing data-based settings remain readable.
+- The initial EV fallback rate now matches the model/default-rate value.
+- A privacy-safe diagnostics module was added.
+
+These changes follow current Home Assistant guidance for
+[runtime data](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/runtime-data/),
+[action setup](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/action-setup/),
+and [options reload](https://developers.home-assistant.io/docs/core/integration/options_flow/).
+
+### Data correctness
+
+- The bill estimate subtracted a solar-generation charge rather than the actual
+  return-to-grid credit. It now uses `return_to_grid_charge`.
+- “Last 7 Days” hourly totals could include an eighth day or partial current day.
+  Hourly processing now applies an AU-local half-open seven-day window.
+- The tariff-period sensor claimed EV/free schedules and hard-coded rates for all
+  plan types. It now activates only periods supported by the detected plan/API
+  rates and uses live plan rates with configured fallbacks.
+- Moving “day N” and “N days ago” entities were eligible for long-term
+  statistics despite changing calendar dates. Their state class is now unset.
+- Live direct-debit amount, minimum amount, unbilled electricity, unbilled solar,
+  and bill-progress sensors were added from fields confirmed in MyOVO.
+
+### Privacy and resource use
+
+- Account IDs and NMIs were removed from Recorder-visible diagnostic attributes.
+- Signed bill download URLs were removed from entity attributes and recent-bill
+  history.
+- Entities now belong to one account device instead of creating a device for
+  every display category.
+- Detailed daily/hourly history entities remain available but start disabled to
+  reduce Recorder, registry, and update load. This follows Home Assistant's
+  [disabled-by-default guidance](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-disabled-by-default/).
+- The local `reference/` directory is ignored to prevent accidental commits of
+  customer statements or research artifacts.
+- Connected vehicles are represented as their own physical devices, linked to
+  the OVO account device. Diagnostics expose only vehicle/telemetry/plan/energy
+  availability counts; detailed schedule attributes contain no raw identifiers.
+
+### Connected vehicles
+
+- A dedicated Kaluza/Firebase client follows the portal's short-lived token
+  chain, caches the token within its lifetime, retries once after rejection, and
+  uses only GET requests.
+- Multi-vehicle discovery is supported, including vehicles that appear after
+  integration setup.
+- Nineteen entities per vehicle expose automation-friendly battery, range,
+  cable, mode, boost, charge-limit, timestamp, power, SOC, energy and cost
+  values plus complete privacy-safe status, preferences, schedule and charge
+  plan attributes.
+- The current-month Firestore energy document is decoded recursively and
+  preserves daily periods, rate categories, costs and energy-source mixes.
+
+### Documentation, packaging, and UX
+
+- PowerShell no longer downloads an obsolete branch; it uses the latest release
+  asset. Local-copy paths in both installers now resolve from the repository root.
+- Installer output and the HACS/quick-start guides no longer instruct users to
+  extract JWTs or configure unsupported YAML.
+- Historical reverse-engineering documents now carry explicit token-safety and
+  non-installation warnings; the raw authorization-header format is corrected.
+- The notification blueprint now defaults to
+  `persistent_notification.create` and uses modern action syntax.
+- Billing-cycle option text is present in every bundled translation.
+- Sensor-count marketing was replaced with accurate core/optional wording.
+
+## Validation
+
+- `python -m pytest tests -q`: **133 passed**
+- `python -m ruff check custom_components/ovo_energy_au tests`: **passed**
+- Python bytecode compilation: passed
+- JSON translation/manifest parsing: passed
+- YAML syntax and duplicate-key scan: passed
+- PowerShell installer parser: passed
+- Bash is not installed in the audit environment, so `bash -n` was unavailable
+- `git diff --check`: passed
+
+The local environment does not include a full Home Assistant runtime, HA OS
+CLI, or Home Assistant Docker container, so `hass --script check_config` and a
+real config-entry startup test could not be run here. The repository mocks are
+useful for deterministic analytics/unit tests but are not a substitute for that
+final staging check.
+
+## Known boundaries
+
+- The customer portal APIs are private/undocumented and can change without a
+  versioned contract. GraphQL failures remain isolated where partial data is
+  optional, but authentication and core interval failures correctly make the
+  entry unavailable or trigger reauthentication.
+- Multiple active accounts are fetched correctly and balances are matched to the
+  selected account, but first-time setup still selects the first active account
+  rather than showing an account-picker step.
+- Kaluza vehicle data depends on private, undocumented endpoints and may become
+  temporarily unavailable independently of core energy data. It is treated as
+  optional so an EV outage cannot take down account/usage sensors.
+- Remote boost, charging-time mutation, charge-limit changes, unlink/remove,
+  and other control actions are not shipped because no write was invoked during
+  the audit and safe idempotency/confirmation contracts were not verified.
+- Entity display-name translations and a full Home Assistant config-flow test
+  harness remain quality-scale improvements, not data-correctness blockers;
+  targeted options-flow behavior is covered by the local unit suite.
+
+## Release target
+
+The audited changes are versioned as **4.8.0** and are intended to be committed,
+pushed, tagged, and published together with a verified forward-slash release
+archive. The GitHub release is the deployment record; this report describes the
+source and validation performed before that release was created.

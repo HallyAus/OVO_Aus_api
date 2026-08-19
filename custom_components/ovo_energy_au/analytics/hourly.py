@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from homeassistant.util import dt as dt_util
 
@@ -25,7 +25,12 @@ _CHARGE_TYPE_TO_PERIOD = {
 }
 
 
-def process_hourly_data(data: dict | None, plan_config: PlanConfig) -> dict:
+def process_hourly_data(
+    data: dict | None,
+    plan_config: PlanConfig,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict:
     """Process hourly data into entries, totals, TOU breakdown, and tracking.
 
     Unlike interval data, we keep ALL hourly entries for graphing.
@@ -42,8 +47,12 @@ def process_hourly_data(data: dict | None, plan_config: PlanConfig) -> dict:
         "return_to_grid_total": 0.0,
     }
 
-    solar_raw = data.get("solar", []) or []
-    export_raw = data.get("export", []) or []
+    solar_raw = _filter_entries_by_date(
+        data.get("solar", []) or [], start_date, end_date
+    )
+    export_raw = _filter_entries_by_date(
+        data.get("export", []) or [], start_date, end_date
+    )
 
     # Separate entries - store only needed fields
     # IMPORTANT: The API returns charge: null (not charge: {}) for hourly data,
@@ -104,6 +113,27 @@ def process_hourly_data(data: dict | None, plan_config: PlanConfig) -> dict:
     processed["peak_4hour_window"] = _find_peak_window(timeline)
 
     return processed
+
+
+def _filter_entries_by_date(
+    entries: list[dict], start_date: date | None, end_date: date | None
+) -> list[dict]:
+    """Keep entries in an AU-local half-open date range."""
+    if start_date is None and end_date is None:
+        return entries
+
+    filtered = []
+    for entry in entries:
+        timestamp = _parse_timestamp(entry.get("periodFrom", ""))
+        if timestamp is None:
+            continue
+        entry_date = timestamp.date()
+        if start_date is not None and entry_date < start_date:
+            continue
+        if end_date is not None and entry_date >= end_date:
+            continue
+        filtered.append(entry)
+    return filtered
 
 
 def _aggregate_hourly_rates(grid_entries: list[dict]) -> dict:

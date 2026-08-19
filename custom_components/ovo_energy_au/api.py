@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import hmac
 import html
 import logging
 import re
@@ -36,6 +37,7 @@ from .const import (
 )
 from .graphql.queries import (
     GET_ACCOUNT_EXTRAS,
+    GET_BILLING_OVERVIEW,
     GET_CONTACT_INFO,
     GET_HOURLY_DATA,
     GET_INTERVAL_DATA,
@@ -43,6 +45,7 @@ from .graphql.queries import (
     GET_STATEMENTS,
     GET_USAGE_INFO,
 )
+from .vehicle import OVOVehicleApiClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,6 +83,7 @@ class OVOEnergyAUApiClient:
         self._refresh_lock = asyncio.Lock()
         self._last_request_time: float | None = None
         self._rate_limit_lock = asyncio.Lock()
+        self._vehicle_client = OVOVehicleApiClient(session, self._rate_limit)
 
     # ─── Token management ────────────────────────────────────────────
 
@@ -263,8 +267,17 @@ class OVOEnergyAUApiClient:
                     )
 
             # Step 5: Exchange code for tokens
+            callback_state = query_params.get("state", [None])[0]
+            if not callback_state or not hmac.compare_digest(callback_state, state):
+                raise OVOEnergyAUApiClientAuthenticationError(
+                    "OAuth callback state validation failed"
+                )
+
             token_data = await self._exchange_code_for_tokens(
-                authorization_code, OAUTH_REDIRECT_URI, code_verifier
+                authorization_code,
+                OAUTH_REDIRECT_URI,
+                code_verifier,
+                expected_nonce=nonce,
             )
             _LOGGER.debug("Successfully authenticated with username/password")
             return token_data
@@ -280,7 +293,11 @@ class OVOEnergyAUApiClient:
             ) from err
 
     async def _exchange_code_for_tokens(
-        self, code: str, redirect_uri: str, code_verifier: str
+        self,
+        code: str,
+        redirect_uri: str,
+        code_verifier: str,
+        expected_nonce: str | None = None,
     ) -> dict[str, Any]:
         """Exchange authorization code for tokens."""
         data = {
@@ -294,6 +311,25 @@ class OVOEnergyAUApiClient:
             async with self._session.post(OAUTH_TOKEN_URL, json=data) as response:
                 response.raise_for_status()
                 token_data = await response.json()
+
+                if expected_nonce:
+                    try:
+                        claims = jwt.decode(
+                            token_data["id_token"],
+                            options={"verify_signature": False},
+                        )
+                    except (KeyError, jwt.PyJWTError) as err:
+                        raise OVOEnergyAUApiClientAuthenticationError(
+                            "Could not validate the ID token nonce"
+                        ) from err
+                    token_nonce = claims.get("nonce")
+                    if not isinstance(token_nonce, str) or not hmac.compare_digest(
+                        token_nonce, expected_nonce
+                    ):
+                        raise OVOEnergyAUApiClientAuthenticationError(
+                            "ID token nonce validation failed"
+                        )
+
                 self.set_tokens(
                     access_token=token_data["access_token"],
                     id_token=token_data["id_token"],
@@ -346,35 +382,47 @@ class OVOEnergyAUApiClient:
         """Ensure the client is authenticated, refreshing if needed."""
         async with self._refresh_lock:
             if not self._access_token:
+                if self._refresh_token:
+                    try:
+                        await self.refresh_tokens()
+                        return
+                    except OVOEnergyAUApiClientAuthenticationError:
+                        _LOGGER.debug(
+                            "Refresh token rejected; falling back to credential login"
+                        )
                 if self._username and self._password:
                     await self.authenticate_with_password(self._username, self._password)
                     return
                 raise OVOEnergyAUApiClientAuthenticationError("Not authenticated")
 
             if self.should_refresh:
-                # Prefer full re-auth (more reliable than refresh tokens)
-                if self._username and self._password:
-                    try:
-                        await self.authenticate_with_password(self._username, self._password)
-                        return
-                    except (OVOEnergyAUApiClientError, aiohttp.ClientError) as err:
-                        _LOGGER.warning("Re-auth failed, falling back to refresh: %s", err)
-
+                # Refresh tokens avoid submitting the account password on every
+                # five-minute access-token rotation. Fall back to credentials
+                # only when Auth0 explicitly rejects the refresh token.
                 if self._refresh_token:
-                    await self.refresh_tokens()
-                else:
-                    raise OVOEnergyAUApiClientAuthenticationError(
-                        "Token needs refresh but no refresh mechanism available"
-                    )
+                    try:
+                        await self.refresh_tokens()
+                        return
+                    except OVOEnergyAUApiClientAuthenticationError:
+                        _LOGGER.debug(
+                            "Refresh token rejected; falling back to credential login"
+                        )
+
+                if self._username and self._password:
+                    await self.authenticate_with_password(self._username, self._password)
+                    return
+                raise OVOEnergyAUApiClientAuthenticationError(
+                    "Token needs refresh but no refresh mechanism is available"
+                )
 
     async def _rate_limit(self) -> None:
         """Apply rate limiting between API requests."""
         async with self._rate_limit_lock:
             if self._last_request_time is not None:
-                elapsed = time.time() - self._last_request_time
+                elapsed = time.monotonic() - self._last_request_time
                 if elapsed < MIN_REQUEST_INTERVAL_SECONDS:
                     await asyncio.sleep(MIN_REQUEST_INTERVAL_SECONDS - elapsed)
-            self._last_request_time = time.time()
+            self._last_request_time = time.monotonic()
 
     def _graphql_headers(self, referer_path: str = "/") -> dict[str, str]:
         """Build standard GraphQL request headers.
@@ -635,6 +683,17 @@ class OVOEnergyAUApiClient:
             allow_null_result=True,
         )
 
+    async def get_billing_overview(self, account_id: str) -> dict[str, Any]:
+        """Get direct-debit and unbilled-charge summary for an account."""
+        return await self._graphql_request(
+            operation_name="GetBillingOverview",
+            query=GET_BILLING_OVERVIEW,
+            variables={"input": {"id": account_id, "system": "KALUZA"}},
+            result_key="GetAccountInfo",
+            referer_path="/bills",
+            allow_null_result=True,
+        )
+
     async def get_usage_info(self, account_id: str) -> dict[str, Any]:
         """Get usage info (timezone, meter type) for an account."""
         return await self._graphql_request(
@@ -644,6 +703,17 @@ class OVOEnergyAUApiClient:
             result_key="GetAccountInfo",
             referer_path="/usage",
             allow_null_result=True,
+        )
+
+    async def get_vehicle_data(self, account_id: str) -> list[dict[str, Any]]:
+        """Get privacy-filtered, read-only vehicle and charging data."""
+        await self._ensure_authenticated()
+        if not self._access_token:
+            raise OVOEnergyAUApiClientAuthenticationError(
+                "Vehicle data requires an authenticated account"
+            )
+        return await self._vehicle_client.async_get_vehicle_data(
+            account_id, self._access_token
         )
 
     async def test_connection(self, account_id: str) -> bool:

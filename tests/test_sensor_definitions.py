@@ -1,9 +1,12 @@
 """Tests for sensor definitions integrity."""
 
-from unittest.mock import MagicMock
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from custom_components.ovo_energy_au.const import AU_TIMEZONE
+from custom_components.ovo_energy_au.models import PlanConfig
 from custom_components.ovo_energy_au.sensors.base import OVOEnergySensor
 from custom_components.ovo_energy_au.sensors.definitions import (
     ANALYTICS_SENSORS,
@@ -44,6 +47,24 @@ class TestSensorStatePrecision:
 
     def test_none_value_is_unavailable(self):
         assert self._make_sensor("AUD/kWh", None).native_value is None
+
+    def test_noisy_history_defaults_disabled_and_uses_account_device(self):
+        coordinator = MagicMock()
+        coordinator.account_id = "12345"
+        coordinator.data = {"present": True}
+        sensor = OVOEnergySensor(
+            coordinator,
+            "history",
+            "History",
+            "kWh",
+            None,
+            None,
+            "mdi:flash",
+            lambda data: 1,
+            "Hourly Data",
+        )
+        assert sensor._attr_entity_registry_enabled_default is False
+        assert sensor.device_info["identifiers"] == {("ovo_energy_au", "12345")}
 
 
 class TestSensorTupleStructure:
@@ -176,6 +197,24 @@ class TestBillAndTariffSensors:
             assert self._vfn(key)({}) is None
             assert self._vfn(key)({"product_agreements": None}) is None
 
+    def test_live_billing_value_fns(self):
+        data = {
+            "billing_information": {
+                "minimumDirectDebitAmount": 40,
+                "directDebitDetails": {"amount": 71},
+            },
+            "unbilled_charges": {
+                "billProgress": 55,
+                "electricity": {"amount": {"value": 32.1}},
+                "solar": {"amount": {"value": -4.5}},
+            },
+        }
+        assert self._vfn("next_direct_debit_amount")(data) == 71
+        assert self._vfn("minimum_direct_debit_amount")(data) == 40
+        assert self._vfn("unbilled_electricity_charge")(data) == 32.1
+        assert self._vfn("unbilled_solar_credit")(data) == -4.5
+        assert self._vfn("bill_progress")(data) == 55
+
 
 class TestEnergyDashboardSensor:
     """Energy Dashboard cumulative sensors (#73)."""
@@ -212,6 +251,75 @@ class TestEnergyDashboardSensor:
                                        "solar_consumption", "mdi:x")
         assert exp.native_value == 12.0
         assert sol.native_value == 92.36
+
+
+class TestSpecializedSensorSafety:
+    """Plan-aware tariff behavior and privacy-safe attributes."""
+
+    def _coord(self, plan_type, rates=None):
+        coordinator = MagicMock()
+        coordinator.account_id = "account-id"
+        coordinator.plan_config = PlanConfig(plan_type=plan_type)
+        coordinator.data = {
+            "product_agreements": {
+                "id": "account-id",
+                "productAgreements": [
+                    {
+                        "nmi": "sensitive-meter-id",
+                        "fromDt": "2026-01-01",
+                        "toDt": None,
+                        "product": {
+                            "displayName": "Plan",
+                            "code": "PLAN",
+                            "unitRatesCentsPerKWH": rates or {},
+                        },
+                    }
+                ],
+            }
+        }
+        return coordinator
+
+    @patch("custom_components.ovo_energy_au.sensor.datetime")
+    def test_flat_plan_never_claims_ev_period(self, mock_datetime):
+        from custom_components.ovo_energy_au.sensor import OVOTariffPeriodSensor
+
+        mock_datetime.now.return_value = datetime(2026, 3, 20, 1, 0, tzinfo=AU_TIMEZONE)
+        sensor = OVOTariffPeriodSensor(self._coord("one", {"standard": 28}))
+        assert sensor.native_value == "Standard"
+        assert sensor.extra_state_attributes["rate_cents_kwh"] == 28
+
+    @patch("custom_components.ovo_energy_au.sensor.datetime")
+    def test_ev_and_free_periods_require_matching_plan_or_api_rate(self, mock_datetime):
+        from custom_components.ovo_energy_au.sensor import OVOTariffPeriodSensor
+
+        mock_datetime.now.return_value = datetime(2026, 3, 20, 1, 0, tzinfo=AU_TIMEZONE)
+        assert OVOTariffPeriodSensor(self._coord("ev", {"evOffPeak": 8})).native_value == "EV Off-Peak"
+
+        mock_datetime.now.return_value = datetime(2026, 3, 20, 12, 0, tzinfo=AU_TIMEZONE)
+        assert OVOTariffPeriodSensor(self._coord("free_3")).native_value == "Super Off-Peak (FREE)"
+        assert OVOTariffPeriodSensor(self._coord("ev", {"superOffPeak": 0})).native_value == "Super Off-Peak (FREE)"
+
+    def test_plan_attributes_exclude_account_and_meter_ids(self):
+        from custom_components.ovo_energy_au.sensor import OVOPlanSensor
+
+        attrs = OVOPlanSensor(self._coord("one", {"standard": 28})).extra_state_attributes
+        assert "account_id" not in attrs
+        assert "nmi" not in attrs
+
+    def test_bill_attributes_exclude_signed_download_urls(self):
+        from custom_components.ovo_energy_au.sensor import OVOLatestBillSensor
+
+        coordinator = MagicMock()
+        coordinator.account_id = "account-id"
+        coordinator.data = {
+            "latest_bill": {"total": 50, "download_url": "https://signed.example"},
+            "statements": [
+                {"charges": {"total": {"value": 50}}, "downloadUrl": "https://signed.example"}
+            ],
+        }
+        attrs = OVOLatestBillSensor(coordinator).extra_state_attributes
+        assert "download_url" not in attrs
+        assert "download_url" not in attrs["recent_bills"][0]
 
 
 class TestPaymentAndReferralSensors:

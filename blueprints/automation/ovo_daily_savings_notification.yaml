@@ -9,8 +9,8 @@ blueprint:
   input:
     notify_service:
       name: Notification Service
-      description: The notification service to use (e.g., notify.mobile_app_phone)
-      default: notify.persistent_notification
+      description: The notification action to use (e.g., notify.mobile_app_phone)
+      default: persistent_notification.create
     trigger_time:
       name: Notification Time
       description: Time to send the daily report (after 8am recommended)
@@ -77,7 +77,7 @@ action:
       grid: "{{ states(grid_entity) | float(0) | round(1) }}"
       cost: "{{ states(charge_entity) | float(0) | round(2) }}"
       monthly_savings: "{{ states(monthly_entity) | float(0) | round(2) }}"
-  - service: !input notify_service
+  - action: !input notify_service
     data:
       title: "⚡ OVO Energy Daily Report"
       message: >

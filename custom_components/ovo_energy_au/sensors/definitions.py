@@ -345,6 +345,30 @@ ANALYTICS_SENSORS = [
      SensorDeviceClass.MONETARY, None, "mdi:calendar-today",
      lambda d: d.get("bill_estimate", {}).get("daily_average_net"), "Bill Estimate"),
 
+    # Live billing information confirmed against the current MyOVO portal.
+    ("next_direct_debit_amount", "Next Direct Debit Amount", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:bank-transfer-out",
+     lambda d: (d.get("billing_information", {}).get("directDebitDetails") or {}).get("amount"),
+     "Billing"),
+
+    ("minimum_direct_debit_amount", "Minimum Direct Debit Amount", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:cash-lock",
+     lambda d: d.get("billing_information", {}).get("minimumDirectDebitAmount"), "Billing"),
+
+    ("unbilled_electricity_charge", "Unbilled Electricity Charge", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:receipt-text-clock",
+     lambda d: ((d.get("unbilled_charges", {}).get("electricity") or {}).get("amount") or {}).get("value"),
+     "Billing"),
+
+    ("unbilled_solar_credit", "Unbilled Solar Credit", "AUD",
+     SensorDeviceClass.MONETARY, None, "mdi:solar-power-variant",
+     lambda d: ((d.get("unbilled_charges", {}).get("solar") or {}).get("amount") or {}).get("value"),
+     "Billing"),
+
+    ("bill_progress", "Current Bill Progress", "%",
+     None, None, "mdi:progress-clock",
+     lambda d: d.get("unbilled_charges", {}).get("billProgress"), "Billing"),
+
     # Real Bills (actual issued statements from the API — supersedes estimates)
     ("latest_bill_amount", "Latest Bill Amount", "AUD",
      SensorDeviceClass.MONETARY, None, "mdi:receipt-text-check",

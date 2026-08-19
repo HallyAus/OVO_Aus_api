@@ -1,22 +1,24 @@
 # OVO Energy Australia for Home Assistant
 
-> ### 🎁 New to OVO? Get **$180 credit** — referral code `daniel16485`
+> ### 🎁 New to OVO? Get **$180 credit**
 >
-> Sign up through **[👉 ovoreferralcode.com](https://ovoreferralcode.com/)** and get **$180 off your bills**, paid as **$15/month for 12 months**. You get $180, I get $180 — and referrals are the **only** thing funding this project. 💚
+> - **Referral code:** `daniel16485`
+> - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+> - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
 >
-> Available on **every eligible plan** (including The EV Plan — no EV required) across NSW, VIC, QLD & SA. Prefer the direct link? [ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+> Get **$180 off your bills**, paid as **$15/month for 12 months**. You get $180, I get $180 — and referrals are the **only** thing funding this project. 💚
 
 <div align="center">
 
-<img src="images/logo.svg" alt="OVO Energy Australia" width="280"/>
+<img src="images/logo.png" alt="OVO Energy Australia" width="280"/>
 
 <br/><br/>
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore)](https://github.com/hacs/integration)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.7.1-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.8.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.6+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 
 ![GitHub Stars](https://img.shields.io/github/stars/HallyAus/OVO_Aus_api?style=social)
@@ -36,7 +38,7 @@ Track solar generation, grid consumption, costs, rate breakdowns, and OVO plan s
 
 > *"Use the Force wisely, young Padawan. Monitor your energy, you must."* -- Yoda (probably)
 
-### 🎁 New to OVO? Get **$180 credit** 👉 **[ovoreferralcode.com](https://ovoreferralcode.com/)** — code `daniel16485`
+### 🎁 New to OVO? Get **$180 credit** — code `daniel16485` · [direct OVO signup](https://www.ovoenergy.com.au/refer/daniel16485) · [friendly link](https://ovoreferralcode.com/)
 It costs you nothing extra, both of us get $180, and it's the only thing funding this project. 💚
 
 [Features](#features) · [Quick Start](#quick-start) · [Sensors](#sensors) · [Dashboards](#dashboard-examples) · [Contributing](#contributing)
@@ -55,7 +57,9 @@ If this integration saves you money or time, please use one of the referrals bel
 ### 🎁 OVO Energy referral — $180 credit
 Not an OVO customer yet? Sign up through my referral site (the code `daniel16485` attaches automatically):
 
-**👉 [ovoreferralcode.com](https://ovoreferralcode.com/)** — or use the direct link: [ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+- **Referral code:** `daniel16485`
+- **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+- **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
 
 - ✅ **$180 credit** (incl. GST), paid as $15/month over 12 months
 - ✅ Available on **all eligible plans** — including The EV Plan (no EV required)
@@ -88,7 +92,7 @@ These are cumulative month-to-date totals (`state_class: total` with a monthly `
 
 ## ✨ Features
 
-### 📊 90+ Sensors with Automatic Plan Detection
+### 📊 Comprehensive Sensors with Automatic Plan Detection
 
 The integration connects to OVO's GraphQL API and automatically detects your plan, rates, and account details. No manual rate entry required.
 
@@ -112,6 +116,7 @@ The integration connects to OVO's GraphQL API and automatically detects your pla
 | **⚡ Tariff Period Indicator** | Shows current rate period (EV Off-Peak / FREE / Standard) with live rate |
 | **📊 Plan Comparison** | Savings vs One Plan with rating and recommendation |
 | **🔌 EV Charging Tracker** | Monthly and yearly EV charging kWh and cost |
+| **🚗 Connected Vehicle** | Live battery/range/cable/mode, charge limit and boost state, readiness/credential health, charging preferences and weekly/tariff schedules, full charge-plan windows, demand-period settings, and monthly vehicle kWh/cost/rate history |
 | **🧾 Bill Estimator** | MTD bill, projected monthly bill, daily average net cost |
 
 ### 🏠 Real-World Results
@@ -131,7 +136,7 @@ One user on the **EV Plan** sees:
 - **DST-aware** timezone handling using `ZoneInfo("Australia/Sydney")`
 - **Dynamic hourly sensors** that survive midnight without a restart
 - **Data-driven architecture** -- add sensors by editing a list, not writing classes
-- **72 automated tests** with CI/CD via GitHub Actions
+- **130+ automated tests** with CI/CD via GitHub Actions
 - **HACS compatible** with one-click install
 
 ---
@@ -162,7 +167,17 @@ Or manually:
 1. Go to **Settings** > **Devices & Services** > **Add Integration**
 2. Search for **OVO Energy Australia**
 3. Enter your OVO email and password
-4. Done -- your plan, rates, and 90+ sensors are created automatically
+4. Done -- your plan, rates, and core sensors are created automatically
+
+Detailed per-day/hourly history entities are available but disabled by default
+to avoid unnecessary Recorder and entity-registry load. Enable only the history
+entities you use.
+
+If your account is enrolled in OVO EV Control, a separate vehicle device is
+created automatically. It uses the same MyOVO login and read-only requests; no
+extra token or setup is required. VIN, location/home state, raw platform IDs,
+and vendor certificate URLs are discarded before data reaches Home Assistant.
+This release does not start charging or change vehicle settings.
 
 > ⚠️ **Don't pick the built-in "OVO Energy" integration!** Home Assistant ships a core integration called **OVO Energy** for OVO **UK** (domain `ovo_energy`). Searching "OVO" shows both — you must select **OVO Energy Australia** (domain `ovo_energy_au`), the one provided by this repository. If your error log mentions `homeassistant/components/ovo_energy` or `No customer id set`, you added the wrong (UK) integration: remove it and add **OVO Energy Australia** instead.
 

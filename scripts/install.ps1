@@ -93,12 +93,12 @@ if ($method -eq "1") {
     $zipPath = "$tempDir\repo.zip"
 
     try {
-        Invoke-WebRequest -Uri "https://github.com/HallyAus/OVO_Aus_api/archive/refs/heads/claude/create-github-project-rWeUP.zip" -OutFile $zipPath
+        Invoke-WebRequest -Uri "https://github.com/HallyAus/OVO_Aus_api/releases/latest/download/ovo_energy_au.zip" -OutFile $zipPath
         Expand-Archive -Path $zipPath -DestinationPath $tempDir
 
         Write-Host "Installing component..." -ForegroundColor Yellow
-        $repoDir = Get-ChildItem -Path $tempDir -Directory | Select-Object -First 1
-        Copy-Item -Recurse -Path "$($repoDir.FullName)\custom_components\ovo_energy_au" -Destination $COMPONENT_DIR
+        $componentSource = Join-Path $tempDir "ovo_energy_au"
+        Copy-Item -Recurse -Path $componentSource -Destination $COMPONENT_DIR
 
         Remove-Item -Recurse -Force $tempDir
     } catch {
@@ -110,15 +110,17 @@ if ($method -eq "1") {
 } elseif ($method -eq "2") {
     # Copy from current directory
     $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $REPO_ROOT = (Resolve-Path (Join-Path $SCRIPT_DIR "..")).Path
+    $componentSource = Join-Path $REPO_ROOT "custom_components\ovo_energy_au"
 
-    if (-not (Test-Path "$SCRIPT_DIR\custom_components\ovo_energy_au")) {
+    if (-not (Test-Path $componentSource)) {
         Write-Host "Error: custom_components\ovo_energy_au not found in current directory" -ForegroundColor Red
         Write-Host "Please run this script from the repository root" -ForegroundColor Yellow
         exit 1
     }
 
     Write-Host "Copying from current directory..." -ForegroundColor Yellow
-    Copy-Item -Recurse -Path "$SCRIPT_DIR\custom_components\ovo_energy_au" -Destination $COMPONENT_DIR
+    Copy-Item -Recurse -Path $componentSource -Destination $COMPONENT_DIR
 
 } else {
     Write-Host "Invalid choice" -ForegroundColor Red
@@ -141,20 +143,11 @@ Write-Host "╚═════════════════════�
 Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Blue
 Write-Host ""
-Write-Host "1. Get your tokens from OVO website:" -ForegroundColor Yellow
-Write-Host "   • Go to https://my.ovoenergy.com.au"
-Write-Host "   • Open DevTools (F12) → Network tab"
-Write-Host "   • Log in and click 'Usage'"
-Write-Host "   • Filter by 'graphql' and copy tokens from request headers"
+Write-Host "1. Restart Home Assistant" -ForegroundColor Yellow
+Write-Host "2. Open Settings → Devices & services → Add integration"
+Write-Host "3. Search for 'OVO Energy Australia' and sign in"
 Write-Host ""
-Write-Host "2. Add to configuration.yaml:" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "   ovo_energy_au:"
-Write-Host "     access_token: `"Bearer eyJ...`""
-Write-Host "     id_token: `"eyJ...`""
-Write-Host "     account_id: `"30264061`""
-Write-Host ""
-Write-Host "3. Restart Home Assistant" -ForegroundColor Yellow
+Write-Host "No browser-token extraction or configuration.yaml entry is required."
 Write-Host ""
 Write-Host "Installed to: $COMPONENT_DIR" -ForegroundColor Blue
 Write-Host ""

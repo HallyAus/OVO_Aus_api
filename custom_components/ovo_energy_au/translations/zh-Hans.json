@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "连接 OVO Energy Australia",
-        "description": "💚 **本项目免费且开源 — 推荐奖励是我从中获得的唯一收入。**\n\n🎁 **初次使用 OVO？** $120–$180 账户赠金（双方都有）：{ovo_url}\n🛰️ **需要上网？** Starlink 免费一个月：{starlink_url}\n⭐ **喜欢这个集成？** 给仓库加星：{github_url}\n\n---\n\n使用您的 OVO Energy Australia 账户登录，追踪用电量、电费和太阳能发电数据。\n\n系统会通过 OVO API 自动识别您的电力套餐和费率，无需手动选择套餐或输入费率。\n\n**隐私与安全：**\n• 登录凭据安全存储在 Home Assistant 的配置存储中\n• 仅用于通过 OVO 官方 API 访问您的能源数据\n• 绝不会与第三方或外部服务共享\n\n**为何需要密码：**\n• OVO API 令牌每 5 分钟过期一次，以确保安全\n• 自动重新认证可保证传感器全天候持续更新\n• 初次设置后无需手动操作",
+        "description": "🎁 **初次使用 OVO？** $180 账户赠金\n\n**推荐代码：** `daniel16485`\n**OVO 直接注册链接：** {ovo_url}\n**易记链接：** {ovo_friendly_url}\n\n💚 推荐奖励是这个免费开源项目的唯一收入。\n🛰️ **需要上网？** Starlink 免费一个月：{starlink_url}\n⭐ **喜欢这个集成？** 给仓库加星：{github_url}\n\n---\n\n使用您的 OVO Energy Australia 账户登录，追踪能源、电费、太阳能发电和已连接车辆。\n\n**隐私与安全：**\n• 登录凭据只存储在 Home Assistant 中\n• 系统会优先刷新短期令牌\n• 仅当 OVO 拒绝刷新令牌时才会再次使用密码\n• 凭据绝不会与第三方共享",
         "data": {
           "username": "电子邮箱",
           "password": "密码"
@@ -42,6 +42,7 @@
           "off_peak_rate": "低谷费率 ($/kWh)",
           "ev_rate": "EV Off-Peak 费率 ($/kWh)",
           "flat_rate": "统一费率 ($/kWh)",
+          "billing_cycle_day": "账单周期开始日 (1-31)",
           "peak_start_hour": "高峰时段开始小时 (0-23)",
           "peak_end_hour": "高峰时段结束小时 (0-23)"
         }

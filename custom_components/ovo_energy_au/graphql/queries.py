@@ -233,3 +233,42 @@ query GetAccountExtras($input: GetAccountInfoInput!) {
   }
 }
 """
+
+# Read-only billing summary. Payment-method details are deliberately excluded:
+# the portal exposes masked bank/card identifiers, but Home Assistant does not
+# need to retrieve or persist them.
+GET_BILLING_OVERVIEW = """
+query GetBillingOverview($input: GetAccountInfoInput!) {
+  GetAccountInfo(input: $input) {
+    id
+    billingInformation {
+      minimumDirectDebitAmount
+      directDebitDetails(input: $input) {
+        amount
+        nextPaymentDate
+        status
+        variableAmount
+        frequency
+        scheduleDay
+      }
+    }
+    unbilledCharges {
+      billProgress
+      electricity {
+        amount {
+          value
+          type
+        }
+        category
+      }
+      solar {
+        amount {
+          value
+          type
+        }
+        category
+      }
+    }
+  }
+}
+"""

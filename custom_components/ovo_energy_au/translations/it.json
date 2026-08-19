@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connetti a OVO Energy Australia",
-        "description": "💚 **Questo progetto è gratuito e open-source — i referral sono il mio unico guadagno.**\n\n🎁 **Nuovo cliente OVO?** Credito di $120–$180 (guadagniamo entrambi): {ovo_url}\n🛰️ **Ti serve internet?** 1 mese di Starlink gratis: {starlink_url}\n⭐ **Ti piace l'integrazione?** Metti una stella al repo: {github_url}\n\n---\n\nAccedi con il tuo account OVO Energy Australia per monitorare il consumo energetico, i costi e la produzione solare.\n\nIl tuo piano energetico e le tariffe vengono rilevati automaticamente tramite l'API di OVO. Non è necessario selezionare manualmente il piano o inserire le tariffe.\n\n**Privacy e Sicurezza:**\n• Le credenziali sono archiviate nella memoria di configurazione di Home Assistant\n• Utilizzate esclusivamente per accedere ai tuoi dati energetici tramite l'API ufficiale di OVO\n• Mai condivise con terze parti o servizi esterni\n\n**Perché è necessaria la password:**\n• I token dell'API OVO scadono ogni 5 minuti per sicurezza\n• La ri-autenticazione automatica mantiene i sensori aggiornati 24/7\n• Nessun intervento manuale necessario dopo la configurazione iniziale",
+        "description": "🎁 **Nuovo cliente OVO?** Credito di $180\n\n**Codice referral:** `daniel16485`\n**Iscrizione OVO diretta:** {ovo_url}\n**Link facile:** {ovo_friendly_url}\n\n💚 I referral sono l'unico guadagno da questo progetto gratuito e open-source.\n🛰️ **Ti serve internet?** 1 mese di Starlink gratis: {starlink_url}\n⭐ **Ti piace l'integrazione?** Metti una stella al repo: {github_url}\n\n---\n\nAccedi con il tuo account OVO Energy Australia per monitorare energia, costi, produzione solare e veicoli connessi.\n\n**Privacy e Sicurezza:**\n• Le credenziali sono archiviate solo in Home Assistant\n• I token di breve durata vengono aggiornati per primi\n• La password viene riutilizzata solo se OVO rifiuta il refresh token\n• Le credenziali non vengono condivise con terze parti",
         "data": {
           "username": "Indirizzo Email",
           "password": "Password"
@@ -42,6 +42,7 @@
           "off_peak_rate": "Tariffa Fuori Punta ($/kWh)",
           "ev_rate": "Tariffa EV Off-Peak ($/kWh)",
           "flat_rate": "Tariffa Unica ($/kWh)",
+          "billing_cycle_day": "Giorno di Inizio del Ciclo di Fatturazione (1-31)",
           "peak_start_hour": "Ora di Inizio Fascia di Punta (0-23)",
           "peak_end_hour": "Ora di Fine Fascia di Punta (0-23)"
         }

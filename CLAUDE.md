@@ -106,8 +106,10 @@ version changes, ALWAYS do all of the following in the same session:
 7. Verify: `gh release list` must show the new tag as **Latest**
 
 ## Branding (logos/icons in HA and HACS)
-HA and HACS load icons exclusively from https://github.com/home-assistant/brands
-(`custom_integrations/ovo_energy_au/`), NOT from this repo. The PNGs in this repo
-(`icon.png`, `icon@2x.png`, `brand/`) are only sources for that PR. If the icon
-ever changes, a new PR to home-assistant/brands is required (icon.png must be
-exactly 256x256, icon@2x.png 512x512, transparent background, trimmed).
+Home Assistant 2026.3+ and current HACS use the integration-local
+`custom_components/ovo_energy_au/brand/` directory for custom-integration
+branding. Keep `icon.png` at 256x256 and `icon@2x.png` at 512x512, both RGBA with
+a transparent background and sensible padding. Keep `logo.png` and
+`logo@2x.png` as matching 1x/2x transparent horizontal wordmarks. Local assets
+take precedence; custom integrations are no longer accepted into
+home-assistant/brands.

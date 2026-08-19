@@ -3,6 +3,8 @@
 from datetime import date, datetime
 from unittest.mock import patch
 
+from custom_components.ovo_energy_au.analytics.hourly import process_hourly_data
+from custom_components.ovo_energy_au.models import PlanConfig
 from custom_components.ovo_energy_au.sensors.base import (
     AU_TIMEZONE,
     get_hourly_data_for_date,
@@ -156,3 +158,22 @@ class TestGetYesterdayHourlyData:
         # Entry 3: March 19 14:00 UTC = March 20 01:00 AEDT -> does NOT match
         assert result["state"] == 3.5  # 1.5 + 2.0
         assert len(result["hourly_data"]) == 2
+
+
+def test_process_hourly_data_applies_exact_half_open_date_window():
+    entries = [
+        {"periodFrom": "2026-03-11T13:00:00Z", "consumption": 9},
+        {"periodFrom": "2026-03-12T13:00:00Z", "consumption": 1},
+        {"periodFrom": "2026-03-18T13:00:00Z", "consumption": 2},
+        {"periodFrom": "2026-03-19T13:00:00Z", "consumption": 8},
+    ]
+    result = process_hourly_data(
+        {"solar": [], "export": entries},
+        PlanConfig(),
+        start_date=date(2026, 3, 13),
+        end_date=date(2026, 3, 20),
+    )
+
+    # UTC timestamps become the following date in Sydney during AEDT.
+    assert result["grid_total"] == 3
+    assert len(result["grid_entries"]) == 2

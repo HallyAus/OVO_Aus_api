@@ -5,6 +5,42 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.8.0] - 2026-08-19
+
+> - **OVO referral code:** `daniel16485`
+> - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+> - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
+
+### Added
+- **Complete connected-vehicle support** - Accounts enrolled in OVO EV Control now get a separate vehicle device with 19 entities covering battery state of charge, estimated range, cable state, charging mode, boost state, charge limit, charge/telemetry timestamps, battery capacity, min/max charging power and SOC, monthly vehicle energy/cost, registration/readiness, credential and vendor health, charging preferences, weekly/tariff schedules, demand-period configuration, and every returned charge-plan interval. Multiple vehicles and vehicles discovered after setup are supported.
+- **Privacy-filtered Kaluza/Firebase client** - Implements the portal's short-lived account-token chain and verified GET endpoints for registration, vehicles, current-month device energy, charge plans, and charging times. Tokens are cached within their lifetime and refreshed once after rejection.
+- **Live billing summary** - New sensors for next/minimum direct debit, unbilled electricity, unbilled solar credit, and current bill progress.
+- **Privacy-safe diagnostics and documented refresh action** - Diagnostics report availability/counts without bills, addresses, meter/device/account IDs, VIN, location, or tokens. `ovo_energy_au.refresh_data` is now documented under Developer Tools → Actions.
+
+### Fixed
+- OAuth callback `state` and ID-token `nonce` are now validated before tokens are accepted.
+- Refresh tokens are preferred over repeated password submission; rate limiting now uses a monotonic clock.
+- Bill estimates subtract the actual return-to-grid credit instead of solar-generation charges.
+- Last-seven-day hourly analytics use an exact Sydney-time window.
+- Tariff-period status is plan-aware and uses detected live rates rather than claiming EV/free periods for every plan.
+- Moving day/history entities no longer publish misleading long-term statistic state classes.
+- Multi-account balance matching, per-kWh four-decimal precision, and invalid-auth mapping from the 4.7.1 source baseline are included in this published release.
+
+### Changed
+- Runtime state uses `ConfigEntry.runtime_data`; integration-level actions are registered once; options save with automatic entry reload.
+- The declared minimum Home Assistant version is now the accurate **2024.6**, when `ConfigEntry.runtime_data` became available; options reload without requiring the newer 2025.8 helper.
+- Detailed daily/hourly history entities start disabled to reduce Recorder and registry load.
+- Account energy entities share one account device; connected vehicles use linked physical devices with opaque hashed identifiers.
+- HACS and Home Assistant now receive transparent local brand assets using the current OVO mark and a proper horizontal wordmark; the opaque white-square/lightning artwork was removed.
+- The sign-in page and release-note generator put referral code `daniel16485`, the complete direct OVO URL, and the friendly URL first.
+- Installers, HACS/setup guides, translations, blueprint syntax, and historical API documentation were corrected and hardened against token/account-data disclosure.
+- PyJWT is constrained to `>=2.13,<3`.
+
+### Security
+- VIN, coordinates, home-presence flags, raw account/user/device/optimisation/tariff IDs, tokens, and vendor certificate URLs are discarded before vehicle data reaches Home Assistant.
+- Signed statement URLs, NMIs, and account IDs were removed from Recorder-visible entity attributes.
+- The vehicle implementation is intentionally read-only. Boost, schedule/limit mutation, unlink/remove, and other control actions are not invoked or exposed.
+
 ## [4.7.1] - 2026-07-17
 
 ### Bug Fixes

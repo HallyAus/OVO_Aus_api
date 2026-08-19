@@ -11,12 +11,57 @@ from unittest.mock import MagicMock
 # Mock homeassistant module so imports don't fail outside HA
 ha_mock = MagicMock()
 sys.modules.setdefault("homeassistant", ha_mock)
-sys.modules.setdefault("homeassistant.config_entries", ha_mock)
 sys.modules.setdefault("homeassistant.const", ha_mock)
 sys.modules.setdefault("homeassistant.core", ha_mock)
 sys.modules.setdefault("homeassistant.exceptions", ha_mock)
 sys.modules.setdefault("homeassistant.helpers", ha_mock)
 sys.modules.setdefault("homeassistant.helpers.aiohttp_client", ha_mock)
+
+
+class _ConfigEntry:
+    """Stub for Home Assistant ConfigEntry."""
+
+
+class _ConfigFlow:
+    """Stub accepting Home Assistant's domain= class keyword."""
+
+    def __init_subclass__(cls, **kwargs):
+        return super().__init_subclass__()
+
+
+class _OptionsFlow:
+    """Minimal options-flow result helpers."""
+
+    def async_create_entry(self, *, title, data):
+        return {"type": "create_entry", "title": title, "data": data}
+
+    def async_show_form(self, *, step_id, data_schema, **kwargs):
+        return {"type": "form", "step_id": step_id, "data_schema": data_schema}
+
+
+config_entries_mod = types.ModuleType("homeassistant.config_entries")
+config_entries_mod.ConfigEntry = _ConfigEntry
+config_entries_mod.ConfigFlow = _ConfigFlow
+config_entries_mod.OptionsFlow = _OptionsFlow
+sys.modules["homeassistant.config_entries"] = config_entries_mod
+ha_mock.config_entries = config_entries_mod
+
+
+def _redact_data(data, keys):
+    """Small diagnostics redaction stub matching Home Assistant semantics."""
+    if isinstance(data, dict):
+        return {
+            key: "**REDACTED**" if key in keys else _redact_data(value, keys)
+            for key, value in data.items()
+        }
+    if isinstance(data, list):
+        return [_redact_data(value, keys) for value in data]
+    return data
+
+
+diagnostics_mod = types.ModuleType("homeassistant.components.diagnostics")
+diagnostics_mod.async_redact_data = _redact_data
+sys.modules.setdefault("homeassistant.components.diagnostics", diagnostics_mod)
 
 # Build proper stub classes for sensor base classes so multiple inheritance
 # in OVOBaseSensor(CoordinatorEntity, SensorEntity) doesn't hit a metaclass conflict.

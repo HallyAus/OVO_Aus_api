@@ -71,6 +71,9 @@ logs/
 # Personal dev launchers (machine-specific, never commit)
 launch.cmd
 
+# Local customer statements and reverse-engineering reference material
+reference/
+
 # Documentation build
 docs/_build/
 site/

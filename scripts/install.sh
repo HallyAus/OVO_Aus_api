@@ -117,15 +117,16 @@ if [ "$method" = "1" ]; then
 elif [ "$method" = "2" ]; then
     # Copy from current directory
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-    if [ ! -d "$SCRIPT_DIR/custom_components/ovo_energy_au" ]; then
+    if [ ! -d "$REPO_ROOT/custom_components/ovo_energy_au" ]; then
         echo -e "${RED}Error: custom_components/ovo_energy_au not found in current directory${NC}"
         echo -e "${YELLOW}Please run this script from the repository root${NC}"
         exit 1
     fi
 
     echo -e "${YELLOW}Copying from current directory...${NC}"
-    cp -r "$SCRIPT_DIR/custom_components/ovo_energy_au" "$COMPONENT_DIR"
+    cp -r "$REPO_ROOT/custom_components/ovo_energy_au" "$COMPONENT_DIR"
 
 else
     echo -e "${RED}Invalid choice${NC}"
@@ -148,20 +149,11 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo -e "${BLUE}Next Steps:${NC}"
 echo ""
-echo -e "${YELLOW}1. Get your tokens from OVO website:${NC}"
-echo "   • Go to https://my.ovoenergy.com.au"
-echo "   • Open DevTools (F12) → Network tab"
-echo "   • Log in and click 'Usage'"
-echo "   • Filter by 'graphql' and copy tokens from request headers"
+echo -e "${YELLOW}1. Restart Home Assistant${NC}"
+echo "2. Open Settings → Devices & services → Add integration"
+echo "3. Search for 'OVO Energy Australia' and sign in"
 echo ""
-echo -e "${YELLOW}2. Add to configuration.yaml:${NC}"
-echo ""
-echo "   ovo_energy_au:"
-echo "     access_token: \"Bearer eyJ...\""
-echo "     id_token: \"eyJ...\""
-echo "     account_id: \"30264061\""
-echo ""
-echo -e "${YELLOW}3. Restart Home Assistant${NC}"
+echo "No browser-token extraction or configuration.yaml entry is required."
 echo ""
 echo -e "${BLUE}Installed to:${NC} $COMPONENT_DIR"
 echo ""

@@ -13,6 +13,16 @@ from ..const import AU_TIMEZONE, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+_DEFAULT_DISABLED_CATEGORIES = {
+    "Daily History",
+    "Hourly Data",
+    "Hourly Graph Data",
+    "Hourly Solar",
+    "Hourly Grid",
+    "Hourly Export",
+    "Usage Patterns",
+}
+
 
 class OVOBaseSensor(CoordinatorEntity, SensorEntity):
     """Base class for all OVO Energy sensors."""
@@ -32,6 +42,8 @@ class OVOBaseSensor(CoordinatorEntity, SensorEntity):
         self._sensor_name = sensor_name
         self._device_category = device_category
         self._attr_unique_id = f"{coordinator.account_id}_{sensor_key}"
+        if device_category in _DEFAULT_DISABLED_CATEGORIES:
+            self._attr_entity_registry_enabled_default = False
 
     @property
     def name(self) -> str:
@@ -40,11 +52,10 @@ class OVOBaseSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self) -> dict[str, Any]:
         return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.account_id}_{self._device_category}")},
-            "name": f"OVO Energy AU - {self._device_category}",
+            "identifiers": {(DOMAIN, self.coordinator.account_id)},
+            "name": "OVO Energy AU",
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
-            "via_device": (DOMAIN, self.coordinator.account_id),
         }
 
 

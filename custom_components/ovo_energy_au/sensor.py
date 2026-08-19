@@ -14,11 +14,11 @@ from typing import Any
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, PLAN_EV, PLAN_FREE_3, PLAN_ONE
 from .sensors.base import (
     AU_TIMEZONE,
     OVOBaseSensor,
@@ -33,6 +33,7 @@ from .sensors.definitions import (
     calculate_free_savings,
     get_rate_value,
 )
+from .sensors.vehicle import create_vehicle_sensors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up OVO Energy Australia sensor platform."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     sensors: list[SensorEntity] = []
 
     # ── Data-driven sensors from definitions ──
@@ -100,7 +101,31 @@ async def async_setup_entry(
         coordinator, "energy_solar_production", "Solar Production (Energy Dashboard)",
         "solar_consumption", "mdi:solar-power"))
 
+    # ── Connected vehicles ──
+    # Vehicle entities live on a separate physical device and are discovered
+    # from the first refresh.  The listener also handles a vehicle that appears
+    # after setup (for example, following a temporary Kaluza outage).
+    known_vehicle_ids: set[str] = set()
+    for vehicle in (coordinator.data or {}).get("vehicles") or []:
+        if vehicle.get("id"):
+            known_vehicle_ids.add(vehicle["id"])
+            sensors.extend(create_vehicle_sensors(coordinator, vehicle))
+
     async_add_entities(sensors)
+
+    @callback
+    def _async_add_new_vehicles() -> None:
+        new_entities: list[SensorEntity] = []
+        for vehicle in (coordinator.data or {}).get("vehicles") or []:
+            vehicle_id = vehicle.get("id")
+            if not vehicle_id or vehicle_id in known_vehicle_ids:
+                continue
+            known_vehicle_ids.add(vehicle_id)
+            new_entities.extend(create_vehicle_sensors(coordinator, vehicle))
+        if new_entities:
+            async_add_entities(new_entities)
+
+    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_vehicles))
 
 
 # ─── Sensor factory helpers ──────────────────────────────────────────
@@ -342,6 +367,7 @@ class OVODaySensor(OVOBaseSensor):
         self._icon = icon
         self._day_index = day_index
         self._value_key = value_key
+        self._attr_entity_registry_enabled_default = False
 
     @property
     def name(self) -> str:
@@ -371,7 +397,7 @@ class OVODaySensor(OVOBaseSensor):
     @property
     def device_class(self): return self._device_class
     @property
-    def state_class(self): return self._state_class
+    def state_class(self): return None
     @property
     def icon(self): return self._icon
 
@@ -388,6 +414,7 @@ class OVODayRateSensor(OVOBaseSensor):
         self._day_index = day_index
         self._rate_type = rate_type
         self._metric_key = metric_key
+        self._attr_entity_registry_enabled_default = False
 
     @property
     def native_value(self) -> float | None:
@@ -416,7 +443,7 @@ class OVODayRateSensor(OVOBaseSensor):
     @property
     def device_class(self): return self._device_class
     @property
-    def state_class(self): return self._state_class
+    def state_class(self): return None
     @property
     def icon(self): return self._icon
 
@@ -431,7 +458,10 @@ class OVODailyHistorySensor(OVOBaseSensor):
         self._icon = icon
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         self._attr_device_class = SensorDeviceClass.ENERGY
-        self._attr_state_class = SensorStateClass.TOTAL
+        # This entity is a moving "N days ago" slot, not a meter. Enabling a
+        # state class would feed unrelated calendar days into long-term stats.
+        self._attr_state_class = None
+        self._attr_entity_registry_enabled_default = False
 
     @property
     def native_value(self) -> float | None:
@@ -503,10 +533,8 @@ class OVOPlanSensor(OVOBaseSensor):
         unit_rates = product.get("unitRatesCentsPerKWH", {})
 
         attrs = {
-            "account_id": pa.get("id", "Unknown"),
             "plan_name": product.get("displayName", "Unknown"),
             "product_code": product.get("code", "Unknown"),
-            "nmi": agreement.get("nmi", "Unknown"),
             "from_date": agreement.get("fromDt", "Unknown"),
             "to_date": agreement.get("toDt", "Unknown"),
         }
@@ -568,7 +596,6 @@ class OVOHealthSensor(OVOBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         attrs = {
-            "account_id": self.coordinator.account_id,
             "update_interval_minutes": 5,
             "plan_type": self.coordinator.plan_config.plan_type,
         }
@@ -614,61 +641,65 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
 
     @property
     def native_value(self) -> str:
-        """Return current tariff period based on time of day."""
-        now = datetime.now(AU_TIMEZONE)
-        hour = now.hour
-
-        # Determine period based on EV Plan schedule
-        # These match the OVO savings description:
-        # "EV off peak period (midnight-6am)" and "super off peak period (11am-2pm)"
-        if 0 <= hour < 6:
-            return "EV Off-Peak"
-        elif 11 <= hour < 14:
-            return "Super Off-Peak (FREE)"
-        else:
-            return "Standard"
+        """Return the plan-appropriate current tariff period."""
+        return self._period_details()["current_period"]
 
     @property
     def extra_state_attributes(self) -> dict:
+        return self._period_details()
+
+    def _period_details(self) -> dict:
+        """Calculate period/rate without inventing schedules for flat plans."""
         now = datetime.now(AU_TIMEZONE)
         hour = now.hour
+        plan_type = self.coordinator.plan_config.plan_type
+        rates: dict[str, Any] = {}
+        pa = (self.coordinator.data or {}).get("product_agreements")
+        if isinstance(pa, dict):
+            agreements = pa.get("productAgreements") or []
+            if agreements:
+                rates = (
+                    (agreements[0].get("product") or {}).get("unitRatesCentsPerKWH")
+                    or {}
+                )
 
-        # Calculate time until next period change
-        if 0 <= hour < 6:
+        # Schedules are plan features. A zero/non-null placeholder in the rate
+        # object must not turn a Basic or One plan into an EV/free plan.
+        has_ev_period = plan_type == PLAN_EV
+        has_free_period = plan_type in (PLAN_EV, PLAN_FREE_3)
+
+        standard_cents = next(
+            (
+                rates[key]
+                for key in ("standard", "peak", "shoulder", "offPeak")
+                if rates.get(key) is not None
+            ),
+            (self.coordinator.plan_config.flat_rate if plan_type == PLAN_ONE else self.coordinator.plan_config.peak_rate) * 100,
+        )
+        current_rate = "Standard"
+        rate_cents = standard_cents
+        next_change = None
+        next_period = None
+
+        if has_ev_period and 0 <= hour < 6:
             current_rate = "EV Off-Peak"
-            rate_cents = 8.0
+            rate_cents = rates.get("evOffPeak", self.coordinator.plan_config.ev_rate * 100)
             next_change = "06:00"
             next_period = "Standard"
-        elif 6 <= hour < 11:
-            current_rate = "Standard"
-            rate_cents = 37.18
-            next_change = "11:00"
-            next_period = "Super Off-Peak (FREE)"
-        elif 11 <= hour < 14:
+        elif has_free_period and 11 <= hour < 14:
             current_rate = "Super Off-Peak (FREE)"
-            rate_cents = 0
+            rate_cents = rates.get("superOffPeak", 0)
             next_change = "14:00"
             next_period = "Standard"
-        else:  # 14-23
-            current_rate = "Standard"
-            rate_cents = 37.18
+        elif has_free_period and hour < 11:
+            next_change = "11:00"
+            next_period = "Super Off-Peak (FREE)"
+        elif has_ev_period:
             next_change = "00:00"
             next_period = "EV Off-Peak"
-
-        # Try to get actual rates from plan data
-        if self.coordinator.data:
-            pa = self.coordinator.data.get("product_agreements")
-            if pa and isinstance(pa, dict):
-                agreements = pa.get("productAgreements", [])
-                if agreements:
-                    rates = agreements[0].get("product", {}).get("unitRatesCentsPerKWH", {})
-                    if rates:
-                        if current_rate == "EV Off-Peak" and rates.get("evOffPeak") is not None:
-                            rate_cents = rates["evOffPeak"]
-                        elif current_rate == "Standard" and rates.get("peak") is not None:
-                            rate_cents = rates["peak"]
-                        elif current_rate == "Super Off-Peak (FREE)" and rates.get("superOffPeak") is not None:
-                            rate_cents = rates["superOffPeak"]
+        elif has_free_period:
+            next_change = "11:00"
+            next_period = "Super Off-Peak (FREE)"
 
         return {
             "current_period": current_rate,
@@ -677,6 +708,7 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
             "next_period_change": next_change,
             "next_period": next_period,
             "current_hour": hour,
+            "schedule_source": "plan_and_api_rates",
         }
 
     @property
@@ -774,11 +806,10 @@ class OVORateComparisonSensor(OVOBaseSensor):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.account_id}_OVO Savings")},
-            "name": "OVO Energy AU - OVO Savings",
+            "identifiers": {(DOMAIN, self.coordinator.account_id)},
+            "name": "OVO Energy AU",
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
-            "via_device": (DOMAIN, self.coordinator.account_id),
         }
 
 
@@ -797,7 +828,8 @@ class OVOHourlyDaySensor(OVOBaseSensor):
         self._icon = icon
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         self._attr_device_class = SensorDeviceClass.ENERGY
-        self._attr_state_class = SensorStateClass.TOTAL
+        self._attr_state_class = None
+        self._attr_entity_registry_enabled_default = False
 
     def _get_target_date(self):
         """Compute target date dynamically (survives midnight)."""
@@ -858,7 +890,6 @@ class OVOLatestBillSensor(OVOBaseSensor):
             "issue_date": bill.get("issue_date"),
             "opening_balance": bill.get("opening_balance"),
             "closing_balance": bill.get("closing_balance"),
-            "download_url": bill.get("download_url"),
             "statement_count": len(statements),
             "recent_bills": [
                 {
@@ -867,7 +898,6 @@ class OVOLatestBillSensor(OVOBaseSensor):
                     "issue_date": s.get("issueDate"),
                     "total": ((s.get("charges") or {}).get("total") or {}).get("value"),
                     "closing_balance": (s.get("closingBalance") or {}).get("value"),
-                    "download_url": s.get("downloadUrl"),
                 }
                 for s in statements[:12]
             ],
@@ -1023,5 +1053,3 @@ class OVOFlexSensor(OVOBaseSensor):
         if onboarded is None:
             return None
         return "Onboarded" if onboarded else "Not Onboarded"
-
-

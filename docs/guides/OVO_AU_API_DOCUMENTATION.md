@@ -2,6 +2,10 @@
 
 Complete technical documentation for the OVO Energy Australia GraphQL API.
 
+> Developer reference only. Home Assistant setup never requires copying JWTs.
+> Keep live tokens out of commands, third-party sites, screenshots, logs, and
+> issue reports; every token shown below is a non-functional placeholder.
+
 **Reverse-Engineered:** January 2026
 **Status:** Unofficial - not endorsed by OVO Energy
 **API Version:** Unknown (no versioning detected)
@@ -15,9 +19,10 @@ Complete technical documentation for the OVO Energy Australia GraphQL API.
 3. [GraphQL Endpoint](#graphql-endpoint)
 4. [Queries](#queries)
 5. [Data Structures](#data-structures)
-6. [Error Handling](#error-handling)
-7. [Rate Limits](#rate-limits)
-8. [Examples](#examples)
+6. [Kaluza Vehicle API](#kaluza-vehicle-api)
+7. [Error Handling](#error-handling)
+8. [Rate Limits](#rate-limits)
+9. [Examples](#examples)
 
 ---
 
@@ -83,7 +88,7 @@ Audience:   Unknown (likely https://api.ovoenergy.com.au)
 
 | Token | Header | Format | Expiry |
 |-------|--------|--------|--------|
-| Access Token | `authorization` | `Bearer eyJ...` | 5 minutes |
+| Access Token | `authorization` | Raw JWT, no `Bearer ` prefix | 5 minutes |
 | ID Token | `myovo-id-token` | `eyJ...` | 5 minutes |
 | Refresh Token | N/A | Unknown | Unknown |
 
@@ -126,7 +131,7 @@ Audience:   Unknown (likely https://api.ovoenergy.com.au)
 POST /graphql HTTP/1.1
 Host: my.ovoenergy.com.au
 Content-Type: application/json
-authorization: Bearer eyJ...
+authorization: eyJ...
 myovo-id-token: eyJ...
 Origin: https://my.ovoenergy.com.au
 Referer: https://my.ovoenergy.com.au/usage
@@ -144,7 +149,7 @@ Referer: https://my.ovoenergy.com.au/usage
 | Header | Value | Required |
 |--------|-------|----------|
 | `Content-Type` | `application/json` | ✅ Yes |
-| `authorization` | `Bearer {access_token}` | ✅ Yes |
+| `authorization` | Raw access token (no `Bearer ` prefix) | ✅ Yes |
 | `myovo-id-token` | `{id_token}` | ✅ Yes |
 | `Origin` | `https://my.ovoenergy.com.au` | ⚠️ Recommended |
 | `Referer` | `https://my.ovoenergy.com.au/*` | ⚠️ Recommended |
@@ -235,7 +240,7 @@ input DateRangeInput {
 ```json
 {
   "input": {
-    "accountId": "30264061",
+    "accountId": "<account_id>",
     "dateRange": {
       "startDate": "2026-01-20",
       "endDate": "2026-01-20"
@@ -354,6 +359,42 @@ All timestamps include timezone offset:
 - AEST: April - October (+10:00)
 
 ---
+
+## Kaluza Vehicle API
+
+The EV Control pages use a separate read-only data path alongside MyOVO
+GraphQL. The integration implements the same GET sequence:
+
+1. Request a short-lived Kaluza/Firebase token from
+   `GET https://d2v.api.aus-se1.flex.kaluza.com/v1.0/api/account/{account}/token`
+   using the MyOVO access token as a Bearer token.
+2. Use the returned ID token and user ID for the remaining calls.
+3. Read registration, vehicles, and the current month of device energy from
+   Firestore REST.
+4. Read each vehicle's charge plan and charging-time configuration from the
+   Flex API.
+
+| Data | GET path |
+|------|----------|
+| Registration/readiness | `.../documents/users/{user}/registration` |
+| Vehicle/telemetry/preferences | `.../documents/users/{user}/vehicles` |
+| Monthly device energy | `.../documents/users/{user}/energy_consumption_monthly_kapi/YYYY-MM/devices` |
+| Charge plan | `/v1/users/{user}/devices/{device}/charge-plan` |
+| Charging times | `/v2/users/{user}/devices/{device}/charging-times` |
+
+The verified read surface includes battery state/range/cable/mode, charge
+limit, telemetry timestamps, readiness and credential health, charging power
+and SOC preferences, weekly/tariff schedules, demand-period settings, every
+charge-plan interval, and monthly kWh/cost/rate/source breakdowns.
+
+### Privacy and control boundary
+
+Firestore also returns VIN, latitude/longitude, home-presence flags, raw
+account/user/device and optimisation IDs, and vendor certificate URLs. The
+integration discards all of those before coordinator data is created and uses
+a one-way hash for Home Assistant vehicle identifiers. Diagnostics contain
+counts/availability only. The implementation is GET-only: it does not invoke
+the portal's charging-time mutation or any remove/boost/settings action.
 
 ## Error Handling
 
@@ -489,14 +530,14 @@ def make_api_request():
 ```bash
 curl -X POST https://my.ovoenergy.com.au/graphql \
   -H "Content-Type: application/json" \
-  -H "authorization: Bearer eyJ..." \
+  -H "authorization: eyJ..." \
   -H "myovo-id-token: eyJ..." \
   -H "Origin: https://my.ovoenergy.com.au" \
   -d '{
     "query": "query GetHourlyData($input: GetHourlyDataInput!) { getHourlyData(input: $input) { solar { periodFrom consumption } } }",
     "variables": {
       "input": {
-        "accountId": "30264061",
+        "accountId": "<account_id>",
         "dateRange": {
           "startDate": "2026-01-20",
           "endDate": "2026-01-20"
@@ -515,7 +556,7 @@ url = "https://my.ovoenergy.com.au/graphql"
 
 headers = {
     "Content-Type": "application/json",
-    "authorization": "Bearer eyJ...",
+    "authorization": "eyJ...",
     "myovo-id-token": "eyJ...",
     "Origin": "https://my.ovoenergy.com.au"
 }
@@ -530,7 +571,7 @@ query GetHourlyData($input: GetHourlyDataInput!) {
 
 variables = {
     "input": {
-        "accountId": "30264061",
+        "accountId": "<account_id>",
         "dateRange": {
             "startDate": "2026-01-20",
             "endDate": "2026-01-20"
@@ -563,7 +604,7 @@ const query = `
 
 const variables = {
   input: {
-    accountId: "30264061",
+    accountId: "<account_id>",
     dateRange: {
       startDate: "2026-01-20",
       endDate: "2026-01-20"
@@ -575,7 +616,7 @@ fetch(url, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'authorization': 'Bearer eyJ...',
+    'authorization': 'eyJ...',
     'myovo-id-token': 'eyJ...',
     'Origin': 'https://my.ovoenergy.com.au'
   },
@@ -594,7 +635,7 @@ This API was reverse-engineered using browser DevTools. See `BROWSER_TESTING_GUI
 ### Tools Used
 
 - Chrome DevTools (Network tab)
-- JWT.io (token inspection)
+- Local JWT decoding only, with non-production/test tokens
 - GraphQL Playground (query testing)
 - Postman (API testing)
 

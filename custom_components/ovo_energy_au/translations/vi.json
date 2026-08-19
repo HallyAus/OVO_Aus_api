@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Kết nối với OVO Energy Australia",
-        "description": "💚 **Dự án này miễn phí và mã nguồn mở — giới thiệu là nguồn thu nhập duy nhất của tôi từ nó.**\n\n🎁 **Mới dùng OVO?** Tín dụng $120–$180 (cả hai cùng nhận): {ovo_url}\n🛰️ **Cần internet?** 1 tháng Starlink miễn phí: {starlink_url}\n⭐ **Thích tích hợp này?** Gắn sao cho repo: {github_url}\n\n---\n\nĐăng nhập bằng tài khoản OVO Energy Australia để theo dõi mức sử dụng điện, chi phí và sản lượng điện mặt trời.\n\nGói điện và biểu giá của bạn được tự động nhận diện qua OVO API. Không cần chọn gói hoặc nhập giá thủ công.\n\n**Quyền riêng tư & Bảo mật:**\n• Thông tin đăng nhập được lưu trữ an toàn trong bộ nhớ cấu hình của Home Assistant\n• Chỉ được sử dụng để truy cập dữ liệu năng lượng qua API chính thức của OVO\n• Không bao giờ chia sẻ với bên thứ ba hoặc dịch vụ bên ngoài\n\n**Tại sao cần mật khẩu:**\n• Token OVO API hết hạn sau mỗi 5 phút để đảm bảo an toàn\n• Xác thực lại tự động giúp cảm biến cập nhật liên tục 24/7\n• Không cần thao tác thủ công sau khi thiết lập ban đầu",
+        "description": "🎁 **Mới dùng OVO?** Tín dụng $180\n\n**Mã giới thiệu:** `daniel16485`\n**Đăng ký OVO trực tiếp:** {ovo_url}\n**Liên kết dễ nhớ:** {ovo_friendly_url}\n\n💚 Giới thiệu là nguồn thu duy nhất của dự án mã nguồn mở miễn phí này.\n🛰️ **Cần internet?** 1 tháng Starlink miễn phí: {starlink_url}\n⭐ **Thích tích hợp này?** Gắn sao cho repo: {github_url}\n\n---\n\nĐăng nhập bằng tài khoản OVO Energy Australia để theo dõi năng lượng, chi phí, điện mặt trời và xe được kết nối.\n\n**Quyền riêng tư & Bảo mật:**\n• Thông tin đăng nhập chỉ được lưu trong Home Assistant\n• Token ngắn hạn luôn được làm mới trước\n• Mật khẩu chỉ được dùng lại nếu OVO từ chối refresh token\n• Không chia sẻ thông tin đăng nhập với bên thứ ba",
         "data": {
           "username": "Địa chỉ Email",
           "password": "Mật khẩu"
@@ -42,6 +42,7 @@
           "off_peak_rate": "Giá Thấp điểm ($/kWh)",
           "ev_rate": "Giá EV Off-Peak ($/kWh)",
           "flat_rate": "Giá Đồng nhất ($/kWh)",
+          "billing_cycle_day": "Ngày Bắt đầu Chu kỳ Thanh toán (1-31)",
           "peak_start_hour": "Giờ Bắt đầu Cao điểm (0-23)",
           "peak_end_hour": "Giờ Kết thúc Cao điểm (0-23)"
         }

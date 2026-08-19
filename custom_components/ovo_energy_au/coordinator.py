@@ -78,19 +78,29 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             now = dt_util.now(AU_TIMEZONE)
             query_start = (now - timedelta(days=8)).strftime("%Y-%m-%d")
             query_end = now.strftime("%Y-%m-%d")
+            window_start = (now - timedelta(days=7)).date()
+            window_end = now.date()
 
             try:
                 hourly_raw = await self.client.get_hourly_data(
                     self.account_id, query_start, query_end
                 )
                 processed["hourly"] = process_hourly_data(
-                    hourly_raw or {}, self.plan_config
+                    hourly_raw or {},
+                    self.plan_config,
+                    start_date=window_start,
+                    end_date=window_end,
                 )
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
                 _LOGGER.warning("Failed to fetch hourly data: %s", err)
-                processed["hourly"] = process_hourly_data({}, self.plan_config)
+                processed["hourly"] = process_hourly_data(
+                    {},
+                    self.plan_config,
+                    start_date=window_start,
+                    end_date=window_end,
+                )
 
             # 4. Analytics insights
             compute_insights(processed, self.plan_config.billing_cycle_day)
@@ -109,9 +119,11 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 mtd = processed.get("month_to_date", {})
                 mtd_days = mtd.get("days", 0) or 0
                 mtd_grid = mtd.get("grid_charge", 0) or 0
-                mtd_solar_credit = abs(mtd.get("solar_charge", 0) or 0)
+                # Export credits reduce the bill. Solar generation is a
+                # separate measurement and is not itself a bill credit.
+                mtd_export_credit = abs(mtd.get("return_to_grid_charge", 0) or 0)
                 mtd_standing = standing_daily * mtd_days
-                mtd_bill = mtd_grid + mtd_standing - mtd_solar_credit
+                mtd_bill = mtd_grid + mtd_standing - mtd_export_credit
 
                 # Project the full billing cycle (calendar month when the
                 # billing cycle day is 1)
@@ -128,7 +140,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                     processed["bill_estimate"] = {
                         "mtd_bill": round(mtd_bill, 2),
                         "mtd_grid_cost": round(mtd_grid, 2),
-                        "mtd_solar_credit": round(mtd_solar_credit, 2),
+                        "mtd_export_credit": round(mtd_export_credit, 2),
                         "mtd_standing_charge": round(mtd_standing, 2),
                         "mtd_days": mtd_days,
                         "standing_charge_daily": round(standing_daily, 2),
@@ -209,6 +221,39 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["referral"] = {}
                 processed["flex"] = {}
 
+            # 4e. Read-only Kaluza vehicle telemetry, preferences, schedules,
+            # charge plan, and monthly device energy.  A definite non-Flex
+            # account skips the extra endpoints; unknown status is still
+            # probed because older accounts may not return hasOnboarded.
+            if processed.get("flex", {}).get("onboarded") is False:
+                processed["vehicles"] = []
+            else:
+                try:
+                    processed["vehicles"] = await self.client.get_vehicle_data(
+                        self.account_id
+                    )
+                except OVOEnergyAUApiClientAuthenticationError:
+                    raise
+                except Exception as err:
+                    _LOGGER.debug("Vehicle data is unavailable: %s", err)
+                    processed["vehicles"] = []
+
+            # 4f. Direct debit + current unbilled charge summary
+            try:
+                billing = await self.client.get_billing_overview(self.account_id)
+                processed["billing_information"] = (
+                    (billing or {}).get("billingInformation") or {}
+                )
+                processed["unbilled_charges"] = (
+                    (billing or {}).get("unbilledCharges") or {}
+                )
+            except OVOEnergyAUApiClientAuthenticationError:
+                raise
+            except Exception as err:
+                _LOGGER.debug("Failed to fetch billing overview: %s", err)
+                processed["billing_information"] = {}
+                processed["unbilled_charges"] = {}
+
             # 5. Account balance from contact info
             try:
                 contact_info = await self.client.get_contact_info()
@@ -254,4 +299,3 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
         except Exception as err:
             _LOGGER.exception("Unexpected error fetching OVO Energy data")
             raise UpdateFailed(f"Error fetching data: {err}") from err
-

@@ -1,5 +1,9 @@
 # Browser Testing Guide - How We Discovered the API
 
+> Historical developer research only. Current Home Assistant setup uses the UI
+> config flow and never requires token extraction. Do not paste JWTs into
+> jwt.io, commands, screenshots, issues, or any third-party site.
+
 This guide explains the methodology used to reverse-engineer the OVO Energy Australia API using browser Developer Tools.
 
 **Use Case:** Learn how to discover undocumented APIs for legitimate purposes (personal use, integration, automation).
@@ -28,9 +32,8 @@ This guide explains the methodology used to reverse-engineer the OVO Energy Aust
   - Safari (with Developer Menu enabled)
 
 - **Optional Tools:**
-  - Postman or Insomnia (API testing)
-  - JWT.io (token inspection)
-  - GraphQL Playground (query testing)
+  - A local HTTP client for requests made with test credentials
+  - GraphQL Playground against a local/mock endpoint
 
 ### Skills Required
 
@@ -140,8 +143,8 @@ POST https://my.ovoenergy.com.au/graphql
 **Headers Tab:**
 ```
 Content-Type: application/json
-authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik...
-myovo-id-token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5qSTBOa...
+authorization: <access_token>
+myovo-id-token: <id_token>
 Origin: https://my.ovoenergy.com.au
 Referer: https://my.ovoenergy.com.au/usage
 ```
@@ -152,7 +155,7 @@ Referer: https://my.ovoenergy.com.au/usage
   "query": "query GetHourlyData($input: GetHourlyDataInput!) { getHourlyData(input: $input) { solar { periodFrom periodTo consumption readType charge { amount currency } } export { periodFrom periodTo consumption readType charge { amount currency } } savings { periodFrom periodTo consumption readType charge { amount currency } } } }",
   "variables": {
     "input": {
-      "accountId": "30264061",
+      "accountId": "<account_id>",
       "dateRange": {
         "startDate": "2025-12-31",
         "endDate": "2026-02-01"
@@ -181,25 +184,26 @@ Referer: https://my.ovoenergy.com.au/usage
 - ✅ Account ID is in request variables
 - ✅ Query name: `GetHourlyData`
 
-### Phase 4: Extract Tokens
+### Phase 4: Identify Authentication Headers
 
-#### 4.1 Copy Access Token
+#### 4.1 Identify the Access-Token Header
 
 In the `graphql` request:
 1. Go to "Headers" tab
 2. Scroll to "Request Headers"
 3. Find `authorization` header
-4. Copy entire value: `Bearer eyJ...`
+4. Record only that the value is a raw JWT; do not copy or save it
 
-#### 4.2 Copy ID Token
+#### 4.2 Identify the ID-Token Header
 
 In the same headers:
 1. Find `myovo-id-token` header
-2. Copy entire value: `eyJ...`
+2. Record only the header name; do not copy or save the value
 
-#### 4.3 Inspect Tokens (Optional)
+#### 4.3 Token Shape
 
-Go to https://jwt.io and paste tokens to decode:
+The claims below are a redacted historical example. Never paste a live token
+into a website, command, issue, screenshot, or documentation:
 
 **Access Token Payload:**
 ```json
@@ -221,7 +225,7 @@ Go to https://jwt.io and paste tokens to decode:
 In the `graphql` request:
 1. Go to "Payload" or "Request" tab
 2. Find `variables` → `input` → `accountId`
-3. Copy the number (e.g., "30264061")
+3. Copy the number (e.g., "<account_id>")
 
 ---
 
@@ -235,7 +239,7 @@ In the `graphql` request:
 POST /graphql HTTP/1.1
 Host: my.ovoenergy.com.au
 Content-Type: application/json          ← Required
-authorization: Bearer eyJ...             ← Required (JWT access token)
+authorization: eyJ...             ← Required (JWT access token)
 myovo-id-token: eyJ...                   ← Required (JWT ID token)
 Origin: https://my.ovoenergy.com.au     ← CORS - Recommended
 Referer: https://my.ovoenergy.com.au/usage ← Context - Recommended
@@ -243,7 +247,7 @@ User-Agent: Mozilla/5.0...              ← Browser identity
 ```
 
 **Critical Headers:**
-1. `authorization` - Access token with "Bearer " prefix
+1. `authorization` - Raw access token (no `Bearer ` prefix)
 2. `myovo-id-token` - ID token (no prefix)
 3. `Content-Type` - Must be `application/json`
 
@@ -328,7 +332,7 @@ console.log(window.sessionStorage);
 Example output:
 ```bash
 curl 'https://my.ovoenergy.com.au/graphql' \
-  --header 'authorization: Bearer eyJ...' \
+  --header 'authorization: eyJ...' \
   --header 'myovo-id-token: eyJ...' \
   # ... more headers
 ```
@@ -348,7 +352,7 @@ curl 'https://my.ovoenergy.com.au/graphql' \
 
 ```
 Content-Type: application/json
-authorization: Bearer eyJ...
+authorization: eyJ...
 myovo-id-token: eyJ...
 ```
 
@@ -359,7 +363,7 @@ myovo-id-token: eyJ...
   "query": "query GetHourlyData($input: GetHourlyDataInput!) { getHourlyData(input: $input) { solar { periodFrom consumption } } }",
   "variables": {
     "input": {
-      "accountId": "30264061",
+      "accountId": "<account_id>",
       "dateRange": {
         "startDate": "2026-01-20",
         "endDate": "2026-01-20"
@@ -378,13 +382,13 @@ Click "Send" and view response.
 ```bash
 curl -X POST https://my.ovoenergy.com.au/graphql \
   -H "Content-Type: application/json" \
-  -H "authorization: Bearer eyJ..." \
+  -H "authorization: eyJ..." \
   -H "myovo-id-token: eyJ..." \
   -d '{
     "query": "query GetHourlyData($input: GetHourlyDataInput!) { getHourlyData(input: $input) { solar { consumption } } }",
     "variables": {
       "input": {
-        "accountId": "30264061",
+        "accountId": "<account_id>",
         "dateRange": {
           "startDate": "2026-01-20",
           "endDate": "2026-01-20"
@@ -402,14 +406,14 @@ import requests
 url = "https://my.ovoenergy.com.au/graphql"
 headers = {
     "Content-Type": "application/json",
-    "authorization": "Bearer eyJ...",
+    "authorization": "eyJ...",
     "myovo-id-token": "eyJ..."
 }
 payload = {
     "query": "query GetHourlyData($input: GetHourlyDataInput!) { ... }",
     "variables": {
         "input": {
-            "accountId": "30264061",
+            "accountId": "<account_id>",
             "dateRange": {"startDate": "2026-01-20", "endDate": "2026-01-20"}
         }
     }
@@ -487,7 +491,7 @@ grant_type=refresh_token&refresh_token=...
 ```javascript
 fetch("https://my.ovoenergy.com.au/graphql", {
   headers: {
-    "authorization": "Bearer eyJ...",
+    "authorization": "eyJ...",
     "myovo-id-token": "eyJ...",
     "content-type": "application/json"
   },
@@ -495,7 +499,7 @@ fetch("https://my.ovoenergy.com.au/graphql", {
     query: "...",
     variables: {
       input: {
-        accountId: "30264061",
+        accountId: "<account_id>",
         dateRange: {
           startDate: "2026-01-15",  // ← Modified date
           endDate: "2026-01-20"
@@ -546,7 +550,7 @@ fetch("https://my.ovoenergy.com.au/graphql", {
 **Causes:**
 - Tokens expired (> 5 minutes old)
 - Tokens not copied correctly
-- Missing "Bearer " prefix on access_token
+- An unsupported `Bearer ` prefix was added to the raw access token
 
 **Solution:**
 - Get fresh tokens
@@ -615,7 +619,6 @@ fetch("https://my.ovoenergy.com.au/graphql", {
 | Tool | Purpose | URL |
 |------|---------|-----|
 | Chrome DevTools | Network analysis | Built-in (F12) |
-| JWT.io | Token inspection | https://jwt.io |
 | Postman | API testing | https://postman.com |
 | GraphQL Playground | Query testing | https://github.com/graphql/graphql-playground |
 | cURL | Command-line testing | Built-in (Unix) |

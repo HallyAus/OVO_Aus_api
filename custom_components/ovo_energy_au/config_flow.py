@@ -51,6 +51,7 @@ STEP_USER_SCHEMA = vol.Schema(
 # (hassfest rule: no raw URLs in translatable content).
 _DESCRIPTION_PLACEHOLDERS = {
     "ovo_url": "https://www.ovoenergy.com.au/refer/daniel16485",
+    "ovo_friendly_url": "https://ovoreferralcode.com/",
     "starlink_url": "https://starlink.com/residential?referral=RC-2455784-77014-69&app_source=share",
     "github_url": "https://github.com/HallyAus/OVO_Aus_api",
 }
@@ -234,7 +235,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data[CONF_PEAK_RATE] = detected_rates.get("peak", 0.35)
                 data[CONF_SHOULDER_RATE] = detected_rates.get("shoulder", 0.25)
                 data[CONF_OFF_PEAK_RATE] = detected_rates.get("off_peak", 0.18)
-                data[CONF_EV_RATE] = detected_rates.get("ev", 0.08)
+                data[CONF_EV_RATE] = detected_rates.get("ev", 0.06)
                 data[CONF_FLAT_RATE] = detected_rates.get("flat", 0.28)
 
                 return self.async_create_entry(title=self._auth_data["title"], data=data)
@@ -327,69 +328,51 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         if user_input is not None:
-            # Update config entry with new plan settings
-            data = dict(self.config_entry.data)
-            data[CONF_PLAN_TYPE] = user_input[CONF_PLAN_TYPE]
+            options = {CONF_PLAN_TYPE: user_input[CONF_PLAN_TYPE]}
 
             # Billing cycle start day applies to every plan type.
-            data[CONF_BILLING_CYCLE_DAY] = int(user_input.get(CONF_BILLING_CYCLE_DAY, 1))
+            options[CONF_BILLING_CYCLE_DAY] = int(
+                user_input.get(CONF_BILLING_CYCLE_DAY, 1)
+            )
 
             # Update rates based on plan type
             plan_type = user_input[CONF_PLAN_TYPE]
             default_rates = DEFAULT_RATES.get(plan_type, {})
 
             if plan_type == PLAN_FREE_3:
-                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
-                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
-                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+                options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
+                options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
+                options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
                 # Optional window to split OTHER usage into peak/off-peak.
                 # start == end means disabled (Free 3 reports TOU as OTHER).
                 if CONF_PEAK_START_HOUR in user_input and CONF_PEAK_END_HOUR in user_input:
-                    data[CONF_PEAK_START_HOUR] = int(user_input[CONF_PEAK_START_HOUR])
-                    data[CONF_PEAK_END_HOUR] = int(user_input[CONF_PEAK_END_HOUR])
-                else:
-                    data.pop(CONF_PEAK_START_HOUR, None)
-                    data.pop(CONF_PEAK_END_HOUR, None)
-                # Remove unused rates
-                data.pop(CONF_EV_RATE, None)
-                data.pop(CONF_FLAT_RATE, None)
+                    options[CONF_PEAK_START_HOUR] = int(user_input[CONF_PEAK_START_HOUR])
+                    options[CONF_PEAK_END_HOUR] = int(user_input[CONF_PEAK_END_HOUR])
             elif plan_type == PLAN_EV:
-                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
-                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
-                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
-                data[CONF_EV_RATE] = user_input.get(CONF_EV_RATE, default_rates.get("ev", 0.06))
-                data.pop(CONF_FLAT_RATE, None)
+                options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
+                options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
+                options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+                options[CONF_EV_RATE] = user_input.get(CONF_EV_RATE, default_rates.get("ev", 0.06))
             elif plan_type == PLAN_BASIC:
-                data[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
-                data[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
-                data[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
-                data.pop(CONF_EV_RATE, None)
-                data.pop(CONF_FLAT_RATE, None)
+                options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
+                options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
+                options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
             elif plan_type == PLAN_ONE:
-                data[CONF_FLAT_RATE] = user_input.get(CONF_FLAT_RATE, default_rates.get("flat", 0.28))
-                # Remove TOU rates
-                data.pop(CONF_PEAK_RATE, None)
-                data.pop(CONF_SHOULDER_RATE, None)
-                data.pop(CONF_OFF_PEAK_RATE, None)
-                data.pop(CONF_EV_RATE, None)
+                options[CONF_FLAT_RATE] = user_input.get(CONF_FLAT_RATE, default_rates.get("flat", 0.28))
 
-            # NOTE: Ideally rates should be stored in options, not data.
-            # This is an anti-pattern but changing it requires migration logic.
-            # Update the config entry (triggers reload automatically)
-            self.hass.config_entries.async_update_entry(self.config_entry, data=data)
-
-            return self.async_create_entry(title="", data={})
+            return self.async_create_entry(title="", data=options)
 
         # Get current plan settings or use defaults
-        current_plan = self.config_entry.data.get(CONF_PLAN_TYPE, PLAN_BASIC)
-        current_peak = self.config_entry.data.get(CONF_PEAK_RATE, 0.35)
-        current_shoulder = self.config_entry.data.get(CONF_SHOULDER_RATE, 0.25)
-        current_off_peak = self.config_entry.data.get(CONF_OFF_PEAK_RATE, 0.18)
-        current_ev = self.config_entry.data.get(CONF_EV_RATE, 0.06)
-        current_flat = self.config_entry.data.get(CONF_FLAT_RATE, 0.28)
-        current_peak_start = self.config_entry.data.get(CONF_PEAK_START_HOUR, 0)
-        current_peak_end = self.config_entry.data.get(CONF_PEAK_END_HOUR, 0)
-        current_billing_cycle_day = self.config_entry.data.get(CONF_BILLING_CYCLE_DAY, 1)
+        current = {**self.config_entry.data, **self.config_entry.options}
+        current_plan = current.get(CONF_PLAN_TYPE, PLAN_BASIC)
+        current_peak = current.get(CONF_PEAK_RATE, 0.35)
+        current_shoulder = current.get(CONF_SHOULDER_RATE, 0.25)
+        current_off_peak = current.get(CONF_OFF_PEAK_RATE, 0.18)
+        current_ev = current.get(CONF_EV_RATE, 0.06)
+        current_flat = current.get(CONF_FLAT_RATE, 0.28)
+        current_peak_start = current.get(CONF_PEAK_START_HOUR, 0)
+        current_peak_end = current.get(CONF_PEAK_END_HOUR, 0)
+        current_billing_cycle_day = current.get(CONF_BILLING_CYCLE_DAY, 1)
 
         # Build options schema
         schema_fields = {

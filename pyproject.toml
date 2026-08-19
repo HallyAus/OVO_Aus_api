@@ -1,11 +1,11 @@
 [project]
 name = "ovo-energy-au"
-version = "4.7.1"
+version = "4.8.0"
 description = "OVO Energy Australia Home Assistant Integration"
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.8.0",
-    "PyJWT>=2.8.0",
+    "PyJWT>=2.13.0,<3.0.0",
 ]
 
 [project.optional-dependencies]

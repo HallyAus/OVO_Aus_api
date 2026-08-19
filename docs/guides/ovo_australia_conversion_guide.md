@@ -1,5 +1,9 @@
 # OVO UK vs OVO Australia API - Conversion Guide
 
+> Historical migration notes. They do not describe current installation or
+> authentication. Use the integration's UI config flow; never extract or share
+> browser tokens for normal setup.
+
 This guide explains the differences between OVO UK and OVO Australia APIs, and how to adapt existing OVO UK integrations for the Australian market.
 
 **Target Audience:** Developers with existing OVO UK integrations
@@ -53,7 +57,7 @@ headers = {
 ```python
 # Dual tokens required
 headers = {
-    "authorization": f"Bearer {access_token}",
+    "authorization": access_token,
     "myovo-id-token": id_token
 }
 ```
@@ -129,7 +133,7 @@ POST /graphql
   "query": "query GetHourlyData($input: GetHourlyDataInput!) { ... }",
   "variables": {
     "input": {
-      "accountId": "30264061",
+      "accountId": "<account_id>",
       "dateRange": {"startDate": "2026-01-01", "endDate": "2026-01-31"}
     }
   }
@@ -205,7 +209,7 @@ class OVOEnergyAU:
         self.session = requests.Session()
         self.session.headers.update({
             "Content-Type": "application/json",
-            "authorization": access_token,  # Already includes "Bearer "
+            "authorization": access_token,  # Raw token; no Bearer prefix
             "myovo-id-token": id_token
         })
 
@@ -244,9 +248,9 @@ class OVOEnergyAU:
 
 # Usage
 client = OVOEnergyAU(
-    access_token="Bearer ...",
+    access_token="...",
     id_token="...",
-    account_id="30264061"
+    account_id="<account_id>"
 )
 data = client.get_daily_usage(
     datetime(2026, 1, 1),
@@ -491,9 +495,9 @@ ovo_energy:
 ```yaml
 # Requires custom component
 ovo_energy_au:
-  access_token: "Bearer eyJ..."
+  access_token: "eyJ..."
   id_token: "eyJ..."
-  account_id: "30264061"
+  account_id: "<account_id>"
 ```
 
 **Migration Notes:**
