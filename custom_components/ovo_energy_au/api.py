@@ -323,7 +323,16 @@ class OVOEnergyAUApiClient:
                             "Could not validate the ID token nonce"
                         ) from err
                     token_nonce = claims.get("nonce")
-                    if not isinstance(token_nonce, str) or not hmac.compare_digest(
+                    # OVO's Auth0 tenant intermittently omits the nonce claim
+                    # from an otherwise valid authorization-code response. The
+                    # callback state and PKCE verifier are still validated. If
+                    # Auth0 does return a nonce, a mismatch remains fatal.
+                    if token_nonce is None:
+                        _LOGGER.warning(
+                            "OVO ID token omitted its nonce claim; relying on "
+                            "validated OAuth state and PKCE"
+                        )
+                    elif not isinstance(token_nonce, str) or not hmac.compare_digest(
                         token_nonce, expected_nonce
                     ):
                         raise OVOEnergyAUApiClientAuthenticationError(
@@ -705,15 +714,33 @@ class OVOEnergyAUApiClient:
             allow_null_result=True,
         )
 
-    async def get_vehicle_data(self, account_id: str) -> list[dict[str, Any]]:
+    async def get_vehicle_data(
+        self, account_id: str, customer_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """Get privacy-filtered, read-only vehicle and charging data."""
         await self._ensure_authenticated()
         if not self._access_token:
             raise OVOEnergyAUApiClientAuthenticationError(
                 "Vehicle data requires an authenticated account"
             )
+        if customer_id is None:
+            contact_info = await self.get_contact_info()
+            accounts = contact_info.get("accounts") or []
+            account = next(
+                (
+                    item
+                    for item in accounts
+                    if str(item.get("id")) == str(account_id)
+                ),
+                None,
+            )
+            customer_id = account.get("customerId") if account else None
+        if not isinstance(customer_id, str) or not customer_id:
+            raise OVOEnergyAUApiClientError(
+                "Vehicle data requires an OVO customer identifier"
+            )
         return await self._vehicle_client.async_get_vehicle_data(
-            account_id, self._access_token
+            account_id, customer_id
         )
 
     async def test_connection(self, account_id: str) -> bool:

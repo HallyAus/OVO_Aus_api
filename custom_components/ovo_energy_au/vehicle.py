@@ -8,13 +8,18 @@ result reaches Home Assistant.
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import hashlib
+import hmac
+import secrets
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlencode, urlparse
 
 import aiohttp
+import jwt
 
 from .const import API_BASE_URL, AU_TIMEZONE
 
@@ -23,6 +28,14 @@ FIRESTORE_BASE_URL = (
     "https://firestore.googleapis.com/v1/projects/"
     "flex-aus-se1-firebase-prod/databases/(default)/documents"
 )
+KALUZA_AUTH_BASE_URL = "https://kaluza-customer.ovoenergy.com.au"
+KALUZA_AUTHORIZE_URL = f"{KALUZA_AUTH_BASE_URL}/authorize"
+KALUZA_TOKEN_URL = f"{KALUZA_AUTH_BASE_URL}/oauth/token"
+KALUZA_CLIENT_ID = "hF6I8TSUBXeMsyRQDv3mCCqRxHAYPtQ8"
+KALUZA_AUDIENCE = "kaluza-external-api"
+KALUZA_CONNECTION = "oea-customer-oidc"
+KALUZA_REDIRECT_URI = f"{API_BASE_URL}?login=kapi"
+KALUZA_SCOPES = ("openid", "profile", "email", "offline_access")
 
 RateLimiter = Callable[[], Awaitable[None]]
 
@@ -339,6 +352,170 @@ class OVOVehicleApiClient:
         self._session = session
         self._rate_limiter = rate_limiter
         self._token_cache: dict[str, tuple[str, str, datetime]] = {}
+        self._kaluza_tokens: dict[
+            str, tuple[str, str | None, datetime]
+        ] = {}
+        self._kaluza_auth_lock = asyncio.Lock()
+
+    @staticmethod
+    def _pkce_value() -> str:
+        """Return a URL-safe random OAuth state, nonce, or verifier."""
+        return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")
+
+    def _store_kaluza_tokens(
+        self,
+        account_id: str,
+        token_data: dict[str, Any],
+        previous_refresh_token: str | None = None,
+    ) -> str:
+        """Cache one account-scoped Kaluza access token and its refresh token."""
+        access_token = token_data.get("access_token")
+        if not isinstance(access_token, str):
+            raise OVOVehicleAuthenticationError(
+                "Kaluza authorization response was incomplete"
+            )
+        refresh_token = token_data.get("refresh_token", previous_refresh_token)
+        if not isinstance(refresh_token, str):
+            refresh_token = None
+        try:
+            lifetime = max(60, int(token_data.get("expires_in", 3600)))
+        except (TypeError, ValueError):
+            lifetime = 3600
+        expires = datetime.now(UTC) + timedelta(seconds=max(30, lifetime - 60))
+        self._kaluza_tokens[account_id] = (access_token, refresh_token, expires)
+        return access_token
+
+    async def _refresh_kaluza_token(
+        self, account_id: str, refresh_token: str
+    ) -> str:
+        """Refresh Kaluza without repeating either interactive sign-in flow."""
+        await self._rate_limiter()
+        payload = {
+            "grant_type": "refresh_token",
+            "client_id": KALUZA_CLIENT_ID,
+            "refresh_token": refresh_token,
+        }
+        try:
+            async with self._session.post(KALUZA_TOKEN_URL, json=payload) as response:
+                if response.status in (400, 401, 403):
+                    raise OVOVehicleAuthenticationError(
+                        "Kaluza refresh token was rejected"
+                    )
+                response.raise_for_status()
+                token_data = await response.json()
+        except OVOVehicleApiError:
+            raise
+        except (aiohttp.ClientError, ValueError, TypeError) as err:
+            raise OVOVehicleCommunicationError(
+                "Could not refresh vehicle authorization"
+            ) from err
+        if not isinstance(token_data, dict):
+            raise OVOVehicleAuthenticationError(
+                "Kaluza refresh response was incomplete"
+            )
+        return self._store_kaluza_tokens(account_id, token_data, refresh_token)
+
+    async def _authorize_kaluza(self, account_id: str, customer_id: str) -> str:
+        """Use the existing MyOVO SSO session to obtain a Kaluza OAuth token."""
+        verifier = self._pkce_value()
+        challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode()).digest()
+        ).decode().rstrip("=")
+        state = self._pkce_value()
+        nonce = self._pkce_value()
+        params = {
+            "client_id": KALUZA_CLIENT_ID,
+            "response_type": "code",
+            "redirect_uri": KALUZA_REDIRECT_URI,
+            "scope": " ".join(KALUZA_SCOPES),
+            "audience": KALUZA_AUDIENCE,
+            "connection": KALUZA_CONNECTION,
+            "state": state,
+            "nonce": nonce,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "account_id": str(account_id),
+            "customer_id": str(customer_id),
+        }
+        try:
+            await self._rate_limiter()
+            async with self._session.get(
+                f"{KALUZA_AUTHORIZE_URL}?{urlencode(params)}",
+                allow_redirects=True,
+            ) as response:
+                response.raise_for_status()
+                query = parse_qs(urlparse(str(response.url)).query)
+
+            callback_state = query.get("state", [None])[0]
+            if not isinstance(callback_state, str) or not hmac.compare_digest(
+                callback_state, state
+            ):
+                raise OVOVehicleAuthenticationError(
+                    "Kaluza OAuth callback state validation failed"
+                )
+            authorization_code = query.get("code", [None])[0]
+            if not isinstance(authorization_code, str):
+                raise OVOVehicleAuthenticationError(
+                    "Kaluza single sign-on did not return an authorization code"
+                )
+
+            await self._rate_limiter()
+            payload = {
+                "grant_type": "authorization_code",
+                "client_id": KALUZA_CLIENT_ID,
+                "code": authorization_code,
+                "redirect_uri": KALUZA_REDIRECT_URI,
+                "code_verifier": verifier,
+            }
+            async with self._session.post(KALUZA_TOKEN_URL, json=payload) as response:
+                if response.status in (400, 401, 403):
+                    raise OVOVehicleAuthenticationError(
+                        "Kaluza authorization code was rejected"
+                    )
+                response.raise_for_status()
+                token_data = await response.json()
+        except OVOVehicleApiError:
+            raise
+        except (aiohttp.ClientError, ValueError, TypeError) as err:
+            raise OVOVehicleCommunicationError(
+                "Could not complete vehicle authorization"
+            ) from err
+
+        if not isinstance(token_data, dict):
+            raise OVOVehicleAuthenticationError(
+                "Kaluza authorization response was incomplete"
+            )
+        try:
+            claims = jwt.decode(
+                token_data["id_token"], options={"verify_signature": False}
+            )
+        except (KeyError, jwt.PyJWTError) as err:
+            raise OVOVehicleAuthenticationError(
+                "Could not validate the Kaluza ID token nonce"
+            ) from err
+        token_nonce = claims.get("nonce")
+        if not isinstance(token_nonce, str) or not hmac.compare_digest(
+            token_nonce, nonce
+        ):
+            raise OVOVehicleAuthenticationError(
+                "Kaluza ID token nonce validation failed"
+            )
+        return self._store_kaluza_tokens(account_id, token_data)
+
+    async def _get_kaluza_token(
+        self, account_id: str, customer_id: str, *, force: bool = False
+    ) -> str:
+        """Return a valid account-scoped Kaluza token, preferring refresh."""
+        async with self._kaluza_auth_lock:
+            cached = self._kaluza_tokens.get(account_id)
+            if not force and cached and datetime.now(UTC) < cached[2]:
+                return cached[0]
+            if cached and cached[1]:
+                try:
+                    return await self._refresh_kaluza_token(account_id, cached[1])
+                except OVOVehicleAuthenticationError:
+                    self._kaluza_tokens.pop(account_id, None)
+            return await self._authorize_kaluza(account_id, customer_id)
 
     async def _get_json(
         self, url: str, bearer_token: str, *, optional: bool = False
@@ -369,7 +546,7 @@ class OVOVehicleApiClient:
             ) from err
 
     async def _get_flex_token(
-        self, account_id: str, myovo_access_token: str, *, force: bool = False
+        self, account_id: str, kaluza_access_token: str, *, force: bool = False
     ) -> tuple[str, str]:
         cached = self._token_cache.get(account_id)
         if not force and cached and datetime.now(UTC) < cached[2]:
@@ -378,7 +555,7 @@ class OVOVehicleApiClient:
         account = quote(str(account_id), safe="")
         payload = await self._get_json(
             f"{FLEX_API_BASE_URL}/v1.0/api/account/{account}/token",
-            myovo_access_token,
+            kaluza_access_token,
         )
         token = payload.get("idToken")
         user_id = payload.get("userId")
@@ -395,10 +572,13 @@ class OVOVehicleApiClient:
         return token, user_id
 
     async def _fetch_with_token(
-        self, account_id: str, myovo_access_token: str, *, force: bool = False
+        self, account_id: str, customer_id: str, *, force: bool = False
     ) -> list[dict[str, Any]]:
+        kaluza_access_token = await self._get_kaluza_token(
+            account_id, customer_id, force=force
+        )
         token, user_id = await self._get_flex_token(
-            account_id, myovo_access_token, force=force
+            account_id, kaluza_access_token, force=force
         )
         user = quote(user_id, safe="")
         root = f"{FIRESTORE_BASE_URL}/users/{user}"
@@ -446,16 +626,17 @@ class OVOVehicleApiClient:
         )
 
     async def async_get_vehicle_data(
-        self, account_id: str, myovo_access_token: str
+        self, account_id: str, customer_id: str
     ) -> list[dict[str, Any]]:
         """Return all privacy-filtered vehicle data, refreshing once on 401."""
         try:
-            return await self._fetch_with_token(account_id, myovo_access_token)
+            return await self._fetch_with_token(account_id, customer_id)
         except OVOVehicleAuthenticationError:
             self._token_cache.pop(account_id, None)
+            self._kaluza_tokens.pop(account_id, None)
             try:
                 return await self._fetch_with_token(
-                    account_id, myovo_access_token, force=True
+                    account_id, customer_id, force=True
                 )
             except OVOVehicleAuthenticationError as err:
                 raise OVOVehicleCommunicationError(

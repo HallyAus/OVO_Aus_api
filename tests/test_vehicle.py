@@ -1,7 +1,10 @@
 """Kaluza vehicle decoding, privacy, and sensor regression tests."""
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
+from urllib.parse import parse_qs, urlparse
 
+import jwt
 import pytest
 
 from custom_components.ovo_energy_au.sensors.vehicle import (
@@ -22,9 +25,10 @@ from custom_components.ovo_energy_au.vehicle import (
 
 
 class _FakeResponse:
-    def __init__(self, payload, status=200):
+    def __init__(self, payload, status=200, url="https://example.test"):
         self._payload = payload
         self.status = status
+        self.url = url
 
     async def __aenter__(self):
         return self
@@ -40,16 +44,49 @@ class _FakeResponse:
 
 
 class _FakeSession:
-    def __init__(self):
+    def __init__(self, *, reject_refresh=False):
         self.calls = []
+        self.kaluza_nonce = None
+        self.reject_refresh = reject_refresh
 
-    def get(self, url, headers):
-        self.calls.append((url, headers))
+    def get(self, url, headers=None, **kwargs):
+        self.calls.append(("GET", url, headers or {}, kwargs))
+        if "/authorize?" in url:
+            query = parse_qs(urlparse(url).query)
+            self.kaluza_nonce = query["nonce"][0]
+            callback = (
+                "https://my.ovoenergy.com.au?login=kapi"
+                f"&code=kaluza-code&state={query['state'][0]}"
+            )
+            return _FakeResponse({}, url=callback)
         if url.endswith("/token"):
             return _FakeResponse(
                 {"idToken": "flex-token", "userId": "user-id", "expiresIn": 900}
             )
         return _FakeResponse({})
+
+    def post(self, url, json):
+        self.calls.append(("POST", url, {}, {"json": json}))
+        if json["grant_type"] == "refresh_token":
+            if self.reject_refresh:
+                return _FakeResponse({}, status=401)
+            return _FakeResponse(
+                {
+                    "access_token": "refreshed-kaluza-token",
+                    "refresh_token": "rotated-refresh-token",
+                    "expires_in": 3600,
+                }
+            )
+        return _FakeResponse(
+            {
+                "access_token": "kaluza-token",
+                "refresh_token": "kaluza-refresh-token",
+                "expires_in": 3600,
+                "id_token": jwt.encode(
+                    {"nonce": self.kaluza_nonce}, key="", algorithm="none"
+                ),
+            }
+        )
 
 
 def test_firestore_decoder_handles_nested_types():
@@ -86,17 +123,91 @@ async def test_vehicle_client_uses_verified_get_only_token_chain_and_cache():
         return None
 
     client = OVOVehicleApiClient(session, no_wait)
-    assert await client.async_get_vehicle_data("account", "myovo-token") == []
-    assert await client.async_get_vehicle_data("account", "myovo-token") == []
+    assert await client.async_get_vehicle_data("account", "customer") == []
+    assert await client.async_get_vehicle_data("account", "customer") == []
 
-    token_calls = [call for call in session.calls if call[0].endswith("/token")]
+    authorize_calls = [call for call in session.calls if "/authorize?" in call[1]]
+    assert len(authorize_calls) == 1
+    authorize_query = parse_qs(urlparse(authorize_calls[0][1]).query)
+    assert authorize_query["account_id"] == ["account"]
+    assert authorize_query["customer_id"] == ["customer"]
+
+    token_calls = [
+        call
+        for call in session.calls
+        if call[0] == "GET" and call[1].endswith("/token")
+    ]
     assert len(token_calls) == 1
-    assert token_calls[0][1]["authorization"] == "Bearer myovo-token"
-    data_calls = [call for call in session.calls if not call[0].endswith("/token")]
+    assert token_calls[0][2]["authorization"] == "Bearer kaluza-token"
+    data_calls = [
+        call
+        for call in session.calls
+        if call[0] == "GET"
+        and "/authorize?" not in call[1]
+        and not call[1].endswith("/token")
+    ]
     assert data_calls
-    assert all(call[1]["authorization"] == "Bearer flex-token" for call in data_calls)
-    assert all("/users/user-id/" in call[0] for call in data_calls)
-    assert all(call[0].startswith("https://") for call in session.calls)
+    assert all(call[2]["authorization"] == "Bearer flex-token" for call in data_calls)
+    assert all("/users/user-id/" in call[1] for call in data_calls)
+    assert all(call[1].startswith("https://") for call in session.calls)
+
+
+@pytest.mark.asyncio
+async def test_vehicle_client_prefers_kaluza_refresh_token_over_sso():
+    session = _FakeSession()
+
+    async def no_wait():
+        return None
+
+    client = OVOVehicleApiClient(session, no_wait)
+    client._kaluza_tokens["account"] = (
+        "expired-token",
+        "refresh-token",
+        datetime.now(UTC) - timedelta(seconds=1),
+    )
+
+    assert await client.async_get_vehicle_data("account", "customer") == []
+
+    authorize_calls = [call for call in session.calls if "/authorize?" in call[1]]
+    assert authorize_calls == []
+    refresh_calls = [
+        call
+        for call in session.calls
+        if call[0] == "POST"
+        and call[3]["json"].get("grant_type") == "refresh_token"
+    ]
+    assert len(refresh_calls) == 1
+    flex_call = next(
+        call
+        for call in session.calls
+        if call[0] == "GET" and call[1].endswith("/token")
+    )
+    assert flex_call[2]["authorization"] == "Bearer refreshed-kaluza-token"
+
+
+@pytest.mark.asyncio
+async def test_vehicle_client_uses_sso_only_after_kaluza_refresh_rejection():
+    session = _FakeSession(reject_refresh=True)
+
+    async def no_wait():
+        return None
+
+    client = OVOVehicleApiClient(session, no_wait)
+    client._kaluza_tokens["account"] = (
+        "expired-token",
+        "rejected-refresh-token",
+        datetime.now(UTC) - timedelta(seconds=1),
+    )
+
+    assert await client.async_get_vehicle_data("account", "customer") == []
+
+    grants = [
+        call[3]["json"]["grant_type"]
+        for call in session.calls
+        if call[0] == "POST" and call[1].endswith("/oauth/token")
+    ]
+    assert grants == ["refresh_token", "authorization_code"]
+    assert len([call for call in session.calls if "/authorize?" in call[1]]) == 1
 
 
 def test_firestore_document_id_is_only_retained_for_local_matching():

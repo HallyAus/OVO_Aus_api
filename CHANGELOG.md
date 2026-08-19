@@ -5,6 +5,22 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.8.2] - 2026-08-20
+
+> - **OVO referral code:** `daniel16485`
+> - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+> - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
+
+### Fixed
+- Connected vehicles now use the portal's separate, account-scoped Kaluza OAuth sign-in before requesting the Firebase account token. The previous implementation incorrectly sent the normal MyOVO access token to that endpoint, so valid vehicles were silently absent from Home Assistant.
+- Kaluza access tokens are cached and their refresh tokens are preferred. The MyOVO password/SSO path is used only when no usable Kaluza refresh token remains.
+- MyOVO sign-in now tolerates OVO's intermittent omission of the ID-token nonce after OAuth state and PKCE validation. A returned nonce is still compared in constant time and any mismatch is rejected.
+- Vehicle authentication failures now emit one clear warning, report `vehicle_status` in privacy-safe diagnostics, and log subsequent repeated failures at debug level instead of silently returning an unexplained empty set.
+
+### Validation
+- Reproduced the current two-stage MyOVO/Kaluza PKCE flow against the live platform and verified one connected vehicle through the released integration client path, including telemetry, charge plan, charging settings, and monthly EV energy.
+- Added regressions for Kaluza SSO parameters, refresh-first token reuse, missing/mismatched nonce handling, account-to-customer matching, and vehicle status reporting.
+
 ## [4.8.1] - 2026-08-19
 
 > - **OVO referral code:** `daniel16485`

@@ -1,6 +1,6 @@
 # OVO Energy Australia integration audit
 
-**Audit date:** 19 August 2026
+**Audit date:** 19–20 August 2026
 
 **Code baseline:** manifest/source version 4.7.1 / `c3bb4df`
 
@@ -15,6 +15,29 @@ No credential, token, account number, NMI, address, bill URL, vehicle ID, VIN,
 balance, payment detail, or customer-specific value is stored in this report.
 The temporary browser credential profile and authenticated session were deleted
 after the probe.
+
+### 20 August vehicle follow-up
+
+A second authenticated, read-only probe was completed after a real enrolled
+vehicle did not appear in Home Assistant. It identified a material error in the
+initial platform map: the account-scoped Flex/Firebase token endpoint does not
+accept the ordinary MyOVO API access token. The portal first performs a separate
+Kaluza Auth0 authorization-code flow with PKCE, passing the selected account's
+`customerId` and account ID, and then sends that Kaluza access token to the Flex
+account-token endpoint.
+
+Version 4.8.2 mirrors that two-stage flow, caches both short-lived token chains,
+prefers each service's refresh token, and falls back to SSO only after Kaluza
+refresh rejection. The implemented client was exercised against the live
+account and returned one privacy-filtered vehicle with current telemetry,
+charging settings, charge-plan data, and monthly EV energy. All observed
+vehicle endpoints returned successfully. No customer identifier, account ID,
+vehicle ID, VIN, location, credential, or token is recorded here.
+
+The follow-up also confirmed that OVO's main Auth0 tenant can intermittently
+omit the ID-token nonce. Version 4.8.2 accepts only the missing-claim case after
+callback state and PKCE verification; whenever a nonce is returned, a mismatch
+remains a hard authentication failure.
 
 ## Outcome
 
@@ -163,7 +186,7 @@ and [options reload](https://developers.home-assistant.io/docs/core/integration/
 
 ## Validation
 
-- `python -m pytest tests -q`: **134 passed**
+- `python -m pytest tests -q`: **138 passed**
 - `python -m ruff check custom_components/ovo_energy_au tests`: **passed**
 - Python bytecode compilation: passed
 - JSON translation/manifest parsing: passed

@@ -57,6 +57,7 @@ async def async_get_config_entry_diagnostics(
             "payments_available": len(data.get("payments") or []),
             "billing_overview_available": bool(data.get("billing_information")),
             "unbilled_charges_available": bool(data.get("unbilled_charges")),
+            "vehicle_status": data.get("vehicle_status", "not_checked"),
             "vehicles_available": len(vehicles),
             "vehicle_telemetry_available": sum(
                 1 for vehicle in vehicles if vehicle.get("telemetry_updated_at")

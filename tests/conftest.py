@@ -111,8 +111,6 @@ sys.modules.setdefault("homeassistant.util.dt", dt_mock)
 sys.modules.setdefault("homeassistant.helpers.entity", ha_mock)
 sys.modules.setdefault("homeassistant.helpers.entity_platform", ha_mock)
 sys.modules.setdefault("homeassistant.data_entry_flow", ha_mock)
-sys.modules.setdefault("aiohttp", ha_mock)
-sys.modules.setdefault("jwt", ha_mock)
 sys.modules.setdefault("voluptuous", ha_mock)
 
 import pytest  # noqa: E402

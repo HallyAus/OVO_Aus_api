@@ -43,6 +43,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
         self.client = client
         self.account_id = account_id
         self.plan_config = plan_config or PlanConfig()
+        self._vehicle_warning_active = False
 
         super().__init__(
             hass,
@@ -221,21 +222,58 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["referral"] = {}
                 processed["flex"] = {}
 
-            # 4e. Read-only Kaluza vehicle telemetry, preferences, schedules,
+            # 4e. Account metadata is also the source of the customer ID used
+            # for OVO's separate, account-scoped Kaluza vehicle sign-in.
+            customer_id = None
+            try:
+                contact_info = await self.client.get_contact_info()
+                accounts = contact_info.get("accounts", [])
+                active = [a for a in accounts if not a.get("closed", False)]
+                # Match this entry's account — a multi-account customer must
+                # not see another account's balance or vehicle data.
+                account = next(
+                    (a for a in active if str(a.get("id")) == str(self.account_id)),
+                    active[0] if active else None,
+                )
+                if account:
+                    processed["account_balance"] = account.get(
+                        "customerOrientatedBalance"
+                    )
+                    processed["has_solar"] = account.get("hasSolar", False)
+                    customer_id = account.get("customerId")
+            except OVOEnergyAUApiClientAuthenticationError:
+                raise
+            except Exception as err:
+                _LOGGER.debug("Failed to fetch contact info: %s", err)
+                processed["account_balance"] = None
+                processed["has_solar"] = None
+
+            # 4f. Read-only Kaluza vehicle telemetry, preferences, schedules,
             # charge plan, and monthly device energy. `flex.hasOnboarded` is a
             # separate MyOVO feature flag and is not a reliable EV Control
             # indicator, so vehicle discovery must be probed independently.
             try:
                 processed["vehicles"] = await self.client.get_vehicle_data(
-                    self.account_id
+                    self.account_id, customer_id
                 )
+                processed["vehicle_status"] = (
+                    "available" if processed["vehicles"] else "none_found"
+                )
+                if self._vehicle_warning_active:
+                    _LOGGER.info("Vehicle data access has recovered")
+                    self._vehicle_warning_active = False
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
-                _LOGGER.debug("Vehicle data is unavailable: %s", err)
+                if not self._vehicle_warning_active:
+                    _LOGGER.warning("Vehicle data is unavailable: %s", err)
+                    self._vehicle_warning_active = True
+                else:
+                    _LOGGER.debug("Vehicle data remains unavailable: %s", err)
                 processed["vehicles"] = []
+                processed["vehicle_status"] = "unavailable"
 
-            # 4f. Direct debit + current unbilled charge summary
+            # 4g. Direct debit + current unbilled charge summary
             try:
                 billing = await self.client.get_billing_overview(self.account_id)
                 processed["billing_information"] = (
@@ -251,28 +289,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["billing_information"] = {}
                 processed["unbilled_charges"] = {}
 
-            # 5. Account balance from contact info
-            try:
-                contact_info = await self.client.get_contact_info()
-                accounts = contact_info.get("accounts", [])
-                active = [a for a in accounts if not a.get("closed", False)]
-                # Match this entry's account — a multi-account customer must
-                # not see another account's balance (fall back to the first)
-                account = next(
-                    (a for a in active if str(a.get("id")) == str(self.account_id)),
-                    active[0] if active else None,
-                )
-                if account:
-                    processed["account_balance"] = account.get("customerOrientatedBalance")
-                    processed["has_solar"] = account.get("hasSolar", False)
-            except OVOEnergyAUApiClientAuthenticationError:
-                raise
-            except Exception as err:
-                _LOGGER.debug("Failed to fetch contact info: %s", err)
-                processed["account_balance"] = None
-                processed["has_solar"] = None
-
-            # 6. Usage info (timezone, meter type)
+            # 5. Usage info (timezone, meter type)
             try:
                 usage_info = await self.client.get_usage_info(self.account_id)
                 usage_v2 = (usage_info or {}).get("usageV2") or {}

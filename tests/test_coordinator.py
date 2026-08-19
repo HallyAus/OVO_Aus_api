@@ -44,7 +44,13 @@ async def test_bill_estimate_uses_export_credit_not_solar_generation_charge():
     client.get_account_extras = AsyncMock(return_value={})
     client.get_vehicle_data = AsyncMock(return_value=[])
     client.get_billing_overview = AsyncMock(return_value={})
-    client.get_contact_info = AsyncMock(return_value={"accounts": []})
+    client.get_contact_info = AsyncMock(
+        return_value={
+            "accounts": [
+                {"id": "account", "customerId": "customer", "closed": False}
+            ]
+        }
+    )
     client.get_usage_info = AsyncMock(return_value={})
 
     coordinator = OVOEnergyAUDataUpdateCoordinator(
@@ -97,7 +103,13 @@ async def test_vehicle_discovery_does_not_trust_unrelated_flex_flag():
     vehicle = {"id": "opaque-vehicle", "name": "Connected EV"}
     client.get_vehicle_data = AsyncMock(return_value=[vehicle])
     client.get_billing_overview = AsyncMock(return_value={})
-    client.get_contact_info = AsyncMock(return_value={"accounts": []})
+    client.get_contact_info = AsyncMock(
+        return_value={
+            "accounts": [
+                {"id": "account", "customerId": "customer", "closed": False}
+            ]
+        }
+    )
     client.get_usage_info = AsyncMock(return_value={})
 
     coordinator = OVOEnergyAUDataUpdateCoordinator(
@@ -107,4 +119,5 @@ async def test_vehicle_discovery_does_not_trust_unrelated_flex_flag():
 
     assert result["flex"]["onboarded"] is False
     assert result["vehicles"] == [vehicle]
-    client.get_vehicle_data.assert_awaited_once_with("account")
+    client.get_vehicle_data.assert_awaited_once_with("account", "customer")
+    assert result["vehicle_status"] == "available"
