@@ -16,7 +16,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore)](https://github.com/hacs/integration)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.8.2-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.9.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.6+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
@@ -99,22 +99,22 @@ The integration connects to OVO's GraphQL API and automatically detects your pla
 | Category | What You Get |
 |----------|-------------|
 | **Daily / Monthly / Yearly** | Solar generation, grid consumption, export -- both kWh and AUD |
-| **Last 7 Days with Rate Breakdown** | Per-day split by rate type (EV_OFFPEAK, FREE_3, PEAK, SHOULDER, OFF_PEAK, OTHER) |
-| **OVO Savings** | Daily, monthly, and yearly savings vs the One Plan (calculated by OVO) |
+| **Rate Breakdown** | Yesterday, month, year, and all-time tariff detail without rotating Day 1-7 entities |
+| **Plan Savings** | One entity with daily, monthly, and yearly OVO-calculated savings attributes |
 | **Hourly Data** | 7-day rolling window with per-hour granularity and heatmap sensor |
-| **Week-over-Week Comparison** | This week vs last week with percentage changes for solar, grid, and cost |
-| **Weekday vs Weekend Analysis** | Average daily consumption and cost by day type |
+| **Week-over-Week Comparison** | This week vs last week with net usage cost after export credit |
+| **Weekday vs Weekend Analysis** | Household consumption and net usage cost by day type |
 | **Solar Self-Sufficiency** | Percentage of energy consumed from your own panels |
-| **Monthly Cost Projection** | Budget forecast based on current daily average |
-| **Cost per kWh** | Effective rates for grid, solar, and overall |
-| **High Usage Day Rankings** | Top 5 consumption days from the last 30 days |
+| **Bill Estimator** | The single forecast, including standing charges and export credits |
+| **Cost per kWh** | Net household usage, grid import, and export-credit rates |
+| **High Usage Day Rankings** | Top household-use days: grid import + self-consumed solar |
 | **Hourly Heatmap** | Usage patterns by day-of-week and hour |
 | **Solar Export Analysis** | Export credit, export rate, opportunity cost vs self-consumption |
 | **Account Balance** | Current OVO account balance |
-| **Plan Information** | Diagnostic sensor with all plan rates, standing charge, demand charge, NMI |
-| **Integration Health** | Diagnostic sensor for monitoring API connectivity |
-| **⚡ Tariff Period Indicator** | Shows current rate period (EV Off-Peak / FREE / Standard) with live rate |
-| **📊 Plan Comparison** | Savings vs One Plan with rating and recommendation |
+| **Plan Information** | Diagnostic sensor with all plan rates, standing and demand charges |
+| **Integration Health** | API health plus newest usage date, expected delay, and stale-data warning |
+| **⚡ Tariff Period Indicator** | Shows the scheduled current rate period and detected tariff rate |
+| **📊 Plan Savings** | Daily/monthly/yearly savings attributes, rating, and recommendation |
 | **🔌 EV Charging Tracker** | Monthly and yearly EV charging kWh and cost |
 | **🚗 Connected Vehicle** | Live battery/range/cable/mode, charge limit and boost state, readiness/credential health, charging preferences and weekly/tariff schedules, full charge-plan windows, demand-period settings, and monthly vehicle kWh/cost/rate history |
 | **🧾 Bill Estimator** | MTD bill, projected monthly bill, daily average net cost |
@@ -169,9 +169,9 @@ Or manually:
 3. Enter your OVO email and password
 4. Done -- your plan, rates, and core sensors are created automatically
 
-Detailed per-day/hourly history entities are available but disabled by default
-to avoid unnecessary Recorder and entity-registry load. Enable only the history
-entities you use.
+The focused account surface contains 105 entities; an enrolled vehicle adds 19
+on its own linked device. Upgrades remove 161 obsolete moving Day 1-7/hourly-day
+registry entries plus 15 scalar entities replaced by richer summaries.
 
 If your account is enrolled in OVO EV Control, a separate vehicle device is
 created automatically. It uses the same MyOVO login and read-only requests; no
@@ -221,11 +221,9 @@ Each day also includes counterfactual analysis showing what you would have paid 
 
 ### 🏆 OVO Savings
 
-| Sensor | Description |
-|--------|-------------|
-| OVO Savings (Yesterday) | Daily savings vs the One Plan |
-| OVO Savings (This Month) | Month-to-date savings |
-| OVO Savings (This Year) | Year-to-date savings |
+| Sensor | State and attributes |
+|--------|----------------------|
+| Plan Savings | Yearly summary state; daily, monthly, yearly, comparison, rating, and recommendation attributes |
 
 These values are calculated by OVO's own comparison engine, not estimated locally.
 
@@ -233,14 +231,14 @@ These values are calculated by OVO's own comparison engine, not estimated locall
 
 | Sensor Group | Sensors | Purpose |
 |-------------|---------|---------|
-| Week Comparison | 6 | This week vs last week (solar, grid, cost + % change) |
-| Weekday vs Weekend | 4 | Average daily consumption and cost by day type |
+| Week Comparison | 6 | This week vs last week (solar, grid, net usage cost + % change) |
+| Weekday vs Weekend | 4 | Household consumption and net usage cost by day type |
 | Peak Usage | 1 | Highest consumption 4-hour window |
 | Self-Sufficiency | 1 | Percentage of energy from solar |
 | High Usage Days | 1 | Top 5 consumption days (last 30 days) |
 | Hourly Heatmap | 1 | Day-of-week / hour usage grid |
-| Cost per kWh | 3 | Effective rates (overall, grid, solar) |
-| Monthly Forecast | 3 | Projected total, remaining, and daily average |
+| Cost per kWh | 3 | Net usage, grid-import, and export-credit rates |
+| Bill Estimate | 4 | MTD, projected, remaining, and daily average including supply charges |
 | Solar Export | 4 | Export credit, rate, potential savings, opportunity cost |
 
 ### ⏰ Hourly Data
@@ -248,6 +246,7 @@ These values are calculated by OVO's own comparison engine, not estimated locall
 - **7-day rolling window** with solar, grid, and export totals
 - **Yesterday hourly** sensors for quick graph display
 - Full hourly entries available in sensor attributes
+- OVO meter usage is not real-time; yesterday's complete data normally arrives the following morning
 
 ### 🔧 Other
 
@@ -281,7 +280,7 @@ entities:
   - sensor.ovo_energy_au_yesterday_grid_consumption
   - sensor.ovo_energy_au_yesterday_return_to_grid
   - sensor.ovo_energy_au_yesterday_grid_charge
-  - sensor.ovo_energy_au_ovo_savings_ovo_savings_yesterday
+  - sensor.ovo_energy_au_ovo_savings_plan_savings
 ```
 
 ---

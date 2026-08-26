@@ -104,7 +104,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 )
 
             # 4. Analytics insights
-            compute_insights(processed, self.plan_config.billing_cycle_day)
+            compute_insights(processed)
 
             # 4b. Calculate bill estimate
             try:

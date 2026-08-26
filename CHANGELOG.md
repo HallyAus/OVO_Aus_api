@@ -5,6 +5,28 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.9.0] - 2026-08-27
+
+> - **OVO referral code:** `daniel16485`
+> - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+> - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
+
+### Fixed
+- High Usage Days now ranks actual household use (grid import plus self-consumed solar) instead of treating exported solar as consumption.
+- Week comparison, weekday/weekend, high-usage, and effective-cost analytics now use grid charges less export credits. Their names and attributes explicitly say the figures exclude supply charges.
+- Integration Health now identifies OVO usage as next-day, non-real-time data and reports the newest usage date, delay in days, and stale status.
+
+### Changed
+- Removed 140 rotating Day 1-7 entities and 21 rotating hourly-day entities. Stable period summaries, Yesterday Hourly attributes, totals, and heatmap data remain available. The account surface falls from 281 to 105 entities; one vehicle adds 19 on its own linked device.
+- Consolidated six tariff-rate entities into Plan Information attributes, keeping Current Tariff Period as the normal tariff entity.
+- Consolidated daily/monthly/yearly OVO savings into the single Plan Savings entity and the three latest-bill values into Latest Bill.
+- Removed the incomplete Monthly Forecast and retained Bill Estimate as the only forecast because it includes standing charges and export credits.
+- Updated bundled dashboards and documentation for the smaller, corrected entity surface.
+- Updated the Daily Savings Report blueprint to read daily/monthly values from Plan Savings attributes; existing blueprint automations should be reconfigured to select that entity.
+
+### Validation
+- Added regression coverage for solar export-heavy days, net-cost comparisons, consolidated entities, removed rotating entities, and delayed/stale usage reporting.
+
 ## [4.8.2] - 2026-08-20
 
 > - **OVO referral code:** `daniel16485`

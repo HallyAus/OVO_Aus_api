@@ -8,13 +8,14 @@ the sensor business logic.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -23,19 +24,62 @@ from .sensors.base import (
     AU_TIMEZONE,
     OVOBaseSensor,
     OVOEnergySensor,
-    get_hourly_data_for_date,
 )
 from .sensors.definitions import (
     ANALYTICS_SENSORS,
     ENERGY_SENSORS,
-    RATE_TYPE_ICONS,
-    RATE_TYPES,
     calculate_free_savings,
     get_rate_value,
 )
 from .sensors.vehicle import create_vehicle_sensors
 
 _LOGGER = logging.getLogger(__name__)
+
+_RETIRED_SENSOR_KEYS = {
+    "daily_ovo_savings",
+    "monthly_ovo_savings",
+    "yearly_ovo_savings",
+    "latest_bill_amount",
+    "latest_bill_closing_balance",
+    "latest_bill_opening_balance",
+    "tariff_peak_rate",
+    "tariff_shoulder_rate",
+    "tariff_off_peak_rate",
+    "tariff_ev_off_peak_rate",
+    "tariff_feed_in_rate",
+    "tariff_standing_charge",
+    "monthly_projection_total",
+    "monthly_projection_remaining",
+    "monthly_daily_average",
+}
+_RETIRED_ROTATING_SENSOR_KEYS = {
+    *(
+        f"day_{day}_{metric}"
+        for day in range(1, 8)
+        for metric in (
+            "solar_consumption",
+            "solar_charge",
+            "grid_consumption",
+            "grid_charge",
+        )
+    ),
+    *(
+        f"day_{day}_grid_rate_{rate}_{metric}"
+        for day in range(1, 8)
+        for rate in ("peak", "shoulder", "offpeak", "ev_offpeak", "other", "free_3")
+        for metric in ("consumption", "charge")
+    ),
+    *(
+        f"history_day_{day}_{rate}"
+        for day in range(7)
+        for rate in ("total", "ev_offpeak", "free_3", "other")
+    ),
+    *(
+        f"hourly_{kind}_{day}d_ago"
+        for kind in ("solar", "grid", "export")
+        for day in range(1, 8)
+    ),
+}
 
 
 async def async_setup_entry(
@@ -45,6 +89,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up OVO Energy Australia sensor platform."""
     coordinator = entry.runtime_data
+    _remove_retired_registry_entities(hass, entry, coordinator.account_id)
     sensors: list[SensorEntity] = []
 
     # ── Data-driven sensors from definitions ──
@@ -62,12 +107,6 @@ async def async_setup_entry(
     for period, label in [("daily", "Yesterday"), ("monthly", "This Month"),
                           ("yearly", "This Year"), ("all_time", "All Time")]:
         sensors.append(OVORateBreakdownSensor(coordinator, period, label))
-
-    # ── Dynamic per-day sensors ──
-    _add_dynamic_day_sensors(sensors, coordinator)
-
-    # ── Per-day hourly breakdown ──
-    _add_hourly_day_sensors(sensors, coordinator)
 
     # ── Per-hour yesterday sensors ── (removed: data available in hourly day sensor attributes)
 
@@ -131,6 +170,22 @@ async def async_setup_entry(
 # ─── Sensor factory helpers ──────────────────────────────────────────
 
 
+def _remove_retired_registry_entities(hass, entry, account_id: str) -> None:
+    """Remove only known obsolete entities belonging to this config entry."""
+    registry = er.async_get(hass)
+    unique_id_prefix = f"{account_id}_"
+    for registry_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
+        unique_id = registry_entry.unique_id or ""
+        if not unique_id.startswith(unique_id_prefix):
+            continue
+        sensor_key = unique_id[len(unique_id_prefix):]
+        if (
+            sensor_key in _RETIRED_SENSOR_KEYS
+            or sensor_key in _RETIRED_ROTATING_SENSOR_KEYS
+        ):
+            registry.async_remove(registry_entry.entity_id)
+
+
 def _add_rate_sensors(sensors: list, coordinator, period: str, label: str) -> None:
     """Add EV/Free/Other rate breakdown sensors for a period."""
     rate_configs = [
@@ -174,90 +229,6 @@ def _add_rate_sensors(sensors: list, coordinator, period: str, label: str) -> No
                 lambda d, p=period, rt=rate_type: get_rate_value(d, p, rt, "charge"),
                 f"Rate Breakdown - {label}",
             ))
-
-
-def _add_dynamic_day_sensors(sensors: list, coordinator) -> None:
-    """Add per-day sensors for the last 7 days."""
-    # Always create 7 day sensors regardless of initial data availability.
-    # Each sensor name MUST include the day number so HA's has_entity_name=True
-    # slugification produces distinct entity_ids (avoids _2/_3 collision suffixes).
-    for idx in range(7):
-        day_num = idx + 1
-        for key, name, unit, dc, sc, icon in [
-            ("solar_consumption", "Solar Consumption", UnitOfEnergy.KILO_WATT_HOUR,
-             SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:solar-power"),
-            ("solar_charge", "Solar Feed-in Credit", "AUD",
-             SensorDeviceClass.MONETARY, SensorStateClass.TOTAL, "mdi:cash-plus"),
-            ("grid_consumption", "Grid Consumption", UnitOfEnergy.KILO_WATT_HOUR,
-             SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:transmission-tower"),
-            ("grid_charge", "Grid Charge", "AUD",
-             SensorDeviceClass.MONETARY, SensorStateClass.TOTAL, "mdi:currency-usd"),
-        ]:
-            sensors.append(OVODaySensor(
-                coordinator, f"day_{day_num}_{key}", f"Day {day_num} {name}",
-                unit, dc, sc, icon, idx, key,
-            ))
-
-        # Per-rate breakdown for this day. key_suffix preserves historical
-        # unique_ids (e.g. OFF_PEAK -> "offpeak") while rate_type matches
-        # the API charge type used in the data lookup. Names include the day
-        # number so slugification produces distinct entity_ids.
-        for rate_type, key_suffix in RATE_TYPES.items():
-            rate_label = rate_type.replace("_", " ").title()
-            sensors.append(OVODayRateSensor(
-                coordinator, f"day_{day_num}_grid_rate_{key_suffix}_consumption",
-                f"Day {day_num} {rate_label} Consumption",
-                UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL,
-                RATE_TYPE_ICONS.get(rate_type, "mdi:flash"), idx, rate_type, "grid_rates_kwh",
-            ))
-            is_free = rate_type == "FREE_3"
-            sensors.append(OVODayRateSensor(
-                coordinator, f"day_{day_num}_grid_rate_{key_suffix}_charge",
-                f"Day {day_num} {rate_label} {'Savings' if is_free else 'Cost'}",
-                "AUD", SensorDeviceClass.MONETARY, SensorStateClass.TOTAL,
-                "mdi:piggy-bank" if is_free else "mdi:currency-usd",
-                idx, rate_type, "grid_rates_aud",
-            ))
-
-    # History sensors - always create 7
-    for idx in range(7):
-        sensors.append(OVODailyHistorySensor(
-            coordinator, f"history_day_{idx}_total",
-            f"Day {idx + 1} Total Consumption", idx, None, "mdi:calendar-today",
-        ))
-        for rate_type in ["EV_OFFPEAK", "FREE_3", "OTHER"]:
-            sensors.append(OVODailyHistorySensor(
-                coordinator, f"history_day_{idx}_{rate_type.lower()}",
-                f"Day {idx + 1} {rate_type.replace('_', ' ').title()}",
-                idx, rate_type, RATE_TYPE_ICONS.get(rate_type, "mdi:flash"),
-            ))
-
-
-def _add_hourly_day_sensors(sensors: list, coordinator) -> None:
-    """Add per-day hourly breakdown sensors (last 7 days).
-
-    Uses days_ago instead of fixed target_date so sensors compute
-    the correct date dynamically on each update (survives midnight).
-    """
-    for days_ago in range(1, 8):
-        for entry_type, type_label, icon in [
-            ("solar_entries", "Solar", "mdi:solar-power"),
-            ("grid_entries", "Grid", "mdi:transmission-tower"),
-            ("return_to_grid_entries", "Export", "mdi:transmission-tower-export"),
-        ]:
-            sensors.append(OVOHourlyDaySensor(
-                coordinator, f"hourly_{type_label.lower()}_{days_ago}d_ago",
-                f"{type_label} Hourly {days_ago}d Ago",
-                entry_type, days_ago, icon, f"Hourly {type_label}",
-            ))
-
-
-def _format_date_label(date_str: str) -> str:
-    """Format 'YYYY-MM-DD' to 'Mon 20 Mar'."""
-    try:
-        return datetime.strptime(date_str, "%Y-%m-%d").strftime("%a %d %b")
-    except (ValueError, TypeError):
-        return date_str
 
 
 # ─── Specialized sensor classes ──────────────────────────────────────
@@ -356,147 +327,6 @@ class OVORateBreakdownSensor(OVOBaseSensor):
         return result
 
 
-class OVODaySensor(OVOBaseSensor):
-    """Dynamic day sensor for last 7 days."""
-
-    def __init__(self, coordinator, key, name, unit, device_class, state_class, icon, day_index, value_key):
-        super().__init__(coordinator, key, name, "Daily History")
-        self._unit = unit
-        self._device_class = device_class
-        self._state_class = state_class
-        self._icon = icon
-        self._day_index = day_index
-        self._value_key = value_key
-        self._attr_entity_registry_enabled_default = False
-
-    @property
-    def name(self) -> str:
-        if not self.coordinator.data:
-            return self._sensor_name
-        all_daily = self.coordinator.data.get("all_daily_entries", [])
-        if self._day_index < len(all_daily):
-            d = all_daily[self._day_index]
-            label = _format_date_label(d.get("date", ""))
-            day_name = d.get("day_name", "")
-            if day_name:
-                return f"{day_name} {label.split(' ', 1)[1] if ' ' in label else label}"
-        return self._sensor_name
-
-    @property
-    def native_value(self) -> float | None:
-        if not self.coordinator.data:
-            return None
-        all_daily = self.coordinator.data.get("all_daily_entries", [])
-        if self._day_index < len(all_daily):
-            value = all_daily[self._day_index].get(self._value_key, 0)
-            return round(float(value), 2) if value is not None else None
-        return None
-
-    @property
-    def native_unit_of_measurement(self): return self._unit
-    @property
-    def device_class(self): return self._device_class
-    @property
-    def state_class(self): return None
-    @property
-    def icon(self): return self._icon
-
-
-class OVODayRateSensor(OVOBaseSensor):
-    """Per-rate sensor for a specific day."""
-
-    def __init__(self, coordinator, key, name, unit, device_class, state_class, icon, day_index, rate_type, metric_key):
-        super().__init__(coordinator, key, name, "Daily History")
-        self._unit = unit
-        self._device_class = device_class
-        self._state_class = state_class
-        self._icon = icon
-        self._day_index = day_index
-        self._rate_type = rate_type
-        self._metric_key = metric_key
-        self._attr_entity_registry_enabled_default = False
-
-    @property
-    def native_value(self) -> float | None:
-        if not self.coordinator.data:
-            return None
-        all_daily = self.coordinator.data.get("all_daily_entries", [])
-        if self._day_index >= len(all_daily):
-            # No history for this day yet — unavailable, not a real 0
-            return None
-        day_data = all_daily[self._day_index]
-        if self._rate_type == "FREE_3" and self._metric_key == "grid_rates_aud":
-            return self._free3_savings(day_data)
-        return round(float(day_data.get(self._metric_key, {}).get(self._rate_type, 0)), 2)
-
-    def _free3_savings(self, day_data: dict) -> float:
-        kwh = day_data.get("grid_rates_kwh", {}).get("FREE_3", 0)
-        if kwh <= 0:
-            return 0
-        other_kwh = day_data.get("grid_rates_kwh", {}).get("OTHER", 0)
-        other_aud = day_data.get("grid_rates_aud", {}).get("OTHER", 0)
-        rate = (other_aud / other_kwh) if other_kwh > 0 else self.coordinator.plan_config.shoulder_rate
-        return round(kwh * rate, 2)
-
-    @property
-    def native_unit_of_measurement(self): return self._unit
-    @property
-    def device_class(self): return self._device_class
-    @property
-    def state_class(self): return None
-    @property
-    def icon(self): return self._icon
-
-
-class OVODailyHistorySensor(OVOBaseSensor):
-    """History sensor showing a day's consumption by rate type."""
-
-    def __init__(self, coordinator, key, name, day_index, rate_type, icon):
-        super().__init__(coordinator, key, name, "Daily History")
-        self._day_index = day_index
-        self._rate_type = rate_type
-        self._icon = icon
-        self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-        self._attr_device_class = SensorDeviceClass.ENERGY
-        # This entity is a moving "N days ago" slot, not a meter. Enabling a
-        # state class would feed unrelated calendar days into long-term stats.
-        self._attr_state_class = None
-        self._attr_entity_registry_enabled_default = False
-
-    @property
-    def native_value(self) -> float | None:
-        if not self.coordinator.data:
-            return None
-        all_daily = self.coordinator.data.get("all_daily_entries", [])
-        if self._day_index >= len(all_daily):
-            return None
-        day = all_daily[self._day_index]
-        if self._rate_type is None:
-            return round(day.get("grid_consumption", 0) + day.get("solar_consumption", 0), 2)
-        return round(day.get("grid_rates_kwh", {}).get(self._rate_type, 0), 2)
-
-    @property
-    def icon(self): return self._icon
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        if not self.coordinator.data:
-            return {}
-        all_daily = self.coordinator.data.get("all_daily_entries", [])
-        if self._day_index >= len(all_daily):
-            return {}
-        day = all_daily[self._day_index]
-        attrs = {
-            "date": day.get("date"),
-            "day_name": day.get("day_name"),
-        }
-        if self._rate_type is None:
-            attrs["solar"] = round(day.get("solar_consumption", 0), 2)
-            attrs["grid"] = round(day.get("grid_consumption", 0), 2)
-            attrs["export"] = round(day.get("return_to_grid", 0), 2)
-        return attrs
-
-
 class OVOPlanSensor(OVOBaseSensor):
     """Diagnostic sensor displaying plan information."""
 
@@ -591,13 +421,31 @@ class OVOHealthSensor(OVOBaseSensor):
     def native_value(self) -> str:
         if not self.coordinator.data:
             return "No Data"
+        delay_days = self._usage_data_delay_days()
+        if delay_days is not None and delay_days > 2:
+            return "Stale Usage Data"
         return "OK"
+
+    def _usage_data_delay_days(self) -> int | None:
+        """Return whole days between today and the newest meter-usage date."""
+        all_daily = (self.coordinator.data or {}).get("all_daily_entries", [])
+        if not all_daily:
+            return None
+        newest = all_daily[0].get("date")
+        try:
+            newest_date = datetime.strptime(newest, "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return None
+        return max(0, (datetime.now(AU_TIMEZONE).date() - newest_date).days)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         attrs = {
             "update_interval_minutes": 5,
             "plan_type": self.coordinator.plan_config.plan_type,
+            "energy_data_realtime": False,
+            "usage_data_expected_delay_days": 1,
+            "energy_data_note": "OVO meter usage normally arrives the following day",
         }
 
         if self.coordinator.data:
@@ -616,6 +464,9 @@ class OVOHealthSensor(OVOBaseSensor):
             if all_daily:
                 attrs["oldest_daily_date"] = all_daily[-1].get("date")
                 attrs["newest_daily_date"] = all_daily[0].get("date")
+                delay_days = self._usage_data_delay_days()
+                attrs["usage_data_delay_days"] = delay_days
+                attrs["usage_data_stale"] = delay_days is not None and delay_days > 2
 
         if self.coordinator.last_update_success_time:
             attrs["last_successful_update"] = self.coordinator.last_update_success_time.isoformat()
@@ -722,10 +573,12 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
 
 
 class OVORateComparisonSensor(OVOBaseSensor):
-    """Sensor showing plan comparison and recommendation."""
+    """One consolidated plan-savings sensor for every API period."""
 
     def __init__(self, coordinator):
-        super().__init__(coordinator, "plan_comparison", "Plan Comparison", "OVO Savings")
+        # Keep the historical unique ID so existing dashboards and automations
+        # continue to follow this entity after its user-facing rename.
+        super().__init__(coordinator, "plan_comparison", "Plan Savings", "OVO Savings")
         self._attr_icon = "mdi:compare-horizontal"
 
     @property
@@ -813,55 +666,6 @@ class OVORateComparisonSensor(OVOBaseSensor):
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
             "via_device": (DOMAIN, self.coordinator.account_id),
-        }
-
-
-class OVOHourlyDaySensor(OVOBaseSensor):
-    """Per-day hourly breakdown sensor.
-
-    Uses days_ago to compute target_date dynamically on each update,
-    so it survives midnight without needing an HA restart.
-    Note: Hourly data from OVO is only available the next day after ~8am.
-    """
-
-    def __init__(self, coordinator, key, name, entry_type, days_ago, icon, category):
-        super().__init__(coordinator, key, name, category)
-        self._entry_type = entry_type
-        self._days_ago = days_ago
-        self._icon = icon
-        self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-        self._attr_device_class = SensorDeviceClass.ENERGY
-        self._attr_state_class = None
-        self._attr_entity_registry_enabled_default = False
-
-    def _get_target_date(self):
-        """Compute target date dynamically (survives midnight)."""
-        return (datetime.now(AU_TIMEZONE) - timedelta(days=self._days_ago)).date()
-
-    @property
-    def native_value(self) -> float | None:
-        if not self.coordinator.data:
-            return None
-        result = get_hourly_data_for_date(
-            self.coordinator.data, self._entry_type, self._get_target_date()
-        )
-        # Return None (unavailable) if no data points exist for this date
-        return result["state"] if result["hourly_data"] else None
-
-    @property
-    def icon(self): return self._icon
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        if not self.coordinator.data:
-            return {}
-        target = self._get_target_date()
-        result = get_hourly_data_for_date(self.coordinator.data, self._entry_type, target)
-        return {
-            "date": target.isoformat(),
-            "days_ago": self._days_ago,
-            "hourly_values": result["hourly_data"],
-            "data_points": len(result["hourly_data"]),
         }
 
 

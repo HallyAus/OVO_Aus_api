@@ -1,23 +1,15 @@
-"""Advanced analytics insights (week comparison, projections, etc.)."""
+"""Advanced analytics insights derived from delayed OVO meter data."""
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from homeassistant.util import dt as dt_util
 
-from ..const import AU_TIMEZONE
-from .billing import current_cycle_bounds
-
-
-def compute_insights(processed: dict, billing_cycle_day: int = 1) -> None:
+def compute_insights(processed: dict) -> None:
     """Add all analytics insights to the processed data dict (in-place).
 
-    This computes: week comparison, weekday/weekend analysis, self-sufficiency,
-    high usage days, cost per kWh, monthly projection, return-to-grid analysis.
-
-    ``billing_cycle_day`` (1-31) aligns the monthly projection to the user's
-    billing cycle; the default of 1 gives a calendar month.
+    Cost analytics represent grid usage charges less export credits. They do
+    not include the daily supply charge and therefore are not bill forecasts.
     """
     all_daily = processed.get("all_daily_entries", [])
     if not all_daily:
@@ -28,13 +20,36 @@ def compute_insights(processed: dict, billing_cycle_day: int = 1) -> None:
     _add_self_sufficiency(processed, all_daily)
     _add_high_usage_days(processed, all_daily)
     _add_cost_per_kwh(processed, all_daily)
-    _add_monthly_projection(processed, billing_cycle_day)
     _add_return_to_grid_analysis(processed, all_daily)
 
 
 def _sum_field(entries: list[dict], *keys: str) -> float:
     """Sum one or more fields across entries."""
-    return sum(sum(d.get(k, 0) for k in keys) for d in entries)
+    return sum(sum(_number(d.get(k)) for k in keys) for d in entries)
+
+
+def _number(value) -> float:
+    """Normalize nullable API numerics without accepting arbitrary strings."""
+    return value if isinstance(value, (int, float)) else 0
+
+
+def _self_consumed_solar(entry: dict) -> float:
+    """Solar used in the home rather than exported to the grid."""
+    return max(0, _number(entry.get("solar_consumption")) - _number(entry.get("return_to_grid")))
+
+
+def _household_consumption(entry: dict) -> float:
+    """Actual household use: grid import plus self-consumed solar."""
+    return _number(entry.get("grid_consumption")) + _self_consumed_solar(entry)
+
+
+def _net_usage_cost(entry: dict) -> float:
+    """Grid usage charge less feed-in credit, excluding the supply charge."""
+    return _number(entry.get("grid_charge")) - abs(_number(entry.get("return_to_grid_charge")))
+
+
+def _sum_net_usage_cost(entries: list[dict]) -> float:
+    return sum(_net_usage_cost(entry) for entry in entries)
 
 
 def _safe_pct(a: float, b: float) -> float | None:
@@ -56,8 +71,8 @@ def _add_week_comparison(processed: dict, all_daily: list[dict]) -> None:
     lw_solar = _sum_field(last_week, "solar_consumption")
     tw_grid = _sum_field(this_week, "grid_consumption")
     lw_grid = _sum_field(last_week, "grid_consumption")
-    tw_cost = _sum_field(this_week, "solar_charge", "grid_charge")
-    lw_cost = _sum_field(last_week, "solar_charge", "grid_charge")
+    tw_cost = _sum_net_usage_cost(this_week)
+    lw_cost = _sum_net_usage_cost(last_week)
 
     processed["week_comparison"] = {
         "this_week_solar": round(tw_solar, 2),
@@ -72,6 +87,8 @@ def _add_week_comparison(processed: dict, all_daily: list[dict]) -> None:
         "last_week_cost": round(lw_cost, 2),
         "cost_change": round(tw_cost - lw_cost, 2),
         "cost_change_pct": _safe_pct(tw_cost, lw_cost),
+        "cost_basis": "grid_charges_less_export_credits",
+        "includes_supply_charge": False,
     }
 
 
@@ -98,7 +115,9 @@ def _add_weekday_weekend(processed: dict, all_daily: list[dict]) -> None:
         processed["weekday_analysis"] = {
             "avg_solar": round(_sum_field(weekday_entries, "solar_consumption") / n, 2),
             "avg_grid": round(_sum_field(weekday_entries, "grid_consumption") / n, 2),
-            "avg_cost": round(_sum_field(weekday_entries, "solar_charge", "grid_charge") / n, 2),
+            "avg_consumption": round(sum(_household_consumption(e) for e in weekday_entries) / n, 2),
+            "avg_cost": round(_sum_net_usage_cost(weekday_entries) / n, 2),
+            "cost_basis": "grid_charges_less_export_credits_excludes_supply_charge",
             "days": n,
         }
 
@@ -107,7 +126,9 @@ def _add_weekday_weekend(processed: dict, all_daily: list[dict]) -> None:
         processed["weekend_analysis"] = {
             "avg_solar": round(_sum_field(weekend_entries, "solar_consumption") / n, 2),
             "avg_grid": round(_sum_field(weekend_entries, "grid_consumption") / n, 2),
-            "avg_cost": round(_sum_field(weekend_entries, "solar_charge", "grid_charge") / n, 2),
+            "avg_consumption": round(sum(_household_consumption(e) for e in weekend_entries) / n, 2),
+            "avg_cost": round(_sum_net_usage_cost(weekend_entries) / n, 2),
+            "cost_basis": "grid_charges_less_export_credits_excludes_supply_charge",
             "days": n,
         }
 
@@ -137,15 +158,22 @@ def _add_high_usage_days(processed: dict, all_daily: list[dict]) -> None:
     last_30 = all_daily[:30]
     days = []
     for day in last_30:
-        total_consumption = day.get("solar_consumption", 0) + day.get("grid_consumption", 0)
-        total_cost = day.get("solar_charge", 0) + day.get("grid_charge", 0)
+        self_consumed_solar = _self_consumed_solar(day)
+        total_consumption = _household_consumption(day)
+        net_usage_cost = _net_usage_cost(day)
         days.append({
             "date": day.get("date"),
             "day_name": day.get("day_name"),
             "total_consumption": round(total_consumption, 2),
-            "total_cost": round(total_cost, 2),
-            "solar": round(day.get("solar_consumption", 0), 2),
-            "grid": round(day.get("grid_consumption", 0), 2),
+            # Keep total_cost as a compatibility alias, but state its true
+            # basis explicitly for existing dashboards consuming attributes.
+            "total_cost": round(net_usage_cost, 2),
+            "net_usage_cost": round(net_usage_cost, 2),
+            "cost_includes_supply_charge": False,
+            "solar": round(_number(day.get("solar_consumption")), 2),
+            "self_consumed_solar": round(self_consumed_solar, 2),
+            "export": round(_number(day.get("return_to_grid")), 2),
+            "grid": round(_number(day.get("grid_consumption")), 2),
         })
 
     processed["high_usage_days"] = sorted(
@@ -154,53 +182,22 @@ def _add_high_usage_days(processed: dict, all_daily: list[dict]) -> None:
 
 
 def _add_cost_per_kwh(processed: dict, all_daily: list[dict]) -> None:
-    """Cost per kWh tracking over last 7 days."""
+    """Net usage cost and import/export rates over the last 7 days."""
     last_7 = all_daily[:7]
-    total_cost = _sum_field(last_7, "solar_charge", "grid_charge")
-    total_kwh = _sum_field(last_7, "solar_consumption", "grid_consumption")
+    total_cost = _sum_net_usage_cost(last_7)
+    total_kwh = sum(_household_consumption(entry) for entry in last_7)
     grid_cost = _sum_field(last_7, "grid_charge")
     grid_kwh = _sum_field(last_7, "grid_consumption")
-    solar_cost = _sum_field(last_7, "solar_charge")
-    solar_kwh = _sum_field(last_7, "solar_consumption")
+    export_credit = abs(_sum_field(last_7, "return_to_grid_charge"))
+    export_kwh = _sum_field(last_7, "return_to_grid")
 
     processed["cost_per_kwh"] = {
         "overall": round(total_cost / total_kwh, 4) if total_kwh > 0 else 0,
         "grid": round(grid_cost / grid_kwh, 4) if grid_kwh > 0 else 0,
-        "solar": round(solar_cost / solar_kwh, 4) if solar_kwh > 0 else 0,
+        "export": round(export_credit / export_kwh, 4) if export_kwh > 0 else 0,
         "total_cost": round(total_cost, 2),
         "total_consumption": round(total_kwh, 2),
-    }
-
-
-def _add_monthly_projection(processed: dict, billing_cycle_day: int = 1) -> None:
-    """Billing-cycle cost projection from period-to-date data."""
-    mtd = processed.get("month_to_date", {})
-    mtd_days = mtd.get("days", 0)
-    if not mtd_days:
-        return
-
-    # Sum all cost fields
-    mtd_cost = (
-        mtd.get("solar_charge", 0) + mtd.get("grid_charge", 0)
-    )
-
-    # Use AEST for the cycle window (Australian integration); dt_util keeps it
-    # mockable in tests. days_in_month holds the current cycle length, which
-    # equals the calendar-month length when billing_cycle_day == 1.
-    now = dt_util.now(AU_TIMEZONE)
-    cycle_start, cycle_next = current_cycle_bounds(now.date(), billing_cycle_day)
-    days_in_month = (cycle_next - cycle_start).days
-    days_remaining = days_in_month - mtd_days
-
-    daily_avg = mtd_cost / mtd_days
-    processed["monthly_projection"] = {
-        "projected_total": round(daily_avg * days_in_month, 2),
-        "current_mtd": round(mtd_cost, 2),
-        "projected_remaining": round(daily_avg * days_remaining, 2),
-        "daily_average": round(daily_avg, 2),
-        "days_elapsed": mtd_days,
-        "days_remaining": days_remaining,
-        "days_in_month": days_in_month,
+        "cost_basis": "grid_charges_less_export_credits_excludes_supply_charge",
     }
 
 

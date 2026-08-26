@@ -91,25 +91,11 @@ views:
       - type: horizontal-stack
         cards:
           - type: custom:mushroom-template-card
-            primary: Daily Savings
-            secondary: "${{ states('sensor.ovo_energy_au_ovo_savings_ovo_savings_yesterday') }}"
+            primary: Plan Savings
+            secondary: "${{ states('sensor.ovo_energy_au_ovo_savings_plan_savings') }}"
             icon: mdi:piggy-bank-outline
             icon_color: green
-            entity: sensor.ovo_energy_au_ovo_savings_ovo_savings_yesterday
-            layout: vertical
-          - type: custom:mushroom-template-card
-            primary: Monthly Savings
-            secondary: "${{ states('sensor.ovo_energy_au_ovo_savings_ovo_savings_this_month') }}"
-            icon: mdi:piggy-bank-outline
-            icon_color: green
-            entity: sensor.ovo_energy_au_ovo_savings_ovo_savings_this_month
-            layout: vertical
-          - type: custom:mushroom-template-card
-            primary: Yearly Savings
-            secondary: "${{ states('sensor.ovo_energy_au_ovo_savings_ovo_savings_this_year') }}"
-            icon: mdi:piggy-bank-outline
-            icon_color: green
-            entity: sensor.ovo_energy_au_ovo_savings_ovo_savings_this_year
+            entity: sensor.ovo_energy_au_ovo_savings_plan_savings
             layout: vertical
 
       # ── Account Balance & Projection ──
@@ -123,18 +109,18 @@ views:
             entity: sensor.ovo_energy_au_account_account_balance
             layout: vertical
           - type: custom:mushroom-template-card
-            primary: Projected Monthly
-            secondary: "${{ states('sensor.ovo_energy_au_monthly_forecast_projected_monthly_cost') }}"
-            icon: mdi:crystal-ball
+            primary: Projected Bill
+            secondary: "${{ states('sensor.ovo_energy_au_bill_estimate_projected_monthly_bill') }}"
+            icon: mdi:receipt-text-clock
             icon_color: purple
-            entity: sensor.ovo_energy_au_monthly_forecast_projected_monthly_cost
+            entity: sensor.ovo_energy_au_bill_estimate_projected_monthly_bill
             layout: vertical
           - type: custom:mushroom-template-card
-            primary: Daily Avg Cost
-            secondary: "${{ states('sensor.ovo_energy_au_monthly_forecast_daily_average_cost') }}"
-            icon: mdi:chart-line
+            primary: Daily Avg Net Cost
+            secondary: "${{ states('sensor.ovo_energy_au_bill_estimate_daily_average_net_cost') }}"
+            icon: mdi:calendar-today
             icon_color: orange
-            entity: sensor.ovo_energy_au_monthly_forecast_daily_average_cost
+            entity: sensor.ovo_energy_au_bill_estimate_daily_average_net_cost
             layout: vertical
 
   # ================================================================

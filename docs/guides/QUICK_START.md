@@ -26,11 +26,12 @@ Under **Settings → Dashboards → Energy**, select these entities as applicabl
 - Return to grid: `Grid Export (Energy Dashboard)`
 - Solar production: `Solar Production (Energy Dashboard)`
 
-## Optional history entities
+## Usage history
 
-The integration offers detailed per-day and hourly-history entities. They are
-disabled by default because enabling all of them creates substantial Recorder
-and entity-registry load. Enable only the ones you use from the Entities page.
+OVO's rolling hourly data remains available through the hourly totals, heatmap,
+and Yesterday Hourly entity attributes. The former 161 moving Day 1-7 and
+hourly-day entities were removed because they cluttered the entity registry and
+their identities changed meaning every midnight.
 
 ## Connected vehicles
 

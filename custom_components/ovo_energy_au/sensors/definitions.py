@@ -162,7 +162,7 @@ ANALYTICS_SENSORS = [
      SensorDeviceClass.ENERGY, None, "mdi:compare-horizontal",
      lambda d: d.get("week_comparison", {}).get("this_week_grid"), "Week Comparison"),
 
-    ("week_comparison_cost", "Cost (This Week)", "AUD",
+    ("week_comparison_cost", "Net Usage Cost (This Week)", "AUD",
      SensorDeviceClass.MONETARY, None, "mdi:compare-horizontal",
      lambda d: d.get("week_comparison", {}).get("this_week_cost"), "Week Comparison"),
 
@@ -174,26 +174,26 @@ ANALYTICS_SENSORS = [
      None, None, "mdi:percent",
      lambda d: d.get("week_comparison", {}).get("grid_change_pct"), "Week Comparison"),
 
-    ("week_comparison_cost_change_pct", "Cost Change %", "%",
+    ("week_comparison_cost_change_pct", "Net Usage Cost Change %", "%",
      None, None, "mdi:percent",
      lambda d: d.get("week_comparison", {}).get("cost_change_pct"), "Week Comparison"),
 
     # Weekday vs Weekend
     ("weekday_avg_consumption", "Avg Daily Consumption (Weekday)", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, None, "mdi:calendar-week",
-     lambda d: d.get("weekday_analysis", {}).get("avg_solar", 0) + d.get("weekday_analysis", {}).get("avg_grid", 0),
+     lambda d: d.get("weekday_analysis", {}).get("avg_consumption"),
      "Weekday vs Weekend"),
 
     ("weekend_avg_consumption", "Avg Daily Consumption (Weekend)", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, None, "mdi:calendar-weekend",
-     lambda d: d.get("weekend_analysis", {}).get("avg_solar", 0) + d.get("weekend_analysis", {}).get("avg_grid", 0),
+     lambda d: d.get("weekend_analysis", {}).get("avg_consumption"),
      "Weekday vs Weekend"),
 
-    ("weekday_avg_cost", "Avg Daily Cost (Weekday)", "AUD",
+    ("weekday_avg_cost", "Avg Daily Net Usage Cost (Weekday)", "AUD",
      SensorDeviceClass.MONETARY, None, "mdi:calendar-week",
      lambda d: d.get("weekday_analysis", {}).get("avg_cost"), "Weekday vs Weekend"),
 
-    ("weekend_avg_cost", "Avg Daily Cost (Weekend)", "AUD",
+    ("weekend_avg_cost", "Avg Daily Net Usage Cost (Weekend)", "AUD",
      SensorDeviceClass.MONETARY, None, "mdi:calendar-weekend",
      lambda d: d.get("weekend_analysis", {}).get("avg_cost"), "Weekday vs Weekend"),
 
@@ -245,7 +245,7 @@ ANALYTICS_SENSORS = [
      lambda d: get_yesterday_hourly_data(d, "return_to_grid_entries")["state"], "Hourly Graph Data"),
 
     # Cost Analysis
-    ("cost_per_kwh_overall", "Overall Cost per kWh", "AUD/kWh",
+    ("cost_per_kwh_overall", "Net Usage Cost per kWh", "AUD/kWh",
      None, None, "mdi:currency-usd",
      lambda d: d.get("cost_per_kwh", {}).get("overall"), "Cost Analysis"),
 
@@ -253,22 +253,9 @@ ANALYTICS_SENSORS = [
      None, None, "mdi:transmission-tower",
      lambda d: d.get("cost_per_kwh", {}).get("grid"), "Cost Analysis"),
 
-    ("cost_per_kwh_solar", "Solar Cost per kWh", "AUD/kWh",
+    ("cost_per_kwh_solar", "Export Credit per kWh", "AUD/kWh",
      None, None, "mdi:solar-power",
-     lambda d: d.get("cost_per_kwh", {}).get("solar"), "Cost Analysis"),
-
-    # Monthly Projection
-    ("monthly_projection_total", "Projected Monthly Cost", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:crystal-ball",
-     lambda d: d.get("monthly_projection", {}).get("projected_total"), "Monthly Forecast"),
-
-    ("monthly_projection_remaining", "Projected Remaining Cost", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:calendar-clock",
-     lambda d: d.get("monthly_projection", {}).get("projected_remaining"), "Monthly Forecast"),
-
-    ("monthly_daily_average", "Daily Average Cost", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:chart-line",
-     lambda d: d.get("monthly_projection", {}).get("daily_average"), "Monthly Forecast"),
+     lambda d: d.get("cost_per_kwh", {}).get("export"), "Cost Analysis"),
 
     # Solar Export
     ("rtg_export_credit", "Export Credit Earned", "AUD",
@@ -291,19 +278,6 @@ ANALYTICS_SENSORS = [
     ("account_balance", "Account Balance", "AUD",
      SensorDeviceClass.MONETARY, None, "mdi:cash",
      lambda d: d.get("account_balance"), "Account"),
-
-    # OVO Savings (plan comparison calculated by OVO)
-    ("daily_ovo_savings", "OVO Savings (Yesterday)", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:piggy-bank-outline",
-     lambda d: d.get("daily", {}).get("ovo_savings"), "OVO Savings"),
-
-    ("monthly_ovo_savings", "OVO Savings (This Month)", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:piggy-bank-outline",
-     lambda d: d.get("monthly", {}).get("ovo_savings"), "OVO Savings"),
-
-    ("yearly_ovo_savings", "OVO Savings (This Year)", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:piggy-bank-outline",
-     lambda d: d.get("yearly", {}).get("ovo_savings"), "OVO Savings"),
 
     # EV Charging Tracker
     # TOTAL_INCREASING: the value is a month-to-date running sum that resets
@@ -369,96 +343,7 @@ ANALYTICS_SENSORS = [
      None, None, "mdi:progress-clock",
      lambda d: d.get("unbilled_charges", {}).get("billProgress"), "Billing"),
 
-    # Real Bills (actual issued statements from the API — supersedes estimates)
-    ("latest_bill_amount", "Latest Bill Amount", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:receipt-text-check",
-     lambda d: d.get("latest_bill", {}).get("total"), "Bills"),
-
-    ("latest_bill_closing_balance", "Latest Statement Closing Balance", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:scale-balance",
-     lambda d: d.get("latest_bill", {}).get("closing_balance"), "Bills"),
-
-    ("latest_bill_opening_balance", "Latest Statement Opening Balance", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:scale-balance",
-     lambda d: d.get("latest_bill", {}).get("opening_balance"), "Bills"),
-
-    # Real plan rates auto-detected from the API (productAgreements). Cents are
-    # converted to AUD/kWh; absent on plans that don't have that rate type (#63).
-    ("tariff_peak_rate", "Peak Rate", "AUD/kWh",
-     None, None, "mdi:cash-clock",
-     lambda d: _api_unit_rate(d, "peak"), "Tariff Rates"),
-
-    ("tariff_shoulder_rate", "Shoulder Rate", "AUD/kWh",
-     None, None, "mdi:cash-clock",
-     lambda d: _api_unit_rate(d, "shoulder"), "Tariff Rates"),
-
-    ("tariff_off_peak_rate", "Off-Peak Rate", "AUD/kWh",
-     None, None, "mdi:cash-clock",
-     lambda d: _api_unit_rate(d, "offPeak"), "Tariff Rates"),
-
-    ("tariff_ev_off_peak_rate", "EV Off-Peak Rate", "AUD/kWh",
-     None, None, "mdi:ev-station",
-     lambda d: _api_unit_rate(d, "evOffPeak"), "Tariff Rates"),
-
-    ("tariff_feed_in_rate", "Feed-in Tariff", "AUD/kWh",
-     None, None, "mdi:solar-power",
-     lambda d: _api_unit_rate(d, "feedInTariff"), "Tariff Rates"),
-
-    ("tariff_standing_charge", "Daily Supply Charge", "AUD",
-     SensorDeviceClass.MONETARY, None, "mdi:transmission-tower",
-     lambda d: _api_standing_charge(d), "Tariff Rates"),
 ]
-
-# Rate types for per-day breakdown sensors: API charge type -> sensor key
-# suffix. The suffix is part of each entity's unique_id, so "OFF_PEAK" keeps
-# its historical "offpeak" suffix even though the API key has an underscore.
-RATE_TYPES = {
-    "PEAK": "peak",
-    "SHOULDER": "shoulder",
-    "OFF_PEAK": "offpeak",
-    "EV_OFFPEAK": "ev_offpeak",
-    "OTHER": "other",
-    "FREE_3": "free_3",
-}
-
-RATE_TYPE_ICONS = {
-    "PEAK": "mdi:arrow-up-bold",
-    "SHOULDER": "mdi:minus",
-    "OFF_PEAK": "mdi:arrow-down-bold",
-    "EV_OFFPEAK": "mdi:ev-station",
-    "FREE_3": "mdi:gift",
-    "OTHER": "mdi:chart-bar",
-}
-
-
-def _product_rates(data: dict) -> dict:
-    """The first product agreement's unitRatesCentsPerKWH dict (or {})."""
-    pa = data.get("product_agreements")
-    if not isinstance(pa, dict):
-        return {}
-    agreements = pa.get("productAgreements") or []
-    if not agreements:
-        return {}
-    return (agreements[0].get("product") or {}).get("unitRatesCentsPerKWH") or {}
-
-
-def _api_unit_rate(data: dict, key: str) -> float | None:
-    """Real plan rate in AUD/kWh from the API (cents -> dollars)."""
-    cents = _product_rates(data).get(key)
-    return round(cents / 100, 4) if cents is not None else None
-
-
-def _api_standing_charge(data: dict) -> float | None:
-    """Real daily supply charge in AUD/day from the API (cents -> dollars)."""
-    pa = data.get("product_agreements")
-    if not isinstance(pa, dict):
-        return None
-    agreements = pa.get("productAgreements") or []
-    if not agreements:
-        return None
-    cents = (agreements[0].get("product") or {}).get("standingChargeCentsPerDay")
-    return round(cents / 100, 2) if cents is not None else None
-
 
 def get_rate_value(data: dict, period: str, rate_type: str, metric: str) -> float | None:
     """Extract rate breakdown value safely."""

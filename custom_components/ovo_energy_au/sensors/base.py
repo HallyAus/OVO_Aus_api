@@ -150,12 +150,6 @@ class OVOEnergySensor(OVOBaseSensor):
                 attrs["heatmap_data"] = heatmap
                 attrs["days_available"] = list(heatmap.keys())
 
-        # Monthly projection details
-        elif "monthly_projection" in self._sensor_key or self._sensor_key == "monthly_daily_average":
-            proj = self.coordinator.data.get("monthly_projection", {})
-            if proj:
-                attrs.update(proj)
-
         # Cost per kWh details
         elif "cost_per_kwh" in self._sensor_key:
             cpk = self.coordinator.data.get("cost_per_kwh", {})

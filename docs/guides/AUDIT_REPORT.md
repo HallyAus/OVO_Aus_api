@@ -2,6 +2,8 @@
 
 **Audit date:** 19–20 August 2026
 
+**Metrics/entity follow-up:** 26 August 2026
+
 **Code baseline:** manifest/source version 4.7.1 / `c3bb4df`
 
 **Latest GitHub release during audit:** v4.7.0
@@ -38,6 +40,28 @@ The follow-up also confirmed that OVO's main Auth0 tenant can intermittently
 omit the ID-token nonce. Version 4.8.2 accepts only the missing-claim case after
 callback state and PKCE verification; whenever a nonce is returned, a mismatch
 remains a hard authentication failure.
+
+### 26 August metrics and entity follow-up
+
+A complete second pass over the registered sensor surface and analytics formulas
+found 161 moving Day 1-7/hourly-day entities, duplicate scalar tariff/savings/bill
+entities, an incomplete second bill projection, and solar accounting errors.
+The rotating entities are now removed rather than merely disabled. Plan rates,
+OVO savings, and latest-bill values are consolidated into existing rich entities.
+The incomplete Monthly Forecast is removed in favour of Bill Estimate, which
+includes standing charges and export credits.
+
+High Usage Days now calculates household consumption as grid import plus solar
+generation retained in the home (`solar generation - grid export`). Comparative
+cost analytics use grid usage charges less export credits and explicitly state
+that daily supply charges are excluded. Integration Health records the expected
+one-day OVO meter-data delay and flags data more than two calendar days old as
+stale. Vehicle telemetry remains separate because it comes from the distinct
+Kaluza service and can be newer than delayed energy-usage data.
+The verified setup surface is now 105 account entities, or 124 with one vehicle,
+down from 281 and 300 respectively. Upgrade cleanup removes only the retired
+unique IDs belonging to the current config entry so old registry clutter does
+not remain as unavailable entities.
 
 ## Outcome
 
@@ -133,8 +157,13 @@ and [options reload](https://developers.home-assistant.io/docs/core/integration/
 - The tariff-period sensor claimed EV/free schedules and hard-coded rates for all
   plan types. It now activates only periods supported by the detected plan/API
   rates and uses live plan rates with configured fallbacks.
-- Moving “day N” and “N days ago” entities were eligible for long-term
-  statistics despite changing calendar dates. Their state class is now unset.
+- Moving “day N” and “N days ago” entities changed calendar meaning every
+  midnight. All 161 have now been removed from registration.
+- Solar export is subtracted before High Usage Days ranks household consumption.
+- Week and weekday/weekend cost comparisons use grid charge less export credit
+  and identify that supply charges are excluded.
+- The incomplete duplicate Monthly Forecast is removed; Bill Estimate is the
+  only forward bill calculation and includes standing charges/export credits.
 - Live direct-debit amount, minimum amount, unbilled electricity, unbilled solar,
   and bill-progress sensors were added from fields confirmed in MyOVO.
 
@@ -146,9 +175,8 @@ and [options reload](https://developers.home-assistant.io/docs/core/integration/
 - Account entities retain category-specific devices linked to one parent account
   device, keeping the large entity set navigable without exposing account IDs
   as Recorder attributes.
-- Detailed daily/hourly history entities remain available but start disabled to
-  reduce Recorder, registry, and update load. This follows Home Assistant's
-  [disabled-by-default guidance](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-disabled-by-default/).
+- Stable period/hourly summaries and detailed attributes remain available while
+  161 rotating daily/hourly entities no longer load Recorder or the registry.
 - The local `reference/` directory is ignored to prevent accidental commits of
   customer statements or research artifacts.
 - Connected vehicles are represented as their own physical devices, linked to
@@ -186,7 +214,7 @@ and [options reload](https://developers.home-assistant.io/docs/core/integration/
 
 ## Validation
 
-- `python -m pytest tests -q`: **138 passed**
+- `python -m pytest tests -q`: **141 passed** after the 26 August follow-up
 - `python -m ruff check custom_components/ovo_energy_au tests`: **passed**
 - Python bytecode compilation: passed
 - JSON translation/manifest parsing: passed
@@ -220,9 +248,8 @@ final staging check.
   harness remain quality-scale improvements, not data-correctness blockers;
   targeted options-flow behavior is covered by the local unit suite.
 
-## Release target
+## Release status
 
-The audited changes are versioned as **4.8.1** and are intended to be committed,
-pushed, tagged, and published together with a verified forward-slash release
-archive. The GitHub release is the deployment record; this report describes the
-source and validation performed before that release was created.
+The original audit remediation shipped through **4.8.2**. The 26 August metrics
+and entity follow-up is versioned as **4.9.0**; its GitHub release is the
+deployment record distributed to Home Assistant users through HACS.

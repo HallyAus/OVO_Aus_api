@@ -4,19 +4,19 @@ This integration provides comprehensive energy monitoring with daily breakdown d
 
 ## Available Sensors
 
-### Daily Sensors (Today's Usage)
-- `sensor.ovo_energy_au_daily_solar_consumption` - Solar energy consumed today (kWh)
-- `sensor.ovo_energy_au_daily_grid_consumption` - Grid energy consumed today (kWh)
-- `sensor.ovo_energy_au_daily_return_to_grid` - Energy exported to grid today (kWh)
-- `sensor.ovo_energy_au_daily_solar_charge` - Cost of solar today ($)
-- `sensor.ovo_energy_au_daily_grid_charge` - Cost of grid today ($)
-- `sensor.ovo_energy_au_daily_return_to_grid_charge` - Credit from exports today ($)
+### Daily Sensors (Yesterday's Usage)
+- `sensor.ovo_energy_au_daily_solar_consumption` - Yesterday's solar generation (kWh)
+- `sensor.ovo_energy_au_daily_grid_consumption` - Yesterday's grid import (kWh)
+- `sensor.ovo_energy_au_daily_return_to_grid` - Yesterday's grid export (kWh)
+- `sensor.ovo_energy_au_daily_solar_charge` - Yesterday's OVO solar credit ($)
+- `sensor.ovo_energy_au_daily_grid_charge` - Yesterday's grid usage charge ($)
+- `sensor.ovo_energy_au_daily_return_to_grid_charge` - Yesterday's export credit ($)
 
 ### Monthly Sensors (Current Month)
 - `sensor.ovo_energy_au_monthly_solar_consumption` - Total solar this month (kWh)
 - `sensor.ovo_energy_au_monthly_grid_consumption` - Total grid this month (kWh)
 - `sensor.ovo_energy_au_monthly_return_to_grid` - Total exports this month (kWh)
-- `sensor.ovo_energy_au_monthly_solar_charge` - Total solar cost this month ($)
+- `sensor.ovo_energy_au_monthly_solar_charge` - Total OVO solar credit this month ($)
 - `sensor.ovo_energy_au_monthly_grid_charge` - Total grid cost this month ($)
 - `sensor.ovo_energy_au_monthly_return_to_grid_charge` - Total export credit this month ($)
 
@@ -123,18 +123,18 @@ series:
       });
 ```
 
-### Example 2: Template Sensor for Today's Data
+### Example 2: Template Sensor for Yesterday's Published Data
 ```yaml
 template:
   - sensor:
-      - name: "Today Solar Charge"
+      - name: "Yesterday Solar Credit"
         state: >
-          {% set today = now().strftime('%Y-%m-%d') %}
+          {% set target = (now() - timedelta(days=1)).strftime('%Y-%m-%d') %}
           {% set breakdown = state_attr('sensor.ovo_energy_au_monthly_solar_charge', 'daily_breakdown') %}
           {% if breakdown %}
-            {% set today_data = breakdown | selectattr('date', 'eq', today) | list %}
-            {% if today_data %}
-              {{ today_data[0].charge }}
+            {% set target_data = breakdown | selectattr('date', 'eq', target) | list %}
+            {% if target_data %}
+              {{ target_data[0].charge }}
             {% else %}
               0
             {% endif %}
@@ -163,8 +163,8 @@ content: |
 
 ## Graph Examples
 
-### Monthly Solar Cost Trend
-Shows how your solar costs vary day-by-day throughout the month, just like the OVO dashboard.
+### Monthly Solar Credit Trend
+Shows how your OVO solar credits vary day-by-day throughout the month.
 
 ### Solar vs Grid Comparison
 Stacked or grouped bar chart comparing daily solar and grid consumption.
@@ -174,7 +174,7 @@ Line chart showing cumulative consumption/cost throughout the month.
 
 ## Tips for Best Results
 
-1. **Data Updates:** Sensors update every 5 minutes with fresh data from OVO's API
+1. **Data Updates:** The integration polls every 5 minutes, but OVO normally publishes complete usage the following morning; these are not real-time power sensors
 2. **Historical Data:** Hourly sensors fetch 7 days of history to work around API limitations
 3. **Monthly Reset:** Daily breakdown resets at the start of each month
 4. **Graph Refresh:** Graphs update automatically when sensor data changes

@@ -12,7 +12,6 @@ from custom_components.ovo_energy_au.analytics.billing import (
     cycle_length_days,
     previous_cycle_bounds,
 )
-from custom_components.ovo_energy_au.analytics.insights import compute_insights
 from custom_components.ovo_energy_au.analytics.interval import process_interval_data
 from custom_components.ovo_energy_au.models import PlanConfig
 
@@ -138,16 +137,6 @@ class TestCycleAwareMonthToDate:
         # Previous cycle (24 Jan – 23 Feb) holds only 20 Feb.
         assert result["last_month"]["days"] == 1
         assert result["last_month"]["grid_consumption"] == 5.0
-
-    def test_monthly_projection_uses_cycle_length(self):
-        result = process_interval_data(_cycle_test_data(), billing_cycle_day=24)
-        compute_insights(result, billing_cycle_day=24)
-        proj = result["monthly_projection"]
-        # 24 Feb -> 24 Mar is 28 days (Feb 2026 has 28); 3 days elapsed.
-        assert proj["days_in_month"] == 28
-        assert proj["days_elapsed"] == 3
-        assert proj["days_remaining"] == 25
-
 
 def test_plan_config_round_trips_cycle_day():
     cfg = PlanConfig.from_dict({"billing_cycle_day": 24})

@@ -1,6 +1,7 @@
 """Tests for sensor definitions integrity."""
 
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,8 +12,6 @@ from custom_components.ovo_energy_au.sensors.base import OVOEnergySensor
 from custom_components.ovo_energy_au.sensors.definitions import (
     ANALYTICS_SENSORS,
     ENERGY_SENSORS,
-    RATE_TYPE_ICONS,
-    RATE_TYPES,
     calculate_free_savings,
     get_rate_value,
 )
@@ -170,35 +169,29 @@ class TestBillAndTariffSensors:
                 return s[6]
         raise AssertionError(f"{key!r} not in ANALYTICS_SENSORS")
 
-    def test_latest_bill_value_fns(self):
-        data = {"latest_bill": {"total": 78.5, "closing_balance": 24.5, "opening_balance": 55.05}}
-        assert self._vfn("latest_bill_amount")(data) == 78.5
-        assert self._vfn("latest_bill_closing_balance")(data) == 24.5
-        assert self._vfn("latest_bill_opening_balance")(data) == 55.05
+    def test_consolidated_bill_savings_and_tariff_entities_are_not_registered(self):
+        """Rich summaries replace twelve duplicates and three old forecasts."""
+        retired_keys = {
+            "daily_ovo_savings",
+            "monthly_ovo_savings",
+            "yearly_ovo_savings",
+            "latest_bill_amount",
+            "latest_bill_closing_balance",
+            "latest_bill_opening_balance",
+            "tariff_peak_rate",
+            "tariff_shoulder_rate",
+            "tariff_off_peak_rate",
+            "tariff_ev_off_peak_rate",
+            "tariff_feed_in_rate",
+            "tariff_standing_charge",
+            "monthly_projection_total",
+            "monthly_projection_remaining",
+            "monthly_daily_average",
+        }
 
-    def test_latest_bill_empty_safe(self):
-        for key in ("latest_bill_amount", "latest_bill_closing_balance",
-                    "latest_bill_opening_balance"):
-            assert self._vfn(key)({}) is None
+        registered_keys = {definition[0] for definition in ANALYTICS_SENSORS}
 
-    def test_tariff_rate_value_fns_convert_cents_to_dollars(self):
-        data = {"product_agreements": {"productAgreements": [
-            {"product": {"unitRatesCentsPerKWH": {"peak": 37.18, "shoulder": 25.0,
-                                                  "offPeak": 18.0, "evOffPeak": 8.0,
-                                                  "feedInTariff": 3.3},
-                         "standingChargeCentsPerDay": 110.0}}]}}
-        assert self._vfn("tariff_peak_rate")(data) == 0.3718
-        assert self._vfn("tariff_shoulder_rate")(data) == 0.25
-        assert self._vfn("tariff_off_peak_rate")(data) == 0.18
-        assert self._vfn("tariff_ev_off_peak_rate")(data) == 0.08
-        assert self._vfn("tariff_feed_in_rate")(data) == 0.033
-        assert self._vfn("tariff_standing_charge")(data) == 1.10
-
-    def test_tariff_rate_empty_safe(self):
-        for key in ("tariff_peak_rate", "tariff_shoulder_rate", "tariff_off_peak_rate",
-                    "tariff_ev_off_peak_rate", "tariff_feed_in_rate", "tariff_standing_charge"):
-            assert self._vfn(key)({}) is None
-            assert self._vfn(key)({"product_agreements": None}) is None
+        assert retired_keys.isdisjoint(registered_keys)
 
     def test_live_billing_value_fns(self):
         data = {
@@ -309,20 +302,172 @@ class TestSpecializedSensorSafety:
         assert "account_id" not in attrs
         assert "nmi" not in attrs
 
+    def test_plan_information_attributes_contain_all_tariff_rates(self):
+        from custom_components.ovo_energy_au.sensor import OVOPlanSensor
+
+        coordinator = self._coord(
+            "ev",
+            {
+                "peak": 37.18,
+                "shoulder": 25,
+                "offPeak": 18,
+                "evOffPeak": 8,
+                "feedInTariff": 3.3,
+            },
+        )
+        coordinator.data["product_agreements"]["productAgreements"][0][
+            "product"
+        ]["standingChargeCentsPerDay"] = 110
+
+        attrs = OVOPlanSensor(coordinator).extra_state_attributes
+
+        assert attrs["peak_aud_kwh"] == 0.3718
+        assert attrs["shoulder_aud_kwh"] == 0.25
+        assert attrs["off_peak_aud_kwh"] == 0.18
+        assert attrs["ev_off_peak_aud_kwh"] == 0.08
+        assert attrs["feed_in_tariff_aud_kwh"] == 0.033
+        assert attrs["standing_charge_aud_per_day"] == 1.1
+
+    def test_plan_savings_entity_consolidates_all_periods(self):
+        from custom_components.ovo_energy_au.sensor import OVORateComparisonSensor
+
+        coordinator = MagicMock()
+        coordinator.account_id = "account-id"
+        coordinator.data = {
+            "daily": {
+                "ovo_savings": 1.25,
+                "ovo_savings_description": "Compared with The One Plan",
+            },
+            "monthly": {"ovo_savings": 25.5},
+            "yearly": {"ovo_savings": 280.75},
+            "product_agreements": {"productAgreements": []},
+        }
+
+        sensor = OVORateComparisonSensor(coordinator)
+
+        assert sensor.name == "Plan Savings"
+        assert sensor.native_value == "Saving $280.75/year"
+        assert sensor.extra_state_attributes["daily_savings"] == 1.25
+        assert sensor.extra_state_attributes["monthly_savings"] == 25.5
+        assert sensor.extra_state_attributes["yearly_savings"] == 280.75
+
     def test_bill_attributes_exclude_signed_download_urls(self):
         from custom_components.ovo_energy_au.sensor import OVOLatestBillSensor
 
         coordinator = MagicMock()
         coordinator.account_id = "account-id"
         coordinator.data = {
-            "latest_bill": {"total": 50, "download_url": "https://signed.example"},
+            "latest_bill": {
+                "total": 50,
+                "opening_balance": 25,
+                "closing_balance": 40,
+                "download_url": "https://signed.example",
+            },
             "statements": [
                 {"charges": {"total": {"value": 50}}, "downloadUrl": "https://signed.example"}
             ],
         }
         attrs = OVOLatestBillSensor(coordinator).extra_state_attributes
+        assert OVOLatestBillSensor(coordinator).native_value == 50
+        assert attrs["opening_balance"] == 25
+        assert attrs["closing_balance"] == 40
         assert "download_url" not in attrs
         assert "download_url" not in attrs["recent_bills"][0]
+
+    def test_health_sensor_reports_expected_delay_and_stale_usage(self):
+        from custom_components.ovo_energy_au.sensor import OVOHealthSensor
+
+        coordinator = MagicMock()
+        coordinator.account_id = "account-id"
+        coordinator.plan_config = PlanConfig()
+        coordinator.last_update_success_time = None
+        coordinator.data = {
+            "all_daily_entries": [{"date": "2026-03-19"}],
+            "hourly": {},
+        }
+
+        with patch(
+            "custom_components.ovo_energy_au.sensor.datetime", wraps=datetime
+        ) as mocked_datetime:
+            mocked_datetime.now.return_value = datetime(2026, 3, 20, tzinfo=AU_TIMEZONE)
+            sensor = OVOHealthSensor(coordinator)
+            attrs = sensor.extra_state_attributes
+            assert sensor.native_value == "OK"
+            assert attrs["usage_data_delay_days"] == 1
+            assert attrs["usage_data_expected_delay_days"] == 1
+            assert attrs["usage_data_stale"] is False
+            assert attrs["energy_data_realtime"] is False
+
+            coordinator.data["all_daily_entries"] = [{"date": "2026-03-16"}]
+            assert sensor.native_value == "Stale Usage Data"
+            assert sensor.extra_state_attributes["usage_data_stale"] is True
+
+
+@pytest.mark.asyncio
+async def test_setup_does_not_register_rotating_day_or_hourly_day_entities():
+    """The 161 moving Day 1-7 entities must not return to the registry."""
+    from custom_components.ovo_energy_au.sensor import (
+        _RETIRED_ROTATING_SENSOR_KEYS,
+        async_setup_entry,
+    )
+
+    coordinator = MagicMock()
+    coordinator.account_id = "account-id"
+    coordinator.data = {}
+    coordinator.plan_config = PlanConfig()
+    coordinator.async_add_listener.return_value = lambda: None
+    entry = MagicMock()
+    entry.runtime_data = coordinator
+    entities = []
+
+    await async_setup_entry(MagicMock(), entry, entities.extend)
+
+    assert len(_RETIRED_ROTATING_SENSOR_KEYS) == 161
+    keys = {getattr(entity, "_sensor_key", "") for entity in entities}
+    assert not any(key.startswith(("day_", "history_day_")) for key in keys)
+    assert not any(
+        key.startswith(("hourly_solar_", "hourly_grid_", "hourly_export_"))
+        and key.endswith("d_ago")
+        for key in keys
+    )
+    expected = len(ENERGY_SENSORS) + len(ANALYTICS_SENSORS) + 18 + 4 + 9 + 3
+    assert len(entities) == expected
+
+
+@pytest.mark.asyncio
+async def test_setup_removes_only_known_retired_registry_entities():
+    """Upgrades clean obsolete entries without touching unrelated entities."""
+    from custom_components.ovo_energy_au import sensor as sensor_module
+
+    coordinator = MagicMock()
+    coordinator.account_id = "account-id"
+    coordinator.data = {}
+    coordinator.plan_config = PlanConfig()
+    coordinator.async_add_listener.return_value = lambda: None
+    entry = MagicMock()
+    entry.entry_id = "entry-id"
+    entry.runtime_data = coordinator
+    registry = MagicMock()
+    registry_entries = [
+        SimpleNamespace(entity_id="sensor.old_day", unique_id="account-id_day_1_grid_charge"),
+        SimpleNamespace(entity_id="sensor.old_hourly", unique_id="account-id_hourly_grid_2d_ago"),
+        SimpleNamespace(entity_id="sensor.old_tariff", unique_id="account-id_tariff_peak_rate"),
+        SimpleNamespace(entity_id="sensor.keep", unique_id="account-id_daily_grid_charge"),
+        SimpleNamespace(entity_id="sensor.other_account", unique_id="other_day_1_grid_charge"),
+    ]
+
+    with (
+        patch.object(sensor_module.er, "async_get", return_value=registry),
+        patch.object(
+            sensor_module.er,
+            "async_entries_for_config_entry",
+            return_value=registry_entries,
+        ),
+    ):
+        await sensor_module.async_setup_entry(MagicMock(), entry, lambda entities: None)
+
+    removed = {call.args[0] for call in registry.async_remove.call_args_list}
+    assert removed == {"sensor.old_day", "sensor.old_hourly", "sensor.old_tariff"}
 
 
 class TestPaymentAndReferralSensors:
@@ -368,15 +513,6 @@ class TestPaymentAndReferralSensors:
         # No flex data yet -> None (unknown), never a crash
         assert OVOFlexSensor(self._coord({"flex": {}})).native_value is None
         assert OVOFlexSensor(self._coord(None)).native_value is None
-
-
-class TestRateTypes:
-    """Verify RATE_TYPES and RATE_TYPE_ICONS consistency."""
-
-    def test_rate_types_have_icons(self):
-        """Every entry in RATE_TYPES must have a matching entry in RATE_TYPE_ICONS."""
-        for rt in RATE_TYPES:
-            assert rt in RATE_TYPE_ICONS, f"RATE_TYPE {rt!r} missing from RATE_TYPE_ICONS"
 
 
 class TestGetRateValue:

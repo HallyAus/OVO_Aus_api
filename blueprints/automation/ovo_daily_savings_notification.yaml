@@ -18,8 +18,8 @@ blueprint:
         time:
       default: "08:30:00"
     savings_sensor:
-      name: OVO Savings Sensor (Yesterday)
-      description: The OVO daily savings sensor
+      name: Plan Savings Sensor
+      description: The consolidated Plan Savings sensor (daily/monthly values are attributes)
       selector:
         entity:
           filter:
@@ -45,14 +45,6 @@ blueprint:
         entity:
           filter:
             - domain: sensor
-    monthly_savings_sensor:
-      name: OVO Savings Sensor (This Month)
-      description: Monthly savings total sensor
-      selector:
-        entity:
-          filter:
-            - domain: sensor
-
 variables:
   savings_entity: !input savings_sensor
 
@@ -63,7 +55,7 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {{ states(savings_entity) not in ['unknown', 'unavailable', 'None'] }}
+      {{ state_attr(savings_entity, 'daily_savings') is not none }}
 
 action:
   - variables:
@@ -71,12 +63,11 @@ action:
       solar_entity: !input solar_sensor
       grid_entity: !input grid_sensor
       charge_entity: !input grid_charge_sensor
-      monthly_entity: !input monthly_savings_sensor
-      savings: "{{ states(savings_entity) | float(0) | round(2) }}"
+      savings: "{{ state_attr(savings_entity, 'daily_savings') | float(0) | round(2) }}"
       solar: "{{ states(solar_entity) | float(0) | round(1) }}"
       grid: "{{ states(grid_entity) | float(0) | round(1) }}"
       cost: "{{ states(charge_entity) | float(0) | round(2) }}"
-      monthly_savings: "{{ states(monthly_entity) | float(0) | round(2) }}"
+      monthly_savings: "{{ state_attr(savings_entity, 'monthly_savings') | float(0) | round(2) }}"
   - action: !input notify_service
     data:
       title: "⚡ OVO Energy Daily Report"

@@ -1,7 +1,7 @@
 # OVO Energy Australia for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-4.8.2-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.9.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
 
 Track solar generation, grid consumption, costs, EV charging, and plan savings in Home Assistant.
@@ -28,18 +28,18 @@ Referrals below are the only thing funding ongoing development. Both you and I g
 ## ✨ Features
 
 - ☀️ **Comprehensive Sensors** — Solar, grid, export, charges, rate breakdowns, analytics
-- 🧹 **Sensible Defaults** — Noisy per-day/hourly history entities start disabled
-- ⚡ **Tariff Period Indicator** — Live current rate period with cost per kWh
+- 🧹 **Focused Entity Set** — Rotating Day 1-7/hourly-day entities are removed
+- ⚡ **Tariff Period Indicator** — Scheduled current tariff period with detected rate
 - 🔌 **EV Charging Tracker** — Monthly and yearly EV charging kWh and cost
 - 🚗 **Connected Vehicle** — Battery/range/cable/mode telemetry, charge limits,
   readiness and credential health, preferences, charge plans, charging-time
   configuration, and monthly EV energy/cost detail (read-only and privacy-filtered)
 - 🧾 **Bill Estimator** — Projected monthly bill with standing charge included
-- 🏆 **OVO Savings** — Daily/monthly/yearly savings vs the One Plan (OVO-calculated)
-- 📊 **Plan Comparison** — Rating and recommendation based on your actual savings
+- 🏆 **Plan Savings** — One entity with daily/monthly/yearly OVO savings, rating, and recommendation
 - 💰 **Account Balance** — Current credit/balance on your OVO account
 - 📈 **Energy Dashboard** — Compatible with HA's native Energy Dashboard
 - 🔄 **Automatic Auth** — OAuth2 PKCE with auto-refresh, no manual tokens
+- 🕓 **Honest Freshness** — Usage is marked non-real-time and stale dates are reported
 - 🌏 **6 Languages** — English, Chinese, Vietnamese, Greek, Italian, Arabic
 - 🤖 **Daily Report Blueprint** — Automated savings notification
 

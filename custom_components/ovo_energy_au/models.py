@@ -101,18 +101,6 @@ class SelfSufficiencyData(TypedDict):
     period_days: int
 
 
-class MonthlyProjectionData(TypedDict):
-    """Monthly cost projection."""
-
-    projected_total: float
-    current_mtd: float
-    projected_remaining: float
-    daily_average: float
-    days_elapsed: int
-    days_remaining: int
-    days_in_month: int
-
-
 class ReturnToGridAnalysis(TypedDict):
     """Return-to-grid value analysis."""
 

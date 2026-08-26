@@ -105,14 +105,8 @@ views:
       - type: entities
         title: OVO Savings (vs Reference Plan)
         entities:
-          - entity: sensor.ovo_energy_au_ovo_savings_ovo_savings_yesterday
-            name: Yesterday Savings
-            icon: mdi:piggy-bank-outline
-          - entity: sensor.ovo_energy_au_ovo_savings_ovo_savings_this_month
-            name: This Month Savings
-            icon: mdi:piggy-bank-outline
-          - entity: sensor.ovo_energy_au_ovo_savings_ovo_savings_this_year
-            name: This Year Savings
+          - entity: sensor.ovo_energy_au_ovo_savings_plan_savings
+            name: Plan Savings
             icon: mdi:piggy-bank-outline
 
       # ── Account Balance ──
@@ -132,7 +126,7 @@ views:
             name: Grid This Week
             icon: mdi:transmission-tower
           - entity: sensor.ovo_energy_au_week_comparison_cost_this_week
-            name: Cost This Week
+            name: Net Usage Cost This Week
             icon: mdi:currency-usd
           - entity: sensor.ovo_energy_au_week_comparison_solar_change
             name: Solar Change %
@@ -141,22 +135,22 @@ views:
             name: Grid Change %
             icon: mdi:percent
           - entity: sensor.ovo_energy_au_week_comparison_cost_change
-            name: Cost Change %
+            name: Net Usage Cost Change %
             icon: mdi:percent
 
-      # ── Cost Projection ──
+      # ── Bill Estimate ──
       - type: entities
-        title: Monthly Cost Projection
+        title: Bill Estimate
         entities:
-          - entity: sensor.ovo_energy_au_monthly_forecast_projected_monthly_cost
-            name: Projected Total
-            icon: mdi:crystal-ball
-          - entity: sensor.ovo_energy_au_monthly_forecast_projected_remaining_cost
+          - entity: sensor.ovo_energy_au_bill_estimate_projected_monthly_bill
+            name: Projected Bill
+            icon: mdi:receipt-text-clock
+          - entity: sensor.ovo_energy_au_bill_estimate_estimated_remaining_this_month
             name: Remaining This Month
-            icon: mdi:calendar-clock
-          - entity: sensor.ovo_energy_au_monthly_forecast_daily_average_cost
-            name: Daily Average Cost
-            icon: mdi:chart-line
+            icon: mdi:receipt-text-minus
+          - entity: sensor.ovo_energy_au_bill_estimate_daily_average_net_cost
+            name: Daily Average Net Cost
+            icon: mdi:calendar-today
 
       # ── Plan Information ──
       - type: entities

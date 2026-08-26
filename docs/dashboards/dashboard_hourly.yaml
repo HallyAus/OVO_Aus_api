@@ -2,7 +2,8 @@
 #
 # Hourly data is available from the previous day (typically after ~8am AEST).
 # The integration creates per-day hourly sensors for the last 7 days:
-#   sensor.ovo_energy_au_hourly_[type]_[type]_hourly_[N]d_ago
+# Complete rolling history remains in the hourly totals, heatmap, and
+# Yesterday Hourly entity attributes; moving N-days-ago entities were removed.
 # Each sensor stores per-hour breakdown in its "hourly_values" attribute.
 #
 # Additionally, "Yesterday Hourly" graph-data sensors aggregate yesterday:
@@ -224,28 +225,3 @@ views:
           - entity: sensor.ovo_energy_au_hourly_data_hourly_data_entries
             name: Data Entry Count
             icon: mdi:counter
-
-      # ── Per-Day Hourly Sensors (1-3 days ago) ──
-      # These sensors have hourly_values in attributes for charting.
-      # Use more-info or apexcharts data_generator to visualize.
-      - type: entities
-        title: Per-Day Hourly Breakdown
-        entities:
-          - entity: sensor.ovo_energy_au_hourly_solar_solar_hourly_1d_ago
-            name: Solar (1 day ago)
-            icon: mdi:solar-power
-          - entity: sensor.ovo_energy_au_hourly_grid_grid_hourly_1d_ago
-            name: Grid (1 day ago)
-            icon: mdi:transmission-tower
-          - entity: sensor.ovo_energy_au_hourly_export_export_hourly_1d_ago
-            name: Export (1 day ago)
-            icon: mdi:transmission-tower-export
-          - entity: sensor.ovo_energy_au_hourly_solar_solar_hourly_2d_ago
-            name: Solar (2 days ago)
-            icon: mdi:solar-power
-          - entity: sensor.ovo_energy_au_hourly_grid_grid_hourly_2d_ago
-            name: Grid (2 days ago)
-            icon: mdi:transmission-tower
-          - entity: sensor.ovo_energy_au_hourly_export_export_hourly_2d_ago
-            name: Export (2 days ago)
-            icon: mdi:transmission-tower-export

@@ -289,6 +289,71 @@ class TestInsights:
         if len(high) > 1:
             assert high[0]["total_consumption"] >= high[1]["total_consumption"]
 
+    def test_high_usage_uses_household_consumption_not_total_solar_generation(self):
+        processed = {
+            "all_daily_entries": [
+                {
+                    "date": "2026-03-19",
+                    "day_name": "Thursday",
+                    "solar_consumption": 20,
+                    "return_to_grid": 18,
+                    "return_to_grid_charge": -0.54,
+                    "grid_consumption": 1,
+                    "grid_charge": 0.40,
+                },
+                {
+                    "date": "2026-03-18",
+                    "day_name": "Wednesday",
+                    "solar_consumption": 2,
+                    "return_to_grid": 0,
+                    "return_to_grid_charge": 0,
+                    "grid_consumption": 6,
+                    "grid_charge": 2.40,
+                },
+            ]
+        }
+
+        compute_insights(processed)
+
+        high = processed["high_usage_days"]
+        assert high[0]["date"] == "2026-03-18"
+        assert high[0]["total_consumption"] == 8
+        sunny = next(day for day in high if day["date"] == "2026-03-19")
+        assert sunny["self_consumed_solar"] == 2
+        assert sunny["total_consumption"] == 3
+        assert sunny["net_usage_cost"] == -0.14
+
+    def test_comparison_costs_are_grid_charge_less_export_credit(self):
+        entries = []
+        for index in range(14):
+            entries.append({
+                "date": f"2026-03-{19 - index:02d}",
+                "solar_consumption": 10,
+                "solar_charge": -99,
+                "return_to_grid": 4,
+                "return_to_grid_charge": -2 if index < 7 else -1,
+                "grid_consumption": 5,
+                "grid_charge": 5 if index < 7 else 4,
+            })
+        processed = {"all_daily_entries": entries}
+
+        compute_insights(processed)
+
+        comparison = processed["week_comparison"]
+        assert comparison["this_week_cost"] == 21
+        assert comparison["last_week_cost"] == 21
+        assert comparison["cost_basis"] == "grid_charges_less_export_credits"
+        assert processed["weekday_analysis"]["cost_basis"] == (
+            "grid_charges_less_export_credits_excludes_supply_charge"
+        )
+
+    def test_obsolete_monthly_projection_is_not_computed(self, sample_interval_data):
+        processed = process_interval_data(sample_interval_data)
+
+        compute_insights(processed)
+
+        assert "monthly_projection" not in processed
+
     def test_return_to_grid_analysis(self, sample_interval_data):
         processed = process_interval_data(sample_interval_data)
         compute_insights(processed)
