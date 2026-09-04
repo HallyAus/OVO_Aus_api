@@ -294,7 +294,9 @@ class TestEnergyDashboardSensor:
     def test_reads_monthly_total_and_resets_monthly(self):
         from custom_components.ovo_energy_au.sensor import OVOEnergyDashboardSensor
         c = self._coord({"monthly": {"grid_consumption": 841.31, "return_to_grid": 12.0,
-                                     "solar_consumption": 92.36}})
+                                     "solar_consumption": 92.36,
+                                     "grid_latest": {"periodFrom": "2026-03-01T00:00:00+11:00"},
+                                     "solar_latest": {"periodFrom": "2026-03-01T00:00:00+11:00"}}})
         s = OVOEnergyDashboardSensor(c, "energy_grid_import", "Grid Import",
                                      "grid_consumption", "mdi:transmission-tower-import")
         assert s.native_value == 841.31
@@ -310,7 +312,9 @@ class TestEnergyDashboardSensor:
 
     def test_export_and_solar_keys(self):
         from custom_components.ovo_energy_au.sensor import OVOEnergyDashboardSensor
-        c = self._coord({"monthly": {"return_to_grid": 12.0, "solar_consumption": 92.36}})
+        c = self._coord({"monthly": {"return_to_grid": 12.0, "solar_consumption": 92.36,
+                                     "grid_latest": {"periodFrom": "2026-03-01T00:00:00+11:00"},
+                                     "solar_latest": {"periodFrom": "2026-03-01T00:00:00+11:00"}}})
         exp = OVOEnergyDashboardSensor(c, "energy_grid_export", "Grid Export",
                                        "return_to_grid", "mdi:x")
         sol = OVOEnergyDashboardSensor(c, "energy_solar_production", "Solar",

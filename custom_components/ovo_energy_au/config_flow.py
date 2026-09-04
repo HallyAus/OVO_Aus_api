@@ -80,7 +80,7 @@ async def validate_input(hass: HomeAssistant, username: str, password: str) -> d
         if not account_id:
             raise InvalidAuth("Could not retrieve account ID after authentication")
 
-        _LOGGER.debug("Successfully authenticated. Account ID: %s", account_id)
+        _LOGGER.debug("Successfully authenticated")
 
         return {
             "title": f"OVO Energy AU ({account_id})",
@@ -93,14 +93,14 @@ async def validate_input(hass: HomeAssistant, username: str, password: str) -> d
         # handler below re-label it as a connection problem
         raise
     except OVOEnergyAUApiClientAuthenticationError as err:
-        _LOGGER.error("Failed to authenticate with OVO Energy API: %s", err)
-        raise InvalidAuth from err
+        _LOGGER.error("Failed to authenticate with OVO Energy API: %s", type(err).__name__)
+        raise InvalidAuth from None
     except OVOEnergyAUApiClientCommunicationError as err:
-        _LOGGER.error("Communication error with OVO Energy API: %s", err)
-        raise CannotConnect from err
+        _LOGGER.error("Communication error with OVO Energy API: %s", type(err).__name__)
+        raise CannotConnect from None
     except Exception as err:
-        _LOGGER.exception("Unexpected exception during validation")
-        raise CannotConnect from err
+        _LOGGER.error("Unexpected validation failure (%s)", type(err).__name__)
+        raise CannotConnect from None
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -130,7 +130,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Extract product agreements
             product_agreements = account_info.get("productAgreements", [])
             if not product_agreements:
-                _LOGGER.warning("No product agreements found for account %s", account_id)
+                _LOGGER.warning("No product agreements found")
                 return
 
             # Prefer the active/latest agreement. OVO can retain the completed
@@ -179,7 +179,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         except Exception as err:
-            _LOGGER.error("Failed to detect plan from API: %s", err)
+            _LOGGER.error("Failed to detect plan from API: %s", type(err).__name__)
             # Detection failure is not fatal, continue with defaults
 
     async def async_step_user(
@@ -216,7 +216,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         info["account_id"]
                     )
                 except Exception as err:
-                    _LOGGER.warning("Could not auto-detect plan: %s. Using defaults.", err)
+                    _LOGGER.warning("Could not auto-detect plan: %s. Using defaults.", type(err).__name__)
                     # Set defaults if detection fails
                     self._detected_plan = PLAN_BASIC
                     self._detected_rates = {}
@@ -251,7 +251,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
             except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
+                _LOGGER.error("Unexpected config-flow failure")
                 errors["base"] = "unknown"
 
         return self.async_show_form(
@@ -311,7 +311,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
             except Exception:
-                _LOGGER.exception("Unexpected exception during reauth")
+                _LOGGER.error("Unexpected reauthentication failure")
                 errors["base"] = "unknown"
 
         return self.async_show_form(

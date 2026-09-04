@@ -41,6 +41,7 @@ from .tariffs import (
     get_schedule_attributes,
     get_tariff_details,
 )
+from .time_utils import parse_ovo_datetime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -367,8 +368,8 @@ class OVOPlanSensor(OVOBaseSensor):
         if not agreement:
             return {"status": "No product agreements found"}
 
-        product = agreement.get("product", {})
-        unit_rates = product.get("unitRatesCentsPerKWH", {})
+        product = get_current_product(self.coordinator.data)
+        unit_rates = get_product_rates(self.coordinator.data)
 
         attrs = {
             "plan_name": product.get("displayName", "Unknown"),
@@ -558,6 +559,14 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
     def extra_state_attributes(self) -> dict:
         return self._period_details()
 
+    @property
+    def available(self) -> bool:
+        """Do not present expired, future or unavailable auto-detected tariffs."""
+        if (getattr(self.coordinator, "auto_detect_plan", False) is True
+                and not get_current_product(self.coordinator.data)):
+            return False
+        return bool(getattr(self.coordinator, "last_update_success", True))
+
     def _period_details(self) -> dict:
         """Calculate the plan-aware period and rate for the current AU hour."""
         return get_tariff_details(
@@ -735,11 +744,12 @@ class OVOEnergyDashboardSensor(OVOBaseSensor):
     """Cumulative month-to-date energy sensor for HA's built-in Energy Dashboard (#73).
 
     OVO exposes period totals, not a raw meter reading, so this uses
-    state_class=TOTAL with last_reset at the start of the current month — the
+    state_class=TOTAL with last_reset at the start of the source data month — the
     pattern Home Assistant expects for period-based sources. The monthly
     grid/export/solar aggregate accumulates through the month and resets on the
-    1st (signalled via last_reset), so the Energy Dashboard derives correct
-    daily and monthly figures. Add these under Settings -> Energy.
+    source month boundary (signalled via last_reset). OVO data is delayed, so
+    changes are recorded when fetched, not backdated to the consumption hour.
+    Add these under Settings -> Energy.
     """
 
     def __init__(self, coordinator, key, name, data_key, icon):
@@ -758,14 +768,24 @@ class OVOEnergyDashboardSensor(OVOBaseSensor):
     def native_value(self) -> float | None:
         if not self.coordinator.data:
             return None
+        if self.last_reset is None:
+            return None
         val = (self.coordinator.data.get("monthly") or {}).get(self._data_key)
         return round(float(val), 3) if val is not None else None
 
     @property
-    def last_reset(self) -> datetime:
-        """Start of the current month (AEST) — when the monthly total reset."""
-        now = datetime.now(AU_TIMEZONE)
-        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    def last_reset(self) -> datetime | None:
+        """Reset only when the source total moves to a new published month.
+
+        OVO can still return the previous month after local midnight. Changing
+        the reset while retaining that total would count it a second time.
+        """
+        monthly = (self.coordinator.data or {}).get("monthly") or {}
+        source = "solar_latest" if self._data_key == "solar_consumption" else "grid_latest"
+        timestamp = parse_ovo_datetime((monthly.get(source) or {}).get("periodFrom"))
+        if timestamp is None:
+            return None
+        return timestamp.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
 class OVOLatestPaymentSensor(OVOBaseSensor):

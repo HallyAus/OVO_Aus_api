@@ -284,6 +284,8 @@ class OVOEnergyAUApiClient:
 
         except OVOEnergyAUApiClientError:
             raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise OVOEnergyAUApiClientCommunicationError("Unable to reach OVO authentication service") from err
         except Exception as err:
             # Static messages only — the login payload holds the cleartext
             # password, so never interpolate exception text into logs here
@@ -346,7 +348,7 @@ class OVOEnergyAUApiClient:
                     expires_in=token_data.get("expires_in"),
                 )
                 return token_data
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError) as err:
             raise OVOEnergyAUApiClientCommunicationError(
                 "Error communicating with Auth0"
             ) from err
@@ -356,34 +358,33 @@ class OVOEnergyAUApiClient:
             ) from err
 
     async def refresh_tokens(self) -> dict[str, Any]:
-        """Refresh access token using refresh token."""
+        """Refresh tokens; only an explicit rejection permits password fallback."""
         if not self._refresh_token:
             raise OVOEnergyAUApiClientAuthenticationError("No refresh token available")
-
-        data = {
-            "grant_type": "refresh_token",
-            "client_id": OAUTH_CLIENT_ID,
-            "refresh_token": self._refresh_token,
-        }
+        data = {"grant_type": "refresh_token", "client_id": OAUTH_CLIENT_ID, "refresh_token": self._refresh_token}
         try:
             async with self._session.post(OAUTH_TOKEN_URL, json=data) as response:
+                if response.status in (401, 403):
+                    raise OVOEnergyAUApiClientAuthenticationError("Refresh token rejected")
+                if response.status == 400:
+                    token_error = await response.json()
+                    if isinstance(token_error, dict) and token_error.get("error") == "invalid_grant":
+                        raise OVOEnergyAUApiClientAuthenticationError("Refresh token expired or revoked")
                 response.raise_for_status()
                 token_data = await response.json()
-                self.set_tokens(
-                    access_token=token_data["access_token"],
-                    id_token=token_data["id_token"],
-                    refresh_token=token_data.get("refresh_token", self._refresh_token),
-                    expires_in=token_data.get("expires_in"),
-                )
+                if not isinstance(token_data, dict):
+                    raise OVOEnergyAUApiClientCommunicationError("Invalid token response")
+                access_token = token_data.get("access_token")
+                id_token = token_data.get("id_token") or self._id_token
+                refresh_token = token_data.get("refresh_token") or self._refresh_token
+                if not isinstance(access_token, str) or not access_token or not isinstance(id_token, str) or not id_token:
+                    raise OVOEnergyAUApiClientCommunicationError("Incomplete token response")
+                self.set_tokens(access_token, id_token, refresh_token, token_data.get("expires_in"))
                 return token_data
-        except aiohttp.ClientResponseError as err:
-            if err.status in (401, 403):
-                raise OVOEnergyAUApiClientAuthenticationError(
-                    "Refresh token expired or invalid - please re-authenticate"
-                ) from err
-            raise OVOEnergyAUApiClientCommunicationError("Error refreshing tokens") from err
-        except aiohttp.ClientError as err:
-            raise OVOEnergyAUApiClientCommunicationError("Error refreshing tokens") from err
+        except OVOEnergyAUApiClientError:
+            raise
+        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError) as err:
+            raise OVOEnergyAUApiClientCommunicationError("Unable to refresh OVO tokens") from err
 
     # ─── Internal helpers ────────────────────────────────────────────
 
@@ -501,32 +502,20 @@ class OVOEnergyAUApiClient:
 
                 content_type = response.headers.get("Content-Type", "")
                 if "application/json" not in content_type:
-                    _LOGGER.error(
-                        "API returned %s instead of JSON - likely expired tokens",
-                        content_type,
-                    )
-                    raise OVOEnergyAUApiClientAuthenticationError(
-                        "Token expired or invalid - please re-authenticate"
+                    raise OVOEnergyAUApiClientCommunicationError(
+                        "OVO returned a non-JSON response"
                     )
 
                 data = await response.json()
+                if not isinstance(data, dict):
+                    raise OVOEnergyAUApiClientError("Invalid GraphQL response")
 
                 # Check for GraphQL errors
-                if "errors" in data and data["errors"]:
-                    error_messages = [
-                        error.get("message", "Unknown error")
-                        for error in data["errors"]
-                        if isinstance(error, dict)
-                    ]
-                    if error_messages:
-                        raise OVOEnergyAUApiClientError(
-                            f"GraphQL errors: {', '.join(error_messages)}"
-                        )
+                if data.get("errors"):
+                    raise OVOEnergyAUApiClientError("OVO returned GraphQL errors")
 
                 # Extract result
-                if "data" not in data or data["data"] is None:
-                    if allow_null_result:
-                        return {}
+                if not isinstance(data.get("data"), dict) or result_key not in data["data"]:
                     raise OVOEnergyAUApiClientError("Invalid response from API")
 
                 result = data["data"].get(result_key)
@@ -540,6 +529,8 @@ class OVOEnergyAUApiClient:
                         f"Missing {result_key} in response"
                     )
 
+                if not isinstance(result, dict):
+                    raise OVOEnergyAUApiClientError("Invalid GraphQL result")
                 return result
 
         except OVOEnergyAUApiClientError:
@@ -553,10 +544,9 @@ class OVOEnergyAUApiClient:
                 except OVOEnergyAUApiClientError:
                     raise
                 except Exception as reauth_err:
-                    # A network blip during the forced re-auth must still
-                    # surface as an auth failure so reauth is triggered
-                    raise OVOEnergyAUApiClientAuthenticationError(
-                        "Re-authentication after 401 failed"
+                    # A transport failure does not prove the credentials wrong.
+                    raise OVOEnergyAUApiClientCommunicationError(
+                        "Unable to refresh authentication after HTTP 401"
                     ) from reauth_err
                 # Retry the request once
                 return await self._graphql_request(
@@ -568,15 +558,11 @@ class OVOEnergyAUApiClient:
                     "Authentication failed"
                 ) from err
             raise OVOEnergyAUApiClientCommunicationError(
-                f"Error communicating with API: {err}"
+                "Error communicating with OVO API"
             ) from err
-        except aiohttp.ContentTypeError as err:
-            raise OVOEnergyAUApiClientAuthenticationError(
-                "Token expired or invalid - API returned HTML instead of JSON"
-            ) from err
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError) as err:
             raise OVOEnergyAUApiClientCommunicationError(
-                f"Error communicating with API: {err}"
+                "Error communicating with OVO API"
             ) from err
 
     # ─── Public API methods ──────────────────────────────────────────
@@ -592,7 +578,7 @@ class OVOEnergyAUApiClient:
         except OVOEnergyAUApiClientError:
             raise
         except Exception as err:
-            raise OVOEnergyAUApiClientError(f"Error decoding ID token: {err}") from err
+            raise OVOEnergyAUApiClientError("Error decoding ID token") from err
 
         return await self._graphql_request(
             operation_name="GetContactInfo",
@@ -616,9 +602,8 @@ class OVOEnergyAUApiClient:
         ids = await self.get_account_ids()
         if len(ids) > 1:
             _LOGGER.warning(
-                "Multiple active OVO accounts found (%d); using the first (%s)",
+                "Multiple active OVO accounts found (%d); using the first",
                 len(ids),
-                ids[0],
             )
         return ids[0]
 
@@ -667,7 +652,7 @@ class OVOEnergyAUApiClient:
             result_key="GetAccountInfo",
             referer_path="/usage",
         )
-        _LOGGER.debug("Fetched product agreements for account %s", result.get("id"))
+        _LOGGER.debug("Fetched product agreements")
         return result
 
     async def get_statements(self, account_id: str) -> dict[str, Any]:
@@ -749,5 +734,5 @@ class OVOEnergyAUApiClient:
             await self.get_interval_data(account_id)
             return True
         except Exception as err:
-            _LOGGER.error("Connection test failed: %s", err)
+            _LOGGER.error("Connection test failed (%s)", type(err).__name__)
             return False

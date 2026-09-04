@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -40,3 +43,15 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+
+  runtime:
+    name: Home Assistant runtime regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements-test-ha.txt
+      - run: python -m pytest tests_ha/ -q --asyncio-mode=auto

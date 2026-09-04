@@ -18,10 +18,40 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Verify release version and successful CI for this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          python - <<'PYTHON'
+          import json
+          import os
+          import re
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
+              raise SystemExit("Expected a stable semantic release tag")
+          manifest = json.loads(Path("custom_components/ovo_energy_au/manifest.json").read_text())
+          project = tomllib.loads(Path("pyproject.toml").read_text())
+          if manifest["version"] != tag[1:] or project["project"]["version"] != tag[1:]:
+              raise SystemExit("Release tag does not match the source version")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          sha = os.environ["GITHUB_SHA"]
+          endpoint = f"repos/{repo}/actions/workflows/ci.yml/runs?head_sha={sha}&per_page=100"
+          runs = json.loads(subprocess.check_output(["gh", "api", endpoint], text=True))["workflow_runs"]
+          if not any(run["head_sha"] == sha and run["conclusion"] == "success" for run in runs):
+              raise SystemExit("This exact commit must pass CI before publication")
+          print(f"Verified {tag} and successful CI for {sha}")
+          PYTHON
 
       - name: Create release zip
         run: |
@@ -70,5 +100,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
           files: ovo_energy_au.zip
           body_path: release-notes.md

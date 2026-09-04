@@ -10,6 +10,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, Sen
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ..const import AU_TIMEZONE, DOMAIN
+from ..time_utils import parse_ovo_datetime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ class OVOEnergySensor(OVOBaseSensor):
             precision = 4 if self._unit and self._unit.endswith("/kWh") else 2
             return round(float(value), precision)
         except Exception as err:
-            _LOGGER.debug("Sensor %s error: %s", self._sensor_key, err)
+            _LOGGER.debug("Sensor %s error: %s", self._sensor_key, type(err).__name__)
             return None
 
     @property
@@ -211,14 +212,8 @@ class OVOEnergySensor(OVOBaseSensor):
 
 
 def parse_entry_timestamp(period_from: str) -> datetime | None:
-    """Parse ISO timestamp and convert to Australian Eastern time."""
-    if not period_from:
-        return None
-    try:
-        ts = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
-        return ts.astimezone(AU_TIMEZONE)
-    except (ValueError, TypeError):
-        return None
+    """Parse an OVO timestamp in its explicit or documented AU timezone."""
+    return parse_ovo_datetime(period_from)
 
 
 def get_hourly_data_for_date(data: dict, entry_type: str, target_date) -> dict:
@@ -231,7 +226,7 @@ def get_hourly_data_for_date(data: dict, entry_type: str, target_date) -> dict:
 
     entries = data["hourly"].get(entry_type, [])
     if not entries:
-        return {"state": 0.0, "hourly_data": []}
+        return {"state": None, "hourly_data": []}
 
     hourly_values = []
     total = 0.0
@@ -256,7 +251,7 @@ def get_hourly_data_for_date(data: dict, entry_type: str, target_date) -> dict:
         })
 
     hourly_values.sort(key=lambda x: x["hour"])
-    return {"state": round(total, 2), "hourly_data": hourly_values}
+    return {"state": round(total, 2) if hourly_values else None, "hourly_data": hourly_values}
 
 
 def get_yesterday_hourly_data(data: dict, entry_type: str) -> dict:
