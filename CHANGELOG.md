@@ -5,6 +5,12 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Changed the repository license from CC0-1.0 to the OSI-approved MIT license so current HACS validation accepts the project.
+- CI now installs the project with its development dependencies before running tests and uses the current Node.js 24-based checkout/setup actions.
+
 ## [4.9.1] - 2026-09-04
 
 > - **OVO referral code:** `daniel16485`
