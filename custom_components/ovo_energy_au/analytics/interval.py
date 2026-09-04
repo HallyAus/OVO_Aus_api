@@ -8,6 +8,7 @@ from datetime import date, datetime
 from homeassistant.util import dt as dt_util
 
 from ..const import AU_TIMEZONE
+from ..time_utils import parse_ovo_datetime
 from .billing import current_cycle_bounds, previous_cycle_bounds
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,12 +23,11 @@ def _entry_date(entry: dict) -> date | None:
 
 
 def _parse_entry_date(period_from: str) -> datetime:
-    """Parse an ISO timestamp and convert to Australian Eastern time.
-
-    Daily bucketing must use the AU-local date, otherwise entries near
-    midnight land on the wrong day (mirrors the hourly module's handling).
-    """
-    return datetime.fromisoformat(period_from.replace("Z", "+00:00")).astimezone(AU_TIMEZONE)
+    """Parse an API period without depending on the HA host timezone."""
+    result = parse_ovo_datetime(period_from)
+    if result is None:
+        raise ValueError("Invalid OVO period timestamp")
+    return result
 
 
 def _safe_charge(entry: dict) -> dict:
@@ -81,7 +81,8 @@ def process_interval_data(data: dict, billing_cycle_day: int = 1) -> dict:
             continue
         savings_list = period_data.get("savings") or []
         if savings_list and isinstance(savings_list, list):
-            latest_savings = savings_list[-1]
+            dated_savings = _latest_period_entries(savings_list)
+            latest_savings = dated_savings[0] if dated_savings else savings_list[-1]
             amount = latest_savings.get("amount") or {}
             # Don't abs() — negative savings means user would save more on another plan
             processed[period]["ovo_savings"] = amount.get("value", 0)
@@ -120,61 +121,50 @@ def _empty_all_time() -> dict:
 
 
 def _process_period_latest(period: str, period_data: dict) -> dict:
-    """Process the latest entry from a period (solar + export)."""
+    """Select the newest timestamp, then combine all readings for that period."""
     result = {}
+    solar = _latest_period_entries(period_data.get("solar"))
+    if solar:
+        result["solar_consumption"] = sum(e.get("consumption", 0) or 0 for e in solar)
+        result["solar_charge"] = sum(_safe_charge(e).get("value", 0) or 0 for e in solar)
+        result["solar_latest"] = solar[0]
 
-    # Solar data
-    if "solar" in period_data and period_data["solar"]:
-        latest = period_data["solar"][-1]
-        result["solar_consumption"] = latest.get("consumption", 0)
-        result["solar_charge"] = _safe_charge(latest).get("value", 0)
-        result["solar_latest"] = latest
-
-    # Export data - accumulate ALL entries for the latest period, separating CREDIT vs DEBIT
-    if "export" in period_data and period_data["export"]:
-        entries = period_data["export"]
-        latest_period = entries[-1].get("periodFrom")
-
-        result["grid_consumption"] = 0
-        result["grid_charge"] = 0
-        result["return_to_grid"] = 0
-        result["return_to_grid_charge"] = 0
-        result["grid_latest"] = entries[-1]
-
-        # Accumulate all entries from the latest period
-        for entry in entries:
-            if entry.get("periodFrom") != latest_period:
-                continue
-            charge_type = _safe_charge(entry).get("type", "DEBIT")
-            consumption = entry.get("consumption", 0)
-            charge_value = _safe_charge(entry).get("value", 0)
-            if charge_type == "CREDIT":
-                result["return_to_grid"] += consumption
-                result["return_to_grid_charge"] += charge_value
-            else:
-                result["grid_consumption"] += consumption
-                result["grid_charge"] += charge_value
-
-        # Merge rate breakdowns from ALL entries in the latest period
+    entries = _latest_period_entries(period_data.get("export"))
+    if entries:
+        result.update(grid_consumption=0, grid_charge=0, return_to_grid=0, return_to_grid_charge=0)
+        result["grid_latest"] = entries[0]
         merged_rates = {}
         for entry in entries:
-            if entry.get("periodFrom") != latest_period:
-                continue
-            for rt, rd in _extract_rate_breakdown(period, entry).items():
-                if rt not in merged_rates:
-                    merged_rates[rt] = {"consumption": 0, "charge": 0, "percent": 0, "available": True}
-                merged_rates[rt]["consumption"] += rd.get("consumption", 0)
-                merged_rates[rt]["charge"] += rd.get("charge", 0)
-        # Percentages aren't additive across entries — recompute from the
-        # merged consumption so the values still sum to 100
-        total_merged = sum(rd["consumption"] for rd in merged_rates.values())
-        for rd in merged_rates.values():
-            rd["percent"] = (
-                round(rd["consumption"] / total_merged * 100, 2) if total_merged > 0 else 0
-            )
+            charge = _safe_charge(entry)
+            consumption = entry.get("consumption", 0) or 0
+            value = charge.get("value", 0) or 0
+            if charge.get("type") == "CREDIT":
+                result["return_to_grid"] += consumption
+                result["return_to_grid_charge"] += value
+                continue  # Export credits are not grid purchase tariff buckets.
+            result["grid_consumption"] += consumption
+            result["grid_charge"] += value
+            for rate_type, rate in _extract_rate_breakdown(period, entry).items():
+                bucket = merged_rates.setdefault(rate_type, {"consumption": 0, "charge": 0, "percent": 0, "available": True})
+                bucket["consumption"] += rate.get("consumption", 0)
+                bucket["charge"] += rate.get("charge", 0)
+        total = sum(rate["consumption"] for rate in merged_rates.values())
+        for rate in merged_rates.values():
+            rate["percent"] = round(rate["consumption"] / total * 100, 2) if total else 0
         result["rate_breakdown"] = merged_rates
-
     return result
+
+
+def _latest_period_entries(entries: object) -> list[dict]:
+    """Ignore undated records rather than calling arbitrary array order latest."""
+    if not isinstance(entries, list):
+        return []
+    dated = [(timestamp, entry) for entry in entries
+             if isinstance(entry, dict) and (timestamp := parse_ovo_datetime(entry.get("periodFrom"))) is not None]
+    if not dated:
+        return []
+    latest = max(timestamp for timestamp, _ in dated)
+    return [entry for timestamp, entry in dated if timestamp == latest]
 
 
 def _extract_rate_breakdown(period: str, export_entry: dict) -> dict:
@@ -205,7 +195,7 @@ def _extract_rate_breakdown(period: str, export_entry: dict) -> dict:
                 "available": True,
             }
     except Exception as err:
-        _LOGGER.error("Error processing rate breakdown for %s: %s", period, err)
+        _LOGGER.error("Error processing rate breakdown for %s: %s", period, type(err).__name__)
 
     return rates_breakdown
 
@@ -225,8 +215,8 @@ def _build_daily_map(daily_data: dict) -> dict:
             date_key = entry_date.strftime("%Y-%m-%d")
             if date_key not in daily_map:
                 daily_map[date_key] = _new_daily_entry(entry_date, date_key)
-            daily_map[date_key]["solar_consumption"] = entry.get("consumption", 0)
-            daily_map[date_key]["solar_charge"] = _safe_charge(entry).get("value", 0)
+            daily_map[date_key]["solar_consumption"] += entry.get("consumption", 0) or 0
+            daily_map[date_key]["solar_charge"] += _safe_charge(entry).get("value", 0) or 0
         except (ValueError, TypeError):
             continue
 
@@ -256,6 +246,9 @@ def _build_daily_map(daily_data: dict) -> dict:
                 daily_map[date_key]["grid_consumption"] += consumption
                 daily_map[date_key]["grid_charge"] += charge_value
 
+            # Grid rate buckets must never include solar export credits.
+            if charge_type == "CREDIT":
+                continue
             # Extract per-rate breakdown
             rates_list = entry.get("rates") or []
             if isinstance(rates_list, list):
@@ -429,6 +422,8 @@ def _compute_all_time(monthly_data: dict) -> dict:
     latest_date = None
 
     for entry in (monthly_data.get("export") or []):
+        if not isinstance(entry, dict) or _safe_charge(entry).get("type") == "CREDIT":
+            continue
         period_from = entry.get("periodFrom")
         if period_from:
             seen_months.add(period_from[:7])  # Track unique YYYY-MM

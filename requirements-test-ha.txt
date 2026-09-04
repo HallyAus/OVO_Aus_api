@@ -1,0 +1,3 @@
+# This harness pins a compatible Home Assistant version and its test dependencies.
+# Keep real HA tests separate from tests/, whose conftest mocks HA modules.
+pytest-homeassistant-custom-component==0.13.363

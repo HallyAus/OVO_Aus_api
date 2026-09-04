@@ -10,6 +10,7 @@ published United Energy structure reported in issue #79.
 from __future__ import annotations
 
 from datetime import date, datetime
+from math import isfinite
 from typing import Any
 
 from .const import (
@@ -69,19 +70,9 @@ def get_current_agreement(data: dict | None) -> dict[str, Any]:
             key=lambda agreement: _agreement_date(agreement.get("fromDt")) or date.min,
         )
 
-    past = [agreement for agreement in valid if (_agreement_date(agreement.get("fromDt")) or date.min) <= today]
-    if past:
-        return max(
-            past,
-            key=lambda agreement: _agreement_date(agreement.get("fromDt")) or date.min,
-        )
-
-    # All agreements are future-dated. Select the first upcoming one rather
-    # than a later renewal.
-    return min(
-        valid,
-        key=lambda agreement: _agreement_date(agreement.get("fromDt")) or date.max,
-    )
+    # Neither an expired agreement nor an upcoming product is current.
+    # Do not activate a future free/EV window ahead of its effective date.
+    return {}
 
 
 def get_current_product(data: dict | None) -> dict[str, Any]:
@@ -94,7 +85,15 @@ def get_current_product(data: dict | None) -> dict[str, Any]:
 def get_product_rates(data: dict | None) -> dict[str, Any]:
     """Extract the API unit-rate table for tariff calculations."""
     rates = get_current_product(data).get("unitRatesCentsPerKWH") or {}
-    return rates if isinstance(rates, dict) else {}
+    if not isinstance(rates, dict):
+        return {}
+    clean: dict[str, Any] = {}
+    for key, value in rates.items():
+        if key == "demand" and isinstance(value, dict):
+            clean[key] = {name: number for name, raw in value.items() if (number := _number(raw)) is not None}
+        elif (number := _number(value)) is not None:
+            clean[key] = number
+    return clean
 
 
 def update_plan_config_rates(plan_config: PlanConfig, data: dict | None) -> None:
@@ -273,7 +272,8 @@ def _number(value: Any, fallback: float | None = None) -> float | None:
     if isinstance(value, bool):
         return fallback
     try:
-        return float(value) if value is not None else fallback
+        number = float(value) if value is not None else None
+        return number if number is not None and isfinite(number) else fallback
     except (TypeError, ValueError):
         return fallback
 

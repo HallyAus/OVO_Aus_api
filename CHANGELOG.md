@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.9.3] - 2026-09-05
+
+### Fixed
+- Energy Dashboard resets follow the month of the published OVO total, not the host clock. A delayed previous-month response no longer changes reset epoch at midnight; totals without valid period metadata remain unknown.
+- Daily, monthly and yearly readings select the newest timestamp regardless of API array order. Multiple solar readings for the same period are summed rather than overwritten.
+- Solar export credits no longer inflate grid purchase tariff buckets, percentages, daily breakdowns or all-time rate comparisons.
+- Yesterday Hourly returns unknown when there are no readings for the requested date, while genuine zero readings remain zero. Offset-free period timestamps use Australia/Sydney rather than the host operating-system timezone.
+- Expired and future product agreements are not treated as current. Automatically detected tariff entities remain unavailable without an active product; nullable rate tables and non-finite numbers are handled safely.
+- OAuth invalid-grant refresh rejections now trigger the existing credential fallback. Refreshes retain the previous ID token when the provider omits an unchanged token.
+- Authentication timeouts and non-JSON maintenance responses are retryable communication failures rather than invalid-password errors. Initial connection failures request Home Assistant setup retry.
+- GraphQL response shapes are validated and arbitrary provider error text, request URLs and account IDs are no longer echoed into integration logs.
+
+### Validation
+- Added regression tests for period ordering/reset epochs, missing hourly samples, import/export separation, plan validity, token refresh, transport failures and privacy-safe errors.
+- Added a separate real Home Assistant CI suite for setup, reload, unload, sensor state/reset publication and failure handling; retained the existing pure unit suite.
+- Release publication now requires matching source/tag versions and successful CI for the exact release commit.
+- Preserved existing entity keys and unique IDs. Delayed OVO readings are still recorded when received, not backdated to consumption hours.
+
 ## [4.9.2] - 2026-09-05
 
 > - **OVO referral code:** `daniel16485`

@@ -100,7 +100,7 @@ class TestGetHourlyDataForDate:
         # March 18 10:00 UTC = March 18 21:00 AEDT
         target = date(2026, 3, 19)
         result = get_hourly_data_for_date(data, "solar_entries", target)
-        assert result["state"] == 0.0
+        assert result["state"] is None
         assert result["hourly_data"] == []
 
     def test_hourly_data_sorted_by_hour(self):

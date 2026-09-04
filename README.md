@@ -87,6 +87,12 @@ Running Home Assistant somewhere rural or need a reliable backup link?
 
 ---
 
+## Upgrading to 4.9.3
+
+This reliability update preserves existing entity keys and unique IDs. Energy Dashboard reset dates now follow the month of the published OVO readings, including when the previous month's data arrives late. Missing hourly readings remain unknown rather than appearing as zero consumption. Update through HACS and restart Home Assistant.
+
+OVO readings are delayed: the Energy Dashboard records changes when this integration receives them. It does not backdate readings to their original consumption hours.
+
 ## ⚡ Home Assistant Energy Dashboard
 
 The integration ships three sensors purpose-built for HA's built-in **Energy Dashboard** (Settings → Energy). In each picker, choose the matching sensor from the **Energy Dashboard** device:

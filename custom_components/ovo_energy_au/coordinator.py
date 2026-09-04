@@ -100,7 +100,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
-                _LOGGER.error("Failed to fetch product agreements: %s", err)
+                _LOGGER.error("Failed to fetch product agreements: %s", type(err).__name__)
                 processed["product_agreements"] = None
 
             # 3. Hourly data - fetch last 8 days to cover all 7-day-ago sensors
@@ -207,7 +207,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 else:
                     processed["bill_estimate"] = {}
             except Exception as err:
-                _LOGGER.debug("Failed to calculate bill estimate: %s", err)
+                _LOGGER.debug("Failed to calculate bill estimate: %s", type(err).__name__)
                 processed["bill_estimate"] = {}
 
             # 4c. Billing statements (real bills with PDF links)
@@ -238,7 +238,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
-                _LOGGER.debug("Failed to fetch statements: %s", err)
+                _LOGGER.debug("Failed to fetch statements: %s", type(err).__name__)
                 processed["statements"] = []
                 processed["latest_bill"] = {}
 
@@ -269,7 +269,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
-                _LOGGER.debug("Failed to fetch account extras: %s", err)
+                _LOGGER.debug("Failed to fetch account extras: %s", type(err).__name__)
                 processed["payments"] = []
                 processed["latest_payment"] = {}
                 processed["referral"] = {}
@@ -299,7 +299,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
-                _LOGGER.debug("Failed to fetch contact info: %s", err)
+                _LOGGER.debug("Failed to fetch contact info: %s", type(err).__name__)
                 processed["account_balance"] = None
                 processed["has_solar"] = None
 
@@ -321,10 +321,10 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 raise
             except Exception as err:
                 if not self._vehicle_warning_active:
-                    _LOGGER.warning("Vehicle data is unavailable: %s", err)
+                    _LOGGER.warning("Vehicle data is unavailable: %s", type(err).__name__)
                     self._vehicle_warning_active = True
                 else:
-                    _LOGGER.debug("Vehicle data remains unavailable: %s", err)
+                    _LOGGER.debug("Vehicle data remains unavailable: %s", type(err).__name__)
                 processed["vehicles"] = []
                 processed["vehicle_status"] = "unavailable"
 
@@ -340,7 +340,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
-                _LOGGER.debug("Failed to fetch billing overview: %s", err)
+                _LOGGER.debug("Failed to fetch billing overview: %s", type(err).__name__)
                 processed["billing_information"] = {}
                 processed["unbilled_charges"] = {}
 
@@ -355,19 +355,19 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
-                _LOGGER.debug("Failed to fetch usage info: %s", err)
+                _LOGGER.debug("Failed to fetch usage info: %s", type(err).__name__)
 
             return processed
 
-        except OVOEnergyAUApiClientAuthenticationError as err:
-            raise ConfigEntryAuthFailed(err) from err
-        except OVOEnergyAUApiClientCommunicationError as err:
-            raise UpdateFailed(f"Communication error: {err}") from err
-        except OVOEnergyAUApiClientError as err:
-            raise UpdateFailed(f"API error: {err}") from err
+        except OVOEnergyAUApiClientAuthenticationError:
+            raise ConfigEntryAuthFailed("OVO authentication was rejected") from None
+        except OVOEnergyAUApiClientCommunicationError:
+            raise UpdateFailed("Communication error contacting OVO") from None
+        except OVOEnergyAUApiClientError:
+            raise UpdateFailed("OVO API returned invalid data") from None
         except Exception as err:
-            _LOGGER.exception("Unexpected error fetching OVO Energy data")
-            raise UpdateFailed(f"Error fetching data: {err}") from err
+            _LOGGER.error("Unexpected error fetching OVO Energy data (%s)", type(err).__name__)
+            raise UpdateFailed("Unexpected error fetching OVO data") from None
 
     @staticmethod
     def _hourly_payload_is_usable(hourly: dict) -> bool:

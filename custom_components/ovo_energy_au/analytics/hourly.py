@@ -9,6 +9,7 @@ from homeassistant.util import dt as dt_util
 
 from ..const import AU_TIMEZONE, PLAN_FREE_3, PLAN_FREE_4
 from ..models import PlanConfig
+from ..time_utils import parse_ovo_datetime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -239,18 +240,8 @@ def _build_timeline(processed: dict) -> list[dict]:
 
 
 def _parse_timestamp(period_from: str) -> datetime | None:
-    """Parse an ISO timestamp string and convert to Australian Eastern time.
-
-    This ensures hour-of-day calculations (heatmap, peak window, TOU)
-    use local Australian hours, not UTC.
-    """
-    if not period_from:
-        return None
-    try:
-        ts = datetime.fromisoformat(period_from.replace("Z", "+00:00"))
-        return ts.astimezone(AU_TIMEZONE)
-    except (ValueError, TypeError):
-        return None
+    """Parse timestamps independently of the Home Assistant host timezone."""
+    return parse_ovo_datetime(period_from)
 
 
 def _compute_tou_breakdown(timeline: list[dict]) -> dict:

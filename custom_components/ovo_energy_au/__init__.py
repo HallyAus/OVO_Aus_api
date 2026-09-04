@@ -7,11 +7,11 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import OVOEnergyAUApiClient, OVOEnergyAUApiClientAuthenticationError
+from .api import OVOEnergyAUApiClient, OVOEnergyAUApiClientAuthenticationError, OVOEnergyAUApiClientError
 from .const import (
     CONF_ACCOUNT_ID,
     CONF_PEAK_END_HOUR,
@@ -63,8 +63,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.config_entries.async_update_entry(
                 entry, data={**entry.data, CONF_ACCOUNT_ID: account_id}
             )
-    except OVOEnergyAUApiClientAuthenticationError as err:
-        raise ConfigEntryAuthFailed(err) from err
+    except OVOEnergyAUApiClientAuthenticationError:
+        raise ConfigEntryAuthFailed("OVO authentication was rejected") from None
+    except (OVOEnergyAUApiClientError, TimeoutError):
+        raise ConfigEntryNotReady("Unable to reach OVO during setup") from None
 
     # Authentication remains in entry.data; user-adjustable plan settings live
     # in entry.options. The merge keeps existing pre-migration entries working.
