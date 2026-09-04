@@ -1,0 +1,25 @@
+name: Publish tested OVO v4.9.3
+on:
+  push:
+    branches: [release/publish-v4.9.3]
+    paths: [.github/workflows/publish-reviewed-v4.9.3.yml]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  dispatch:
+    if: github.repository == 'HallyAus/OVO_Aus_api'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EXPECTED_SHA: b7191988d4c7faf28b5697cdad6f8b6a1c4cbdfc
+    steps:
+      - name: Require successful CI on the exact merged source
+        run: |
+          set -euo pipefail
+          gh run watch 33926081934 --repo "$GITHUB_REPOSITORY" --exit-status
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/33926081934" --jq .head_sha)" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+      - name: Run the repository release workflow on validated main
+        run: gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag=v4.9.3
