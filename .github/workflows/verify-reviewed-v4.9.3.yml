@@ -1,0 +1,46 @@
+name: Verify published OVO v4.9.3
+on:
+  push:
+    branches: [release/publish-v4.9.3]
+    paths: [.github/workflows/verify-reviewed-v4.9.3.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.repository == 'HallyAus/OVO_Aus_api'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: b7191988d4c7faf28b5697cdad6f8b6a1c4cbdfc
+          persist-credentials: false
+      - name: Download the published release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release download v4.9.3 --repo "$GITHUB_REPOSITORY" --pattern ovo_energy_au.zip --dir /tmp/ovo-release-check
+      - name: Verify every packaged file, version and POSIX path
+        run: |
+          python - <<'PYTHON'
+          import hashlib
+          import json
+          import subprocess
+          import zipfile
+          from pathlib import Path
+
+          path = Path('/tmp/ovo-release-check/ovo_energy_au.zip')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          assert digest == '4cda8c23013f1e18504011b88190a5a61caff86194421c5361fc3a068c67643e'
+          tracked = subprocess.check_output(['git', 'ls-files', '-z', 'custom_components/ovo_energy_au/']).decode().split('\0')
+          expected = {name.removeprefix('custom_components/'): Path(name).read_bytes() for name in tracked if name}
+          with zipfile.ZipFile(path) as archive:
+              names = [entry.filename for entry in archive.infolist() if not entry.is_dir()]
+              assert len(names) == len(set(names)), 'Duplicate ZIP entries'
+              assert set(names) == set(expected), 'Release file list differs from tested source'
+              for name in names:
+                  assert '\\' not in name and not name.startswith('/') and '..' not in name.split('/')
+                  assert '__pycache__' not in name and not name.endswith('.pyc')
+                  assert archive.read(name) == expected[name], f'Unexpected content: {name}'
+              assert json.loads(archive.read('ovo_energy_au/manifest.json'))['version'] == '4.9.3'
+          print(f'PASS: {len(expected)} packaged files match tested commit b719198; version 4.9.3; POSIX paths; sha256 {digest}')
+          PYTHON
