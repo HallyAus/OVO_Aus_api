@@ -12,7 +12,13 @@ from custom_components.ovo_energy_au.const import DOMAIN
 @pytest.mark.asyncio
 async def test_setup_entry_uses_runtime_data_and_options_override():
     hass = MagicMock()
+    setup_order = []
+
+    async def record_platform_setup(*args):
+        setup_order.append("platform")
+
     hass.config_entries.async_forward_entry_setups = AsyncMock()
+    hass.config_entries.async_forward_entry_setups.side_effect = record_platform_setup
     hass.config_entries.async_reload = AsyncMock()
     unload_callback = MagicMock()
     update_listener = MagicMock()
@@ -34,9 +40,19 @@ async def test_setup_entry_uses_runtime_data_and_options_override():
     client.authenticate_with_password = AsyncMock()
     coordinator = MagicMock()
     coordinator.async_config_entry_first_refresh = AsyncMock()
+    device_registry = MagicMock()
+    def create_account_device(**kwargs):
+        setup_order.append("account_device")
+        return SimpleNamespace(id="account-device-id")
+
+    device_registry.async_get_or_create.side_effect = create_account_device
 
     with (
         patch("custom_components.ovo_energy_au.async_get_clientsession"),
+        patch(
+            "custom_components.ovo_energy_au.dr.async_get",
+            return_value=device_registry,
+        ),
         patch(
             "custom_components.ovo_energy_au.OVOEnergyAUApiClient",
             return_value=client,
@@ -52,6 +68,16 @@ async def test_setup_entry_uses_runtime_data_and_options_override():
     plan_config = coordinator_class.call_args.kwargs["plan_config"]
     assert plan_config.ev_rate == 0.08
     assert plan_config.billing_cycle_day == 14
+    assert coordinator_class.call_args.kwargs["auto_detect_plan"] is True
+    device_registry.async_get_or_create.assert_called_once_with(
+        config_entry_id="entry-id",
+        identifiers={(DOMAIN, "account")},
+        name="OVO Energy AU",
+        manufacturer="OVO Energy Australia",
+        model="Energy Monitor",
+    )
+    assert setup_order == ["account_device", "platform"]
+    assert coordinator.account_device_id == "account-device-id"
     entry.add_update_listener.assert_called_once()
     update_callback = entry.add_update_listener.call_args.args[0]
     await update_callback(hass, entry)

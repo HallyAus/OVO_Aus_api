@@ -1,7 +1,7 @@
 # OVO Energy Australia for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-4.9.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.9.1-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
 
 Track solar generation, grid consumption, costs, EV charging, and plan savings in Home Assistant.
@@ -29,7 +29,7 @@ Referrals below are the only thing funding ongoing development. Both you and I g
 
 - ☀️ **Comprehensive Sensors** — Solar, grid, export, charges, rate breakdowns, analytics
 - 🧹 **Focused Entity Set** — Rotating Day 1-7/hourly-day entities are removed
-- ⚡ **Tariff Period Indicator** — Scheduled current tariff period with detected rate
+- ⚡ **Tariff Period Indicator** — Free 3, Free 4, EV, paid super-off-peak and configured TOU periods with detected rates
 - 🔌 **EV Charging Tracker** — Monthly and yearly EV charging kWh and cost
 - 🚗 **Connected Vehicle** — Battery/range/cable/mode telemetry, charge limits,
   readiness and credential health, preferences, charge plans, charging-time

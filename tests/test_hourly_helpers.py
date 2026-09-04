@@ -75,14 +75,20 @@ class TestGetHourlyDataForDate:
         assert len(result["hourly_data"]) == 2
 
     def test_get_hourly_data_for_date_empty_data(self):
-        """None or empty data should return zeroed result."""
+        """Missing hourly payload should remain unavailable, not fake zero."""
         result = get_hourly_data_for_date(None, "solar_entries", date(2026, 3, 19))
-        assert result["state"] == 0.0
+        assert result["state"] is None
         assert result["hourly_data"] == []
 
         result2 = get_hourly_data_for_date({}, "solar_entries", date(2026, 3, 19))
-        assert result2["state"] == 0.0
+        assert result2["state"] is None
         assert result2["hourly_data"] == []
+
+        result3 = get_hourly_data_for_date(
+            {"hourly": {}}, "solar_entries", date(2026, 3, 19)
+        )
+        assert result3["state"] is None
+        assert result3["hourly_data"] == []
 
     def test_get_hourly_data_for_date_wrong_date_returns_empty(self):
         """Entries on a different date should be excluded entirely."""

@@ -1,5 +1,6 @@
 """Diagnostics privacy regression tests."""
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -30,6 +31,10 @@ async def test_diagnostics_redact_identity_and_omit_sensitive_payloads():
         plan_config=SimpleNamespace(plan_type="ev"),
         last_update_success=True,
         last_update_success_time=None,
+        hourly_data_status="stale",
+        hourly_data_stale=True,
+        hourly_last_success_time=datetime(2026, 3, 20, 1, 2, tzinfo=UTC),
+        hourly_data_issue="empty_response",
     )
     entry = MagicMock()
     entry.runtime_data = coordinator
@@ -51,3 +56,10 @@ async def test_diagnostics_redact_identity_and_omit_sensitive_payloads():
     assert "signed.example" not in rendered
     assert result["coordinator"]["statements_available"] == 1
     assert result["coordinator"]["payments_available"] == 1
+    assert result["coordinator"]["hourly_data_status"] == "stale"
+    assert result["coordinator"]["hourly_data_stale"] is True
+    assert (
+        result["coordinator"]["hourly_last_successful_update"]
+        == "2026-03-20T01:02:00+00:00"
+    )
+    assert result["coordinator"]["hourly_data_issue"] == "empty_response"

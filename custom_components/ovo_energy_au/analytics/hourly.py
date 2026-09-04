@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 
 from homeassistant.util import dt as dt_util
 
-from ..const import AU_TIMEZONE
+from ..const import AU_TIMEZONE, PLAN_FREE_3, PLAN_FREE_4
 from ..models import PlanConfig
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,6 +20,9 @@ _CHARGE_TYPE_TO_PERIOD = {
     "DEBIT": "shoulder",
     "FREE": "free",
     "FREE_3": "free",
+    "FREE_4": "free",
+    "SUPER_OFFPEAK": "super_off_peak",
+    "SUPER_OFF_PEAK": "super_off_peak",
     "EV_OFFPEAK": "ev_offpeak",
     "OTHER": "other",
 }
@@ -96,7 +99,7 @@ def process_hourly_data(
     processed["time_of_use"] = _compute_tou_breakdown(timeline)
 
     # Re-bucket OTHER usage into peak/off-peak when the user configured a
-    # window (Free 3 plans report TOU usage as OTHER — issue #63)
+    # distributor-specific window (Free plans can report TOU usage as OTHER).
     _split_other_by_window(processed["time_of_use"], timeline, plan_config)
 
     # Free and EV usage tracking (Bug 1 fix: use AEST instead of UTC).
@@ -254,7 +257,15 @@ def _compute_tou_breakdown(timeline: list[dict]) -> dict:
     """Compute time-of-use consumption/cost breakdown."""
     tou = {
         period: {"consumption": 0.0, "cost": 0.0, "hours": 0}
-        for period in ["peak", "shoulder", "off_peak", "ev_offpeak", "free", "other"]
+        for period in [
+            "peak",
+            "shoulder",
+            "off_peak",
+            "super_off_peak",
+            "ev_offpeak",
+            "free",
+            "other",
+        ]
     }
 
     for entry in timeline:
@@ -288,7 +299,7 @@ def _split_other_by_window(
 ) -> None:
     """Re-bucket OTHER entries into peak/off_peak using the configured window.
 
-    Free 3 plans deliver PEAK/OFF_PEAK usage as OTHER, so users can configure
+    Some OVO plans deliver PEAK/OFF_PEAK usage as OTHER, so users can configure
     peak_start_hour/peak_end_hour to recover a TOU split. The window is
     [start, end) in local Australian hours and supports overnight windows
     (start > end, e.g. 21 -> 7). Mutates tou in place; no-op when the window
@@ -351,7 +362,12 @@ def _add_usage_tracking(
         is_current_month = ts.month == current_month and ts.year == current_year
 
         # Free usage (MTD)
-        if charge_type in ["FREE", "FREE_3"] and is_current_month:
+        is_free_period = charge_type in ["FREE", "FREE_3", "FREE_4"] or (
+            charge_type in ["SUPER_OFFPEAK", "SUPER_OFF_PEAK"]
+            and plan_config.plan_type in [PLAN_FREE_3, PLAN_FREE_4]
+            and charge_value == 0
+        )
+        if is_free_period and is_current_month:
             free_mtd["consumption"] += consumption
             free_mtd["hours"] += 1
             free_mtd["cost_saved"] += consumption * plan_config.shoulder_rate

@@ -387,6 +387,7 @@ def test_vehicle_sensors_surface_metrics_and_rich_attributes():
     vehicle = _sample_vehicle_data()[0]
     coordinator = MagicMock()
     coordinator.account_id = "account-secret"
+    coordinator.account_device_id = "account-device-id"
     coordinator.last_update_success = True
     coordinator.data = {"vehicles": [vehicle]}
 
@@ -394,7 +395,8 @@ def test_vehicle_sensors_surface_metrics_and_rich_attributes():
     battery = OVOVehicleMetricSensor(coordinator, vehicle, battery_definition)
     assert battery.native_value == 62.5
     assert "device-secret" not in battery._attr_unique_id
-    assert battery.device_info["via_device"] == ("ovo_energy_au", "account-secret")
+    assert battery.device_info["via_device_id"] == "account-device-id"
+    assert "via_device" not in battery.device_info
 
     status = OVOVehicleStatusSensor(coordinator, vehicle)
     assert status.native_value == "Registered"

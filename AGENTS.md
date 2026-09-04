@@ -14,7 +14,7 @@ user dashboards and long-term statistics. Referral income is the only funding, s
 
 ## Stack
 - Python 3.11+, `aiohttp` + `PyJWT` only. `PyJWT>=2.13,<3` is pinned — 3.x breaks the API surface.
-- Home Assistant **2024.6** minimum, chosen because that is when `ConfigEntry.runtime_data` landed. Do not raise it casually.
+- Home Assistant **2026.8.3** minimum. A 2026.6.2 Container installation could not resolve the pinned PyJWT requirement; upgrading to 2026.8.3 fixed setup (#81).
 - Auth is **Auth0 OAuth2 + PKCE scraping the HTML login form**, not a public API. See archived notes for the 6-step flow.
 - EV data comes from a **separate Kaluza/Firebase token chain**, account-scoped — NOT the MyOVO access token.
 - Tests mock the entire `homeassistant` package in `tests/conftest.py`. HA is **not** installed; `pip install homeassistant` is unnecessary.
@@ -23,7 +23,7 @@ user dashboards and long-term statistics. Referral income is the only funding, s
 
 ## Run it
 ```bash
-python -m pytest tests/ -q                      # 141 tests, ~0.4s, no HA needed
+python -m pytest tests/ -q                      # 169 tests, no HA needed
 python -m pytest tests/test_analytics.py -v -k name
 ruff check custom_components/ovo_energy_au/
 mypy custom_components/ovo_energy_au/
@@ -110,3 +110,13 @@ accepted — branding lives in `custom_components/ovo_energy_au/brand/`).
 - `docs/legacy-agent-notes-2026-08-26.md` — full module map, the 6-step Auth0 flow, the exact release-zip command.
 - `docs/guides/AUDIT_REPORT.md` — 2026-08 full repository/platform audit.
 - `docs/guides/OVO_AU_API_DOCUMENTATION.md` — mapped GraphQL surface. `docs/actions.md` — the service.
+
+<!-- portfolio-context:start -->
+## Portfolio context
+
+- Canonical portfolio path: `D:\Claude\work\active\ovo`.
+- Legacy compatibility path: `D:\Claude\Projects\OVO`. It may be a junction; do not treat it as another copy.
+- Read `STATUS.md` before work and verify volatile claims locally.
+- Portfolio registry: `../../../portfolio/projects.json` (`path` is canonical; `storageMode` explains junction direction).
+- Portfolio classification does not authorize deployment, deletion, deduplication or live-system mutation.
+<!-- portfolio-context:end -->

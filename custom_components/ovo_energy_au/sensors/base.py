@@ -23,6 +23,14 @@ _DEFAULT_DISABLED_CATEGORIES = {
     "Usage Patterns",
 }
 
+_HOURLY_DATA_CATEGORIES = {
+    "Peak Usage",
+    "Time of Use",
+    "Usage Patterns",
+    "Hourly Data",
+    "Hourly Graph Data",
+}
+
 
 class OVOBaseSensor(CoordinatorEntity, SensorEntity):
     """Base class for all OVO Energy sensors."""
@@ -51,15 +59,19 @@ class OVOBaseSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self) -> dict[str, Any]:
-        return {
+        info = {
             "identifiers": {
                 (DOMAIN, f"{self.coordinator.account_id}_{self._device_category}")
             },
             "name": f"OVO Energy AU - {self._device_category}",
             "manufacturer": "OVO Energy Australia",
             "model": "Energy Monitor",
-            "via_device": (DOMAIN, self.coordinator.account_id),
         }
+        if account_device_id := getattr(
+            self.coordinator, "account_device_id", None
+        ):
+            info["via_device_id"] = account_device_id
+        return info
 
 
 class OVOEnergySensor(OVOBaseSensor):
@@ -99,6 +111,17 @@ class OVOEnergySensor(OVOBaseSensor):
         except Exception as err:
             _LOGGER.debug("Sensor %s error: %s", self._sensor_key, err)
             return None
+
+    @property
+    def available(self) -> bool:
+        """Keep hourly-only entities unavailable until real data exists."""
+        if (
+            self._device_category in _HOURLY_DATA_CATEGORIES
+            and getattr(self.coordinator, "hourly_data_status", None)
+            == "unavailable"
+        ):
+            return False
+        return bool(getattr(self.coordinator, "last_update_success", True))
 
     @property
     def native_unit_of_measurement(self) -> str | None:
@@ -203,10 +226,10 @@ def get_hourly_data_for_date(data: dict, entry_type: str, target_date) -> dict:
 
     Returns dict with 'state' (total kWh) and 'hourly_data' (list of hourly values).
     """
-    if not data:
-        return {"state": 0.0, "hourly_data": []}
+    if not data or not isinstance(data.get("hourly"), dict) or not data["hourly"]:
+        return {"state": None, "hourly_data": []}
 
-    entries = data.get("hourly", {}).get(entry_type, [])
+    entries = data["hourly"].get(entry_type, [])
     if not entries:
         return {"state": 0.0, "hourly_data": []}
 

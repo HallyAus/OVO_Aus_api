@@ -115,13 +115,17 @@ class OVOVehicleBaseSensor(OVOBaseSensor):
     @property
     def device_info(self) -> dict[str, Any]:
         vehicle = self.vehicle or {}
-        return {
+        info = {
             "identifiers": {(DOMAIN, f"vehicle_{self._vehicle_id}")},
             "name": f"OVO {vehicle.get('name') or 'Electric Vehicle'}",
             "manufacturer": vehicle.get("make") or "OVO Energy Australia",
             "model": vehicle.get("model") or "Connected Vehicle",
-            "via_device": (DOMAIN, self.coordinator.account_id),
         }
+        if account_device_id := getattr(
+            self.coordinator, "account_device_id", None
+        ):
+            info["via_device_id"] = account_device_id
+        return info
 
 
 class OVOVehicleMetricSensor(OVOVehicleBaseSensor):

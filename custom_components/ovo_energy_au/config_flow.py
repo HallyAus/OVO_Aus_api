@@ -33,9 +33,11 @@ from .const import (
     PLAN_BASIC,
     PLAN_EV,
     PLAN_FREE_3,
+    PLAN_FREE_4,
     PLAN_NAMES,
     PLAN_ONE,
 )
+from .tariffs import detect_plan_type, get_current_agreement
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -131,8 +133,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.warning("No product agreements found for account %s", account_id)
                 return
 
-            # Use the first active product agreement
-            agreement = product_agreements[0]
+            # Prefer the active/latest agreement. OVO can retain the completed
+            # product before the current one after a plan switch.
+            agreement = get_current_agreement(account_info)
             product = agreement.get("product", {})
 
             # Extract plan name and rates
@@ -146,14 +149,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 standing_charge
             )
 
-            # Map API plan name to our internal plan type
-            plan_type = PLAN_BASIC  # Default fallback
-            if "EV" in plan_name.upper():
-                plan_type = PLAN_EV
-            elif "FREE 3" in plan_name.upper() or "FREE3" in plan_name.upper():
-                plan_type = PLAN_FREE_3
-            elif "ONE" in plan_name.upper():
-                plan_type = PLAN_ONE
+            # Map every known current/legacy product name, including Basic
+            # variants such as "The Basic Free 4 Plan".
+            plan_type = detect_plan_type(plan_name) or PLAN_BASIC
 
             # Convert cents/kWh to $/kWh (divide by 100)
             detected_rates = {}
@@ -165,9 +163,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 detected_rates["off_peak"] = unit_rates["offPeak"] / 100
             if unit_rates.get("evOffPeak") is not None:
                 detected_rates["ev"] = unit_rates["evOffPeak"] / 100
-            if unit_rates.get("superOffPeak") is not None and unit_rates["superOffPeak"] > 0:
-                # Super off-peak is the free period on some plans
-                detected_rates["free"] = unit_rates["superOffPeak"] / 100
             if unit_rates.get("standard") is not None:
                 detected_rates["flat"] = unit_rates["standard"] / 100
             if unit_rates.get("feedInTariff") is not None:
@@ -230,13 +225,24 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data = {**self._auth_data}
                 data[CONF_PLAN_TYPE] = self._detected_plan or PLAN_BASIC
 
-                # Use detected rates or defaults
+                # Use detected rates or plan-specific defaults
                 detected_rates = self._detected_rates or {}
-                data[CONF_PEAK_RATE] = detected_rates.get("peak", 0.35)
-                data[CONF_SHOULDER_RATE] = detected_rates.get("shoulder", 0.25)
-                data[CONF_OFF_PEAK_RATE] = detected_rates.get("off_peak", 0.18)
-                data[CONF_EV_RATE] = detected_rates.get("ev", 0.06)
-                data[CONF_FLAT_RATE] = detected_rates.get("flat", 0.28)
+                default_rates = DEFAULT_RATES.get(data[CONF_PLAN_TYPE], {})
+                data[CONF_PEAK_RATE] = detected_rates.get(
+                    "peak", default_rates.get("peak", 0.35)
+                )
+                data[CONF_SHOULDER_RATE] = detected_rates.get(
+                    "shoulder", default_rates.get("shoulder", 0.25)
+                )
+                data[CONF_OFF_PEAK_RATE] = detected_rates.get(
+                    "off_peak", default_rates.get("off_peak", 0.18)
+                )
+                data[CONF_EV_RATE] = detected_rates.get(
+                    "ev", default_rates.get("ev", 0.06)
+                )
+                data[CONF_FLAT_RATE] = detected_rates.get(
+                    "flat", default_rates.get("flat", 0.28)
+                )
 
                 return self.async_create_entry(title=self._auth_data["title"], data=data)
 
@@ -339,32 +345,48 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             plan_type = user_input[CONF_PLAN_TYPE]
             default_rates = DEFAULT_RATES.get(plan_type, {})
 
-            if plan_type == PLAN_FREE_3:
+            peak_start = int(user_input.get(CONF_PEAK_START_HOUR, 0))
+            peak_end = int(user_input.get(CONF_PEAK_END_HOUR, 0))
+            has_peak_window = peak_start != peak_end
+
+            if plan_type in (PLAN_FREE_3, PLAN_FREE_4):
                 options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
                 options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
                 options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
-                # Optional window to split OTHER usage into peak/off-peak.
-                # start == end means disabled (Free 3 reports TOU as OTHER).
-                if CONF_PEAK_START_HOUR in user_input and CONF_PEAK_END_HOUR in user_input:
-                    options[CONF_PEAK_START_HOUR] = int(user_input[CONF_PEAK_START_HOUR])
-                    options[CONF_PEAK_END_HOUR] = int(user_input[CONF_PEAK_END_HOUR])
+                options[CONF_PEAK_START_HOUR] = peak_start
+                options[CONF_PEAK_END_HOUR] = peak_end
             elif plan_type == PLAN_EV:
                 options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
                 options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
                 options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
                 options[CONF_EV_RATE] = user_input.get(CONF_EV_RATE, default_rates.get("ev", 0.06))
+                options[CONF_PEAK_START_HOUR] = peak_start
+                options[CONF_PEAK_END_HOUR] = peak_end
             elif plan_type == PLAN_BASIC:
                 options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
                 options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
                 options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+                options[CONF_PEAK_START_HOUR] = peak_start
+                options[CONF_PEAK_END_HOUR] = peak_end
             elif plan_type == PLAN_ONE:
                 options[CONF_FLAT_RATE] = user_input.get(CONF_FLAT_RATE, default_rates.get("flat", 0.28))
+                # The One Plan may be flat or TOU depending on distributor.
+                # Keep the flat-plan surface clean unless a TOU window is set.
+                if has_peak_window:
+                    options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, 0.35)
+                    options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, 0.25)
+                    options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, 0.18)
+                    options[CONF_PEAK_START_HOUR] = peak_start
+                    options[CONF_PEAK_END_HOUR] = peak_end
 
             return self.async_create_entry(title="", data=options)
 
         # Get current plan settings or use defaults
         current = {**self.config_entry.data, **self.config_entry.options}
         current_plan = current.get(CONF_PLAN_TYPE, PLAN_BASIC)
+        runtime_data = getattr(self.config_entry, "runtime_data", None)
+        if runtime_data is not None and CONF_PLAN_TYPE not in self.config_entry.options:
+            current_plan = runtime_data.plan_config.plan_type
         current_peak = current.get(CONF_PEAK_RATE, 0.35)
         current_shoulder = current.get(CONF_SHOULDER_RATE, 0.25)
         current_off_peak = current.get(CONF_OFF_PEAK_RATE, 0.18)
@@ -378,6 +400,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         schema_fields = {
             vol.Required(CONF_PLAN_TYPE, default=current_plan): vol.In({
                 PLAN_FREE_3: PLAN_NAMES[PLAN_FREE_3],
+                PLAN_FREE_4: PLAN_NAMES[PLAN_FREE_4],
                 PLAN_EV: PLAN_NAMES[PLAN_EV],
                 PLAN_BASIC: PLAN_NAMES[PLAN_BASIC],
                 PLAN_ONE: PLAN_NAMES[PLAN_ONE],
@@ -392,15 +415,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Coerce(int), vol.Range(min=1, max=31)
             ),
         }
-        # Free 3 plans report peak/off-peak usage as OTHER; offer a manual
-        # window so analytics can split it. start == end leaves it disabled.
-        if current_plan == PLAN_FREE_3:
-            schema_fields[vol.Optional(CONF_PEAK_START_HOUR, default=current_peak_start)] = vol.All(
-                vol.Coerce(int), vol.Range(min=0, max=23)
-            )
-            schema_fields[vol.Optional(CONF_PEAK_END_HOUR, default=current_peak_end)] = vol.All(
-                vol.Coerce(int), vol.Range(min=0, max=23)
-            )
+        # OVO does not expose distributor-specific schedule boundaries. The
+        # same optional window drives both Current Tariff Period and recovery
+        # of hourly entries that the API reports only as OTHER.
+        schema_fields[vol.Optional(CONF_PEAK_START_HOUR, default=current_peak_start)] = vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=23)
+        )
+        schema_fields[vol.Optional(CONF_PEAK_END_HOUR, default=current_peak_end)] = vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=23)
+        )
         options_schema = vol.Schema(schema_fields)
 
         return self.async_show_form(

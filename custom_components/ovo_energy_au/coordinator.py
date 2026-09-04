@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -25,8 +25,19 @@ from .api import (
 )
 from .const import AU_TIMEZONE, DOMAIN, FAST_UPDATE_INTERVAL
 from .models import PlanConfig
+from .tariffs import (
+    detect_plan_type,
+    get_current_product,
+    update_plan_config_rates,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+_HOURLY_ENTRY_KEYS = (
+    "solar_entries",
+    "grid_entries",
+    "return_to_grid_entries",
+)
 
 
 class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
@@ -38,12 +49,21 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
         client: OVOEnergyAUApiClient,
         account_id: str,
         plan_config: PlanConfig | None = None,
+        auto_detect_plan: bool = True,
     ) -> None:
         """Initialize the coordinator."""
         self.client = client
         self.account_id = account_id
         self.plan_config = plan_config or PlanConfig()
+        self.auto_detect_plan = auto_detect_plan
+        self.account_device_id: str | None = None
         self._vehicle_warning_active = False
+        self._hourly_warning_active = False
+        self._last_good_hourly: dict | None = None
+        self.hourly_data_status = "unavailable"
+        self.hourly_data_stale = False
+        self.hourly_last_success_time: datetime | None = None
+        self.hourly_data_issue: str | None = "not_yet_loaded"
 
         super().__init__(
             hass,
@@ -66,6 +86,17 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["product_agreements"] = await self.client.get_product_agreements(
                     self.account_id
                 )
+                if self.auto_detect_plan:
+                    product = get_current_product(processed)
+                    detected_plan = detect_plan_type(product.get("displayName", ""))
+                    if detected_plan and detected_plan != self.plan_config.plan_type:
+                        _LOGGER.info(
+                            "OVO energy plan changed from %s to %s",
+                            self.plan_config.plan_type,
+                            detected_plan,
+                        )
+                        self.plan_config.plan_type = detected_plan
+                    update_plan_config_rates(self.plan_config, processed)
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
@@ -86,22 +117,46 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 hourly_raw = await self.client.get_hourly_data(
                     self.account_id, query_start, query_end
                 )
-                processed["hourly"] = process_hourly_data(
+                hourly = process_hourly_data(
                     hourly_raw or {},
                     self.plan_config,
                     start_date=window_start,
                     end_date=window_end,
                 )
+                if not self._hourly_payload_is_usable(hourly):
+                    if self._hourly_warning_active:
+                        _LOGGER.debug(
+                            "Hourly data response still contains no usable entries"
+                        )
+                    else:
+                        _LOGGER.warning(
+                            "Hourly data response contains no usable entries"
+                        )
+                    self._hourly_warning_active = True
+                    self._use_hourly_fallback(processed, "empty_response")
+                else:
+                    processed["hourly"] = hourly
+                    self._last_good_hourly = hourly
+                    self.hourly_data_status = "fresh"
+                    self.hourly_data_stale = False
+                    self.hourly_last_success_time = now
+                    self.hourly_data_issue = None
+                    if self._hourly_warning_active:
+                        _LOGGER.info("Hourly data access has recovered")
+                        self._hourly_warning_active = False
             except OVOEnergyAUApiClientAuthenticationError:
                 raise
             except Exception as err:
-                _LOGGER.warning("Failed to fetch hourly data: %s", err)
-                processed["hourly"] = process_hourly_data(
-                    {},
-                    self.plan_config,
-                    start_date=window_start,
-                    end_date=window_end,
-                )
+                if self._hourly_warning_active:
+                    _LOGGER.debug(
+                        "Hourly data remains unavailable (%s)", type(err).__name__
+                    )
+                else:
+                    _LOGGER.warning(
+                        "Hourly data is unavailable (%s)", type(err).__name__
+                    )
+                self._hourly_warning_active = True
+                self._use_hourly_fallback(processed, "fetch_error")
 
             # 4. Analytics insights
             compute_insights(processed)
@@ -110,11 +165,9 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             try:
                 # Get standing charge from product agreements
                 standing_daily = 0
-                if processed.get("product_agreements"):
-                    agreements = processed["product_agreements"].get("productAgreements", [])
-                    if agreements:
-                        standing_cents = agreements[0].get("product", {}).get("standingChargeCentsPerDay", 0) or 0
-                        standing_daily = standing_cents / 100  # Convert to AUD
+                if product := get_current_product(processed):
+                    standing_cents = product.get("standingChargeCentsPerDay", 0) or 0
+                    standing_daily = standing_cents / 100  # Convert to AUD
 
                 # Month-to-date bill
                 mtd = processed.get("month_to_date", {})
@@ -225,6 +278,8 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             # 4e. Account metadata is also the source of the customer ID used
             # for OVO's separate, account-scoped Kaluza vehicle sign-in.
             customer_id = None
+            processed["account_balance"] = None
+            processed["has_solar"] = None
             try:
                 contact_info = await self.client.get_contact_info()
                 accounts = contact_info.get("accounts", [])
@@ -233,7 +288,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 # not see another account's balance or vehicle data.
                 account = next(
                     (a for a in active if str(a.get("id")) == str(self.account_id)),
-                    active[0] if active else None,
+                    None,
                 )
                 if account:
                     processed["account_balance"] = account.get(
@@ -313,3 +368,21 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
         except Exception as err:
             _LOGGER.exception("Unexpected error fetching OVO Energy data")
             raise UpdateFailed(f"Error fetching data: {err}") from err
+
+    @staticmethod
+    def _hourly_payload_is_usable(hourly: dict) -> bool:
+        """Return whether processing yielded at least one real hourly entry."""
+        return any(hourly.get(key) for key in _HOURLY_ENTRY_KEYS)
+
+    def _use_hourly_fallback(self, processed: dict, issue: str) -> None:
+        """Keep prior hourly data stale, or leave it unavailable on cold start."""
+        self.hourly_data_issue = issue
+        if self._last_good_hourly is None:
+            processed.pop("hourly", None)
+            self.hourly_data_status = "unavailable"
+            self.hourly_data_stale = False
+            return
+
+        processed["hourly"] = self._last_good_hourly
+        self.hourly_data_status = "stale"
+        self.hourly_data_stale = True

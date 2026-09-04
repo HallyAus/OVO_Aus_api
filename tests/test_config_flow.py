@@ -10,10 +10,13 @@ from custom_components.ovo_energy_au.const import (
     CONF_EV_RATE,
     CONF_FLAT_RATE,
     CONF_OFF_PEAK_RATE,
+    CONF_PEAK_END_HOUR,
     CONF_PEAK_RATE,
+    CONF_PEAK_START_HOUR,
     CONF_PLAN_TYPE,
     CONF_SHOULDER_RATE,
     PLAN_EV,
+    PLAN_FREE_4,
     PLAN_ONE,
 )
 
@@ -84,3 +87,25 @@ async def test_flat_plan_options_drop_time_of_use_rates():
         CONF_BILLING_CYCLE_DAY: 1,
         CONF_FLAT_RATE: 0.31,
     }
+
+
+@pytest.mark.asyncio
+async def test_free_4_options_store_its_plan_and_peak_window():
+    flow = OptionsFlowHandler()
+    flow.config_entry = SimpleNamespace(data={}, options={}, runtime_data=None)
+
+    result = await flow.async_step_init(
+        {
+            CONF_PLAN_TYPE: PLAN_FREE_4,
+            CONF_BILLING_CYCLE_DAY: 1,
+            CONF_PEAK_RATE: 0.4,
+            CONF_SHOULDER_RATE: 0.3,
+            CONF_OFF_PEAK_RATE: 0.2,
+            CONF_PEAK_START_HOUR: 15,
+            CONF_PEAK_END_HOUR: 21,
+        }
+    )
+
+    assert result["data"][CONF_PLAN_TYPE] == PLAN_FREE_4
+    assert result["data"][CONF_PEAK_START_HOUR] == 15
+    assert result["data"][CONF_PEAK_END_HOUR] == 21

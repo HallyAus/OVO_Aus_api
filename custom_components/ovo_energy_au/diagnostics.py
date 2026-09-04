@@ -10,6 +10,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
 from .const import CONF_ACCOUNT_ID
+from .tariffs import get_current_product
 
 _TO_REDACT = {
     CONF_USERNAME,
@@ -30,11 +31,17 @@ async def async_get_config_entry_diagnostics(
     coordinator = entry.runtime_data
     data = coordinator.data or {}
     hourly = data.get("hourly") or {}
-    agreements = (data.get("product_agreements") or {}).get("productAgreements") or []
-    product = (agreements[0].get("product") or {}) if agreements else {}
+    product = get_current_product(data)
     vehicles = data.get("vehicles") or []
 
     last_success = getattr(coordinator, "last_update_success_time", None)
+    hourly_status = getattr(coordinator, "hourly_data_status", "unknown")
+    if hourly_status not in {"fresh", "stale", "unavailable"}:
+        hourly_status = "unknown"
+    hourly_last_success = getattr(coordinator, "hourly_last_success_time", None)
+    hourly_issue = getattr(coordinator, "hourly_data_issue", None)
+    if not isinstance(hourly_issue, str):
+        hourly_issue = None
     return {
         "config_entry": async_redact_data(entry.as_dict(), _TO_REDACT),
         "coordinator": {
@@ -42,6 +49,14 @@ async def async_get_config_entry_diagnostics(
             "last_successful_update": (
                 last_success.isoformat() if last_success is not None else None
             ),
+            "hourly_data_status": hourly_status,
+            "hourly_data_stale": hourly_status == "stale",
+            "hourly_last_successful_update": (
+                hourly_last_success.isoformat()
+                if hourly_last_success is not None
+                else None
+            ),
+            "hourly_data_issue": hourly_issue,
             "plan_type": coordinator.plan_config.plan_type,
             "plan_name": product.get("displayName"),
             "has_solar": data.get("has_solar"),

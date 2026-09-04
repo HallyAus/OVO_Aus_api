@@ -26,12 +26,14 @@ CONF_BILLING_CYCLE_DAY = "billing_cycle_day"
 
 # Plan types
 PLAN_FREE_3 = "free_3"
+PLAN_FREE_4 = "free_4"
 PLAN_EV = "ev"
 PLAN_BASIC = "basic"
 PLAN_ONE = "one"
 
 PLAN_NAMES = {
     PLAN_FREE_3: "The Free 3 Plan",
+    PLAN_FREE_4: "The Free 4 Plan",
     PLAN_EV: "The EV Plan",
     PLAN_BASIC: "The Basic Plan",
     PLAN_ONE: "The One Plan",
@@ -44,6 +46,13 @@ DEFAULT_RATES = {
         "off_peak": 0.18,
         "free_start": 11,
         "free_end": 14,
+    },
+    PLAN_FREE_4: {
+        "peak": 0.35,
+        "shoulder": 0.25,
+        "off_peak": 0.18,
+        "free_start": 11,
+        "free_end": 15,
     },
     PLAN_EV: {
         "peak": 0.35,

@@ -136,7 +136,7 @@ ANALYTICS_SENSORS = [
      lambda d: (d.get("hourly", {}).get("peak_4hour_window") or {}).get("total_consumption"),
      "Peak Usage"),
 
-    # Time of Use (peak/off-peak split). Surfaces the Free 3 window split that
+    # Time of Use (peak/off-peak split). Surfaces the configured window split that
     # analytics.hourly._split_other_by_window computes from hourly GRID
     # consumption (#63/#74). CONSUMPTION ONLY: the OVO hourly API returns no
     # per-hour cost/rate data (charge/rates are null), so peak/off-peak COST
@@ -211,24 +211,28 @@ ANALYTICS_SENSORS = [
     # Hourly Heatmap
     ("hourly_heatmap", "Hourly Usage Heatmap", None,
      None, None, "mdi:grid",
-     lambda d: len(d.get("hourly", {}).get("hourly_heatmap", {})), "Usage Patterns"),
+     lambda d: len(d["hourly"].get("hourly_heatmap", {})) if d.get("hourly") else None,
+     "Usage Patterns"),
 
     # Hourly Data Totals
     ("hourly_solar_total", "Hourly Solar Total (Last 7 Days)", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, None, "mdi:solar-power",
-     lambda d: d.get("hourly", {}).get("solar_total", 0), "Hourly Data"),
+     lambda d: d.get("hourly", {}).get("solar_total"), "Hourly Data"),
 
     ("hourly_grid_total", "Hourly Grid Total (Last 7 Days)", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, None, "mdi:transmission-tower",
-     lambda d: d.get("hourly", {}).get("grid_total", 0), "Hourly Data"),
+     lambda d: d.get("hourly", {}).get("grid_total"), "Hourly Data"),
 
     ("hourly_return_to_grid_total", "Hourly Return to Grid Total (Last 7 Days)", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, None, "mdi:transmission-tower-export",
-     lambda d: d.get("hourly", {}).get("return_to_grid_total", 0), "Hourly Data"),
+     lambda d: d.get("hourly", {}).get("return_to_grid_total"), "Hourly Data"),
 
     ("hourly_data_entry_count", "Hourly Data Entries", None,
      None, None, "mdi:counter",
-     lambda d: sum(len(d.get("hourly", {}).get(k, [])) for k in ["solar_entries", "grid_entries", "return_to_grid_entries"]),
+     lambda d: sum(
+         len(d["hourly"].get(k, []))
+         for k in ["solar_entries", "grid_entries", "return_to_grid_entries"]
+     ) if d.get("hourly") else None,
      "Hourly Data"),
 
     # Yesterday Hourly
@@ -349,7 +353,30 @@ def get_rate_value(data: dict, period: str, rate_type: str, metric: str) -> floa
     """Extract rate breakdown value safely."""
     if not data:
         return None
-    rate_data = data.get(period, {}).get("rate_breakdown", {}).get(rate_type, {})
+    breakdown = data.get(period, {}).get("rate_breakdown", {})
+    if rate_type == "FREE_3":
+        # Keep the established entity unique IDs while accepting every API
+        # spelling used for the Free 3 and Free 4 products.
+        matching = [
+            breakdown.get(key, {})
+            for key in (
+                "FREE",
+                "FREE_3",
+                "FREE_4",
+                "SUPER_OFFPEAK",
+                "SUPER_OFF_PEAK",
+            )
+            if breakdown.get(key, {}).get("available")
+            and (
+                "SUPER" not in key
+                or float(breakdown.get(key, {}).get("charge", 0) or 0) == 0
+            )
+        ]
+        if not matching:
+            return None
+        return sum(float(item.get(metric, 0) or 0) for item in matching)
+
+    rate_data = breakdown.get(rate_type, {})
     if not rate_data.get("available"):
         return None
     return rate_data.get(metric)

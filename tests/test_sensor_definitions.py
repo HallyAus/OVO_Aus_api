@@ -50,6 +50,7 @@ class TestSensorStatePrecision:
     def test_noisy_history_defaults_disabled_and_uses_category_device(self):
         coordinator = MagicMock()
         coordinator.account_id = "12345"
+        coordinator.account_device_id = "account-device-id"
         coordinator.data = {"present": True}
         sensor = OVOEnergySensor(
             coordinator,
@@ -66,7 +67,35 @@ class TestSensorStatePrecision:
         assert sensor.device_info["identifiers"] == {
             ("ovo_energy_au", "12345_Hourly Data")
         }
-        assert sensor.device_info["via_device"] == ("ovo_energy_au", "12345")
+        assert sensor.device_info["via_device_id"] == "account-device-id"
+        assert "via_device" not in sensor.device_info
+
+    def test_hourly_sensor_is_unavailable_until_real_data_exists(self):
+        coordinator = SimpleNamespace(
+            account_id="12345",
+            data={},
+            hourly_data_status="unavailable",
+            last_update_success=True,
+        )
+        sensor = OVOEnergySensor(
+            coordinator,
+            "hourly_grid_total",
+            "Hourly Grid Total",
+            "kWh",
+            None,
+            None,
+            "mdi:flash",
+            lambda data: data.get("hourly", {}).get("grid_total"),
+            "Hourly Data",
+        )
+
+        assert sensor.available is False
+        assert sensor.native_value is None
+
+        coordinator.hourly_data_status = "stale"
+        coordinator.data = {"hourly": {"grid_total": 1.25}}
+        assert sensor.available is True
+        assert sensor.native_value == 1.25
 
 
 class TestSensorTupleStructure:
@@ -105,6 +134,47 @@ class TestSensorTupleStructure:
                 value_fn({})
             except Exception as exc:
                 pytest.fail(f"value_fn for {key!r} raised {type(exc).__name__}: {exc}")
+
+    def test_nine_rolling_replacement_entities_remain_non_statistical(self):
+        """Rolling windows must not regain a long-term-statistics state class."""
+        rolling_keys = {
+            "week_comparison_solar",
+            "week_comparison_grid",
+            "week_comparison_cost",
+            "hourly_solar_total",
+            "hourly_grid_total",
+            "hourly_return_to_grid_total",
+            "hourly_solar_yesterday",
+            "hourly_grid_yesterday",
+            "hourly_export_yesterday",
+        }
+        definitions = {definition[0]: definition for definition in ANALYTICS_SENSORS}
+
+        assert rolling_keys <= definitions.keys()
+        assert {key: definitions[key][4] for key in rolling_keys} == {
+            key: None for key in rolling_keys
+        }
+
+    def test_hourly_value_functions_do_not_invent_cold_start_zeroes(self):
+        hourly_keys = {
+            "peak_4hour_consumption",
+            "tou_peak_consumption",
+            "tou_off_peak_consumption",
+            "hourly_heatmap",
+            "hourly_solar_total",
+            "hourly_grid_total",
+            "hourly_return_to_grid_total",
+            "hourly_data_entry_count",
+            "hourly_solar_yesterday",
+            "hourly_grid_yesterday",
+            "hourly_export_yesterday",
+        }
+        definitions = {definition[0]: definition for definition in ANALYTICS_SENSORS}
+
+        assert hourly_keys <= definitions.keys()
+        assert {
+            key: definitions[key][6]({}) for key in hourly_keys
+        } == {key: None for key in hourly_keys}
 
 
 class TestTimeOfUseSensors:
@@ -328,6 +398,34 @@ class TestSpecializedSensorSafety:
         assert attrs["feed_in_tariff_aud_kwh"] == 0.033
         assert attrs["standing_charge_aud_per_day"] == 1.1
 
+    def test_free_4_plan_information_hides_irrelevant_ev_placeholder(self):
+        from custom_components.ovo_energy_au.sensor import OVOPlanSensor
+
+        attrs = OVOPlanSensor(
+            self._coord(
+                "free_4",
+                {"peak": 39.765, "superOffPeak": 12.1, "evOffPeak": 0},
+            )
+        ).extra_state_attributes
+
+        assert attrs["super_off_peak_aud_kwh"] == 0
+        assert attrs["free_window"] == "11:00-15:00"
+        assert "ev_off_peak_aud_kwh" not in attrs
+
+    def test_free_4_rate_breakdown_reuses_the_stable_free_period_entity(self):
+        data = {
+            "daily": {
+                "rate_breakdown": {
+                    "FREE_4": {
+                        "available": True,
+                        "consumption": 4.25,
+                        "charge": 0,
+                    }
+                }
+            }
+        }
+        assert get_rate_value(data, "daily", "FREE_3", "consumption") == 4.25
+
     def test_plan_savings_entity_consolidates_all_periods(self):
         from custom_components.ovo_energy_au.sensor import OVORateComparisonSensor
 
@@ -398,6 +496,23 @@ class TestSpecializedSensorSafety:
             assert attrs["usage_data_stale"] is False
             assert attrs["energy_data_realtime"] is False
 
+            coordinator.hourly_data_status = "unavailable"
+            coordinator.hourly_data_issue = "empty_response"
+            assert sensor.native_value == "Hourly Data Unavailable"
+            assert sensor.extra_state_attributes["hourly_data_stale"] is False
+
+            coordinator.hourly_data_status = "stale"
+            coordinator.hourly_last_success_time = datetime(
+                2026, 3, 20, 1, 2, tzinfo=AU_TIMEZONE
+            )
+            assert sensor.native_value == "Hourly Data Stale"
+            assert sensor.extra_state_attributes["hourly_data_stale"] is True
+            assert (
+                sensor.extra_state_attributes["hourly_last_successful_update"]
+                == "2026-03-20T01:02:00+11:00"
+            )
+
+            coordinator.hourly_data_status = "fresh"
             coordinator.data["all_daily_entries"] = [{"date": "2026-03-16"}]
             assert sensor.native_value == "Stale Usage Data"
             assert sensor.extra_state_attributes["usage_data_stale"] is True

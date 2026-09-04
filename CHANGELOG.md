@@ -5,6 +5,35 @@ All notable changes to the OVO Energy Australia Home Assistant integration will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.9.1] - 2026-09-04
+
+> - **OVO referral code:** `daniel16485`
+> - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+> - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
+
+### Added
+- Added The Free 4 Plan and Basic Free 4 recognition, including the complete 11am-3pm free window and support for `FREE_4` usage buckets without creating more entities (#78).
+- Plan Information and Current Tariff Period now expose the applicable free, EV, super-off-peak, and configured peak windows as attributes.
+
+### Fixed
+- Transient hourly API failures and structurally empty responses now retain the last good hourly payload instead of publishing a synthetic set of zero totals.
+- A cold start without usable hourly entries keeps hourly-only entities unavailable until real data arrives.
+- Integration Health and privacy-safe diagnostics now distinguish fresh, stale-cached, and unavailable hourly data and report the last successful hourly update.
+- Existing entries now detect a recognised OVO plan change on refresh unless the user has deliberately selected a plan in integration options (#78).
+- Plan changes now select the latest active agreement rather than assuming OVO returns it first, and automatic entries refresh their fallback rates from that agreement.
+- Free 3/Free 4 always report the contractual $0 rate in the free window even if OVO returns an unrelated non-zero super-off-peak placeholder.
+- The Free 3 tariff indicator now uses the configured peak window and reports Peak/Off-Peak with the matching live or configured rates instead of labelling every paid period Standard (#82).
+- A non-zero One Plan or EV super-off-peak rate is now reported as Super Off-Peak rather than FREE; the reported United Energy One Plan 11am-4pm period uses its actual API price, follows a configured afternoon peak boundary, and never exposes an EV period (#79).
+- The account device is explicitly registered before category or vehicle entities reference it, and child devices use Home Assistant's current `via_device_id` API (#77).
+- Multi-account contact lookup no longer falls back to a different active account when the configured account is absent.
+- The v4.9 registry migration removes the 161 retired rotating entities that produced v4.8.2's state-class repairs; upgrade guidance now explains how to discard any orphaned statistics that Home Assistant still offers to delete (#80).
+- HACS and the README now declare Home Assistant 2026.8.3 as the minimum after older Container installations failed to resolve the required PyJWT version (#81).
+
+### Validation
+- Added consecutive-refresh regressions for exception, empty-response, cold-start, and recovery paths.
+- Added a contract test that the nine rolling week/hour replacement entities remain without a long-term-statistics state class.
+- Added plan-detection, active-agreement, live-rate refresh, contractual-free-rate, Free 4, Free 3 TOU, paid super-off-peak, Free 4 bucket compatibility, multi-account isolation, and parent-device registration regressions.
+
 ## [4.9.0] - 2026-08-27
 
 > - **OVO referral code:** `daniel16485`

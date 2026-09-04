@@ -7,6 +7,7 @@ the sensor business logic.
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 from datetime import datetime
 from typing import Any
@@ -19,7 +20,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, PLAN_EV, PLAN_FREE_3, PLAN_ONE
+from .const import DOMAIN, PLAN_EV, PLAN_FREE_3, PLAN_FREE_4, PLAN_ONE
 from .sensors.base import (
     AU_TIMEZONE,
     OVOBaseSensor,
@@ -32,6 +33,14 @@ from .sensors.definitions import (
     get_rate_value,
 )
 from .sensors.vehicle import create_vehicle_sensors
+from .tariffs import (
+    detect_plan_type,
+    get_current_agreement,
+    get_current_product,
+    get_product_rates,
+    get_schedule_attributes,
+    get_tariff_details,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -342,10 +351,10 @@ class OVOPlanSensor(OVOBaseSensor):
         pa = self.coordinator.data.get("product_agreements")
         if not pa or not isinstance(pa, dict):
             return "Unknown"
-        agreements = pa.get("productAgreements", [])
-        if not agreements:
+        product = get_current_product(self.coordinator.data)
+        if not product:
             return "No Plan"
-        return agreements[0].get("product", {}).get("displayName", "Unknown Plan")
+        return product.get("displayName", "Unknown Plan")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -354,11 +363,10 @@ class OVOPlanSensor(OVOBaseSensor):
         pa = self.coordinator.data.get("product_agreements")
         if not pa:
             return {"status": "No plan data available"}
-        agreements = pa.get("productAgreements", [])
-        if not agreements:
+        agreement = get_current_agreement(self.coordinator.data)
+        if not agreement:
             return {"status": "No product agreements found"}
 
-        agreement = agreements[0]
         product = agreement.get("product", {})
         unit_rates = product.get("unitRatesCentsPerKWH", {})
 
@@ -368,6 +376,15 @@ class OVOPlanSensor(OVOBaseSensor):
             "from_date": agreement.get("fromDt", "Unknown"),
             "to_date": agreement.get("toDt", "Unknown"),
         }
+        detected_plan = detect_plan_type(product.get("displayName", ""))
+        if detected_plan:
+            attrs["detected_plan_type"] = detected_plan
+        attrs.update(
+            get_schedule_attributes(
+                self.coordinator.plan_config,
+                get_product_rates(self.coordinator.data),
+            )
+        )
 
         standing = product.get("standingChargeCentsPerDay", 0)
         if standing:
@@ -380,8 +397,29 @@ class OVOPlanSensor(OVOBaseSensor):
             ("standard", "standard"), ("feedInTariff", "feed_in_tariff"),
             ("CL1", "cl1"),
         ]
-        for api_key, label in rate_fields:
-            val = unit_rates.get(api_key)
+        for rate_key, label in rate_fields:
+            val = unit_rates.get(rate_key)
+            if rate_key == "evOffPeak" and self.coordinator.plan_config.plan_type != PLAN_EV:
+                continue
+            if (
+                rate_key == "superOffPeak"
+                and self.coordinator.plan_config.plan_type
+                in (PLAN_FREE_3, PLAN_FREE_4)
+            ):
+                # The Free product contract is authoritative. Do not expose a
+                # generic non-zero placeholder as the free-window price.
+                val = 0
+            if rate_key == "superOffPeak" and not (
+                self.coordinator.plan_config.plan_type
+                in (PLAN_EV, PLAN_FREE_3, PLAN_FREE_4)
+                or (
+                    self.coordinator.plan_config.plan_type == PLAN_ONE
+                    and isinstance(val, (int, float))
+                    and not isinstance(val, bool)
+                    and val > 0
+                )
+            ):
+                continue
             if val is not None:
                 attrs[f"{label}_cents_kwh"] = val
                 attrs[f"{label}_aud_kwh"] = round(val / 100, 4)
@@ -424,6 +462,11 @@ class OVOHealthSensor(OVOBaseSensor):
         delay_days = self._usage_data_delay_days()
         if delay_days is not None and delay_days > 2:
             return "Stale Usage Data"
+        hourly_status = getattr(self.coordinator, "hourly_data_status", None)
+        if hourly_status == "stale":
+            return "Hourly Data Stale"
+        if hourly_status == "unavailable":
+            return "Hourly Data Unavailable"
         return "OK"
 
     def _usage_data_delay_days(self) -> int | None:
@@ -448,9 +491,25 @@ class OVOHealthSensor(OVOBaseSensor):
             "energy_data_note": "OVO meter usage normally arrives the following day",
         }
 
+        hourly_status = getattr(self.coordinator, "hourly_data_status", None)
+        if hourly_status not in {"fresh", "stale", "unavailable"}:
+            hourly_status = "unknown"
+        attrs["hourly_data_status"] = hourly_status
+        attrs["hourly_data_stale"] = hourly_status == "stale"
+
+        hourly_last_success = getattr(
+            self.coordinator, "hourly_last_success_time", None
+        )
+        if isinstance(hourly_last_success, dt.datetime):
+            attrs["hourly_last_successful_update"] = hourly_last_success.isoformat()
+
+        hourly_issue = getattr(self.coordinator, "hourly_data_issue", None)
+        if isinstance(hourly_issue, str):
+            attrs["hourly_data_issue"] = hourly_issue
+
         if self.coordinator.data:
             all_daily = self.coordinator.data.get("all_daily_entries", [])
-            hourly = self.coordinator.data.get("hourly", {})
+            hourly = self.coordinator.data.get("hourly") or {}
 
             attrs["daily_entries_available"] = len(all_daily)
             attrs["hourly_solar_entries"] = len(hourly.get("solar_entries", []))
@@ -500,67 +559,12 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
         return self._period_details()
 
     def _period_details(self) -> dict:
-        """Calculate period/rate without inventing schedules for flat plans."""
-        now = datetime.now(AU_TIMEZONE)
-        hour = now.hour
-        plan_type = self.coordinator.plan_config.plan_type
-        rates: dict[str, Any] = {}
-        pa = (self.coordinator.data or {}).get("product_agreements")
-        if isinstance(pa, dict):
-            agreements = pa.get("productAgreements") or []
-            if agreements:
-                rates = (
-                    (agreements[0].get("product") or {}).get("unitRatesCentsPerKWH")
-                    or {}
-                )
-
-        # Schedules are plan features. A zero/non-null placeholder in the rate
-        # object must not turn a Basic or One plan into an EV/free plan.
-        has_ev_period = plan_type == PLAN_EV
-        has_free_period = plan_type in (PLAN_EV, PLAN_FREE_3)
-
-        standard_cents = next(
-            (
-                rates[key]
-                for key in ("standard", "peak", "shoulder", "offPeak")
-                if rates.get(key) is not None
-            ),
-            (self.coordinator.plan_config.flat_rate if plan_type == PLAN_ONE else self.coordinator.plan_config.peak_rate) * 100,
+        """Calculate the plan-aware period and rate for the current AU hour."""
+        return get_tariff_details(
+            self.coordinator.plan_config,
+            self.coordinator.data,
+            datetime.now(AU_TIMEZONE).hour,
         )
-        current_rate = "Standard"
-        rate_cents = standard_cents
-        next_change = None
-        next_period = None
-
-        if has_ev_period and 0 <= hour < 6:
-            current_rate = "EV Off-Peak"
-            rate_cents = rates.get("evOffPeak", self.coordinator.plan_config.ev_rate * 100)
-            next_change = "06:00"
-            next_period = "Standard"
-        elif has_free_period and 11 <= hour < 14:
-            current_rate = "Super Off-Peak (FREE)"
-            rate_cents = rates.get("superOffPeak", 0)
-            next_change = "14:00"
-            next_period = "Standard"
-        elif has_free_period and hour < 11:
-            next_change = "11:00"
-            next_period = "Super Off-Peak (FREE)"
-        elif has_ev_period:
-            next_change = "00:00"
-            next_period = "EV Off-Peak"
-        elif has_free_period:
-            next_change = "11:00"
-            next_period = "Super Off-Peak (FREE)"
-
-        return {
-            "current_period": current_rate,
-            "rate_cents_kwh": rate_cents,
-            "rate_aud_kwh": round(rate_cents / 100, 4),
-            "next_period_change": next_change,
-            "next_period": next_period,
-            "current_hour": hour,
-            "schedule_source": "plan_and_api_rates",
-        }
 
     @property
     def device_info(self):
@@ -646,28 +650,12 @@ class OVORateComparisonSensor(OVOBaseSensor):
                 attrs["projected_annual_savings"] = round(projected_annual, 2)
 
         # Get plan info
-        pa = self.coordinator.data.get("product_agreements")
-        if pa and isinstance(pa, dict):
-            agreements = pa.get("productAgreements", [])
-            if agreements:
-                product = agreements[0].get("product", {})
-                attrs["current_plan"] = product.get("displayName", "Unknown")
-                attrs["compared_to"] = "The One Plan"
+        product = get_current_product(self.coordinator.data)
+        if product:
+            attrs["current_plan"] = product.get("displayName", "Unknown")
+            attrs["compared_to"] = "The One Plan"
 
         return attrs
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {
-                (DOMAIN, f"{self.coordinator.account_id}_OVO Savings")
-            },
-            "name": "OVO Energy AU - OVO Savings",
-            "manufacturer": "OVO Energy Australia",
-            "model": "Energy Monitor",
-            "via_device": (DOMAIN, self.coordinator.account_id),
-        }
-
 
 class OVOLatestBillSensor(OVOBaseSensor):
     """Most recent issued bill — amount as state, period/balances/PDF in attributes."""

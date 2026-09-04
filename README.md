@@ -16,9 +16,9 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore)](https://github.com/hacs/integration)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.9.0-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Version](https://img.shields.io/badge/version-4.9.1-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](LICENSE)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.6+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.8.3+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 
 ![GitHub Stars](https://img.shields.io/github/stars/HallyAus/OVO_Aus_api?style=social)
@@ -111,9 +111,9 @@ The integration connects to OVO's GraphQL API and automatically detects your pla
 | **Hourly Heatmap** | Usage patterns by day-of-week and hour |
 | **Solar Export Analysis** | Export credit, export rate, opportunity cost vs self-consumption |
 | **Account Balance** | Current OVO account balance |
-| **Plan Information** | Diagnostic sensor with all plan rates, standing and demand charges |
+| **Plan Information** | Diagnostic sensor with all plan rates, standing/demand charges and applicable schedule windows |
 | **Integration Health** | API health plus newest usage date, expected delay, and stale-data warning |
-| **⚡ Tariff Period Indicator** | Shows the scheduled current rate period and detected tariff rate |
+| **⚡ Tariff Period Indicator** | Shows the scheduled current rate and next change for Free 3, Free 4, EV, flat and configured TOU plans |
 | **📊 Plan Savings** | Daily/monthly/yearly savings attributes, rating, and recommendation |
 | **🔌 EV Charging Tracker** | Monthly and yearly EV charging kWh and cost |
 | **🚗 Connected Vehicle** | Live battery/range/cable/mode, charge limit and boost state, readiness/credential health, charging preferences and weekly/tariff schedules, full charge-plan windows, demand-period settings, and monthly vehicle kWh/cost/rate history |
@@ -169,6 +169,9 @@ Or manually:
 3. Enter your OVO email and password
 4. Done -- your plan, rates, and core sensors are created automatically
 
+Home Assistant **2026.8.3 or newer** is required. Older Container releases can
+fail to install the integration's PyJWT requirement before setup (#81).
+
 The focused account surface contains 105 entities; an enrolled vehicle adds 19
 on its own linked device. Upgrades remove 161 obsolete moving Day 1-7/hourly-day
 registry entries plus 15 scalar entities replaced by richer summaries.
@@ -181,9 +184,11 @@ This release does not start charging or change vehicle settings.
 
 > ⚠️ **Don't pick the built-in "OVO Energy" integration!** Home Assistant ships a core integration called **OVO Energy** for OVO **UK** (domain `ovo_energy`). Searching "OVO" shows both — you must select **OVO Energy Australia** (domain `ovo_energy_au`), the one provided by this repository. If your error log mentions `homeassistant/components/ovo_energy` or `No customer id set`, you added the wrong (UK) integration: remove it and add **OVO Energy Australia** instead.
 
-### Free 3 Plan: Peak/Off-Peak Split (Optional)
+### Tariff Schedule and Peak/Off-Peak Split (Optional)
 
-On the **Free 3** plan, OVO's API reports your non-free usage as a single `OTHER` bucket even though you're billed peak/off-peak rates. To split it, open the integration's **Configure** dialog and set the **Peak Window Start/End Hour** (e.g., 15 and 21 for a 3 pm - 9 pm peak). Usage inside the window is counted as peak, the rest as off-peak. Leave both at the same value to disable.
+Free 3 (11am-2pm), Free 4 (11am-3pm), and EV overnight (midnight-6am) product windows are applied automatically. OVO's API does not provide every distributor-specific peak boundary and can report paid usage as one `OTHER` bucket. Open the integration's **Configure** dialog and set **Peak Window Start/End Hour** (for example, 15 and 21 for 3pm-9pm). Current Tariff Period and the hourly TOU breakdown then report Peak inside that window and Off-Peak outside it. Leave both values equal to disable the manual split.
+
+When an account moves to another recognised OVO plan, the integration detects the new plan on refresh. A plan explicitly saved in **Configure** remains a manual override.
 
 ---
 
@@ -333,6 +338,7 @@ OVO's API can return `null` for charge fields when data is not yet available. Al
 | Sensors show "Unknown" | Wait until after 6:00 AM for yesterday's data. Check the Integration Health diagnostic sensor. |
 | Sensors missing after install | Restart Home Assistant. Check Developer Tools > States for `ovo_energy_au` entities. |
 | Token expires frequently | The integration handles this automatically. If persistent, remove and re-add the integration. |
+| “Entity no longer has a state class” after v4.8.2 | Upgrade and restart. v4.9+ removes the affected rotating Day 1-7 entities. If Home Assistant still offers to delete their orphaned long-term statistics, that history belonged to moving day labels and can be removed from the repair dialog; normal state history and current stable entities are unaffected. |
 
 ---
 
@@ -349,7 +355,7 @@ Contributions are welcome. Here is how to get started:
 ### Areas Where Help Is Appreciated
 
 - Dashboard templates and card examples
-- Testing with different OVO plan types (Basic, One, Free 3)
+- Testing with different OVO plan types (Basic, One, Free 3, Free 4, EV)
 - Documentation and guides
 - Support for additional tariff structures
 
