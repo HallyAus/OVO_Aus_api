@@ -392,6 +392,20 @@ See [`CHANGELOG.md`](CHANGELOG.md) for version history and [`CLAUDE.md`](CLAUDE.
 
 ---
 
+## A friendly note to OVO Energy Australia
+
+Thank you for helping Australian households understand their energy use and
+make the most of renewable energy and time-of-use plans. This independent
+project exists because OVO customers want to bring their energy data into the
+smart homes they already use.
+
+We would love to work with OVO on a documented, supported customer API or an
+official Home Assistant pathway. It would make the experience safer, more
+reliable, and easier for everyone. If you are part of the OVO team and would
+like to chat, please [get in touch through GitHub](https://github.com/HallyAus/OVO_Aus_api/issues).
+
+---
+
 <div align="center">
 
 Built for the Australian solar and EV community.
