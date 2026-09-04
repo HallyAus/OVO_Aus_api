@@ -6,7 +6,9 @@
 > - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
 > - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
 >
-> Get **$180 off your bills**, paid as **$15/month for 12 months**. You get $180, I get $180 — and referrals are the **only** thing funding this project. 💚
+> Get **$180 off your bills**, paid as **$15/month for 12 months**. You get $180, I get $180 — and referrals help fund this project. 💚
+>
+> **Already an OVO customer?** [Support me on Buy Me a Coffee](https://buymeacoffee.com/hallyaus).
 
 <div align="center">
 
@@ -14,9 +16,10 @@
 
 <br/><br/>
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore)](https://github.com/hacs/integration)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?logo=homeassistantcommunitystore)](https://my.home-assistant.io/redirect/hacs_repository/?owner=HallyAus&repository=OVO_Aus_api&category=integration)
 [![CI](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml/badge.svg)](https://github.com/HallyAus/OVO_Aus_api/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.9.1-blue.svg)](https://github.com/HallyAus/OVO_Aus_api/releases)
+[![Latest release](https://img.shields.io/github/v/release/HallyAus/OVO_Aus_api?label=version)](https://github.com/HallyAus/OVO_Aus_api/releases/latest)
+[![Release ZIP downloads](https://img.shields.io/github/downloads/HallyAus/OVO_Aus_api/total?label=release%20ZIP%20downloads&logo=github)](https://github.com/HallyAus/OVO_Aus_api/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.8.3+-green.svg?logo=homeassistant)](https://www.home-assistant.io/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
@@ -24,32 +27,30 @@
 ![GitHub Stars](https://img.shields.io/github/stars/HallyAus/OVO_Aus_api?style=social)
 ![GitHub Forks](https://img.shields.io/github/forks/HallyAus/OVO_Aus_api?style=social)
 ![GitHub Issues](https://img.shields.io/github/issues/HallyAus/OVO_Aus_api)
-![GitHub Last Commit](https://img.shields.io/github/last-commit/HallyAus/OVO_Aus_api)
-![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange.svg?logo=buy-me-a-coffee)](https://buymeacoffee.com/printforge)
-![Powered by Coffee](https://img.shields.io/badge/Powered%20by-Coffee%20%E2%98%95-brown)
-![Australian Made](https://img.shields.io/badge/Made%20in-Australia%20%F0%9F%87%A6%F0%9F%87%BA-green)
-![Jedi Master](https://img.shields.io/badge/Energy%20Monitoring-Jedi%20Master%20Level-blue?logo=starwars)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange.svg?logo=buy-me-a-coffee)](https://buymeacoffee.com/hallyaus)
 
 **Comprehensive Home Assistant integration for OVO Energy Australia**
 
-Track solar generation, grid consumption, costs, rate breakdowns, and OVO plan savings -- all from your Home Assistant dashboard.
+Track delayed meter usage, solar generation, grid imports and exports, bills,
+tariffs, plan savings, and connected vehicles from Home Assistant.
 
-> *"Use the Force wisely, young Padawan. Monitor your energy, you must."* -- Yoda (probably)
-
-### 🎁 New to OVO? Get **$180 credit** — code `daniel16485` · [direct OVO signup](https://www.ovoenergy.com.au/refer/daniel16485) · [friendly link](https://ovoreferralcode.com/)
-It costs you nothing extra, both of us get $180, and it's the only thing funding this project. 💚
+**105 account entities · 19 optional vehicle entities · 169 automated tests**
 
 [Features](#features) · [Quick Start](#quick-start) · [Sensors](#sensors) · [Dashboards](#dashboard-examples) · [Contributing](#contributing)
 
 </div>
 
+> [!NOTE]
+> The download badge counts attached GitHub release ZIPs. GitHub does not count
+> HACS installs or source-code archives there, so it is not a total-user count.
+
 ---
 
 ## 💚 Support this project — it's my only income from it
 
-If this integration saves you money or time, please use one of the referrals below. Both you and I get credit. This project is maintained in my spare time and referrals are the only thing funding ongoing development.
+If this integration saves you money or time, please use one of the referrals
+below or support the project directly. This project is maintained in my spare
+time, and community support funds ongoing development.
 
 ### ⭐ Star this repo
 [**⭐ Star on GitHub**](https://github.com/HallyAus/OVO_Aus_api) — takes two seconds and genuinely helps. Stars surface the project to other OVO customers.
@@ -65,6 +66,16 @@ Not an OVO customer yet? Sign up through my referral site (the code `daniel16485
 - ✅ Available on **all eligible plans** — including The EV Plan (no EV required)
 - ✅ Both you and I receive the full $180 — win-win
 - ✅ NSW, VIC, QLD & SA · must be your first OVO energy market contract
+
+### ☕ Already an OVO customer? Support me here
+
+If you cannot use the referral, you can support continued development directly:
+
+<a href="https://buymeacoffee.com/hallyaus">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" alt="Buy Me a Coffee — support HallyAus">
+</a>
+
+**[buymeacoffee.com/hallyaus](https://buymeacoffee.com/hallyaus)**
 
 ### 🛰️ Starlink referral — 1 month free
 Running Home Assistant somewhere rural or need a reliable backup link?
@@ -94,7 +105,9 @@ These are cumulative month-to-date totals (`state_class: total` with a monthly `
 
 ### 📊 Comprehensive Sensors with Automatic Plan Detection
 
-The integration connects to OVO's GraphQL API and automatically detects your plan, rates, and account details. No manual rate entry required.
+The integration connects to OVO's GraphQL API and detects recognised plans,
+available rates, and account details automatically. Distributor-specific TOU
+peak boundaries can be supplied in Configure when OVO does not return them.
 
 | Category | What You Get |
 |----------|-------------|
@@ -114,10 +127,8 @@ The integration connects to OVO's GraphQL API and automatically detects your pla
 | **Plan Information** | Diagnostic sensor with all plan rates, standing/demand charges and applicable schedule windows |
 | **Integration Health** | API health plus newest usage date, expected delay, and stale-data warning |
 | **⚡ Tariff Period Indicator** | Shows the scheduled current rate and next change for Free 3, Free 4, EV, flat and configured TOU plans |
-| **📊 Plan Savings** | Daily/monthly/yearly savings attributes, rating, and recommendation |
 | **🔌 EV Charging Tracker** | Monthly and yearly EV charging kWh and cost |
 | **🚗 Connected Vehicle** | Live battery/range/cable/mode, charge limit and boost state, readiness/credential health, charging preferences and weekly/tariff schedules, full charge-plan windows, demand-period settings, and monthly vehicle kWh/cost/rate history |
-| **🧾 Bill Estimator** | MTD bill, projected monthly bill, daily average net cost |
 
 ### 🏠 Real-World Results
 
@@ -136,7 +147,7 @@ One user on the **EV Plan** sees:
 - **DST-aware** timezone handling using `ZoneInfo("Australia/Sydney")`
 - **Dynamic hourly sensors** that survive midnight without a restart
 - **Data-driven architecture** -- add sensors by editing a list, not writing classes
-- **130+ automated tests** with CI/CD via GitHub Actions
+- **169 automated tests** with CI/CD via GitHub Actions
 - **HACS compatible** with one-click install
 
 ---
@@ -158,7 +169,7 @@ Or manually:
 
 ### Manual Install
 
-1. Download the [latest release](https://github.com/HallyAus/OVO_Aus_api/releases)
+1. Download the [latest release ZIP](https://github.com/HallyAus/OVO_Aus_api/releases/latest/download/ovo_energy_au.zip)
 2. Copy `custom_components/ovo_energy_au` into your `config/custom_components/` directory
 3. Restart Home Assistant
 
@@ -169,8 +180,9 @@ Or manually:
 3. Enter your OVO email and password
 4. Done -- your plan, rates, and core sensors are created automatically
 
-Home Assistant **2026.8.3 or newer** is required. Older Container releases can
-fail to install the integration's PyJWT requirement before setup (#81).
+> [!IMPORTANT]
+> Home Assistant **2026.8.3 or newer** is required. Older Container releases can
+> fail to install the integration's PyJWT requirement before setup (#81).
 
 The focused account surface contains 105 entities; an enrolled vehicle adds 19
 on its own linked device. Upgrades remove 161 obsolete moving Day 1-7/hourly-day
@@ -182,7 +194,11 @@ extra token or setup is required. VIN, location/home state, raw platform IDs,
 and vendor certificate URLs are discarded before data reaches Home Assistant.
 This release does not start charging or change vehicle settings.
 
-> ⚠️ **Don't pick the built-in "OVO Energy" integration!** Home Assistant ships a core integration called **OVO Energy** for OVO **UK** (domain `ovo_energy`). Searching "OVO" shows both — you must select **OVO Energy Australia** (domain `ovo_energy_au`), the one provided by this repository. If your error log mentions `homeassistant/components/ovo_energy` or `No customer id set`, you added the wrong (UK) integration: remove it and add **OVO Energy Australia** instead.
+> [!WARNING]
+> **Don't pick the built-in "OVO Energy" integration.** Home Assistant ships a
+> separate OVO UK integration (`ovo_energy`). Select **OVO Energy Australia**
+> (`ovo_energy_au`). If a log mentions `homeassistant/components/ovo_energy` or
+> `No customer id set`, remove the UK integration and add this one instead.
 
 ### Tariff Schedule and Peak/Off-Peak Split (Optional)
 
@@ -209,9 +225,10 @@ All sensors are grouped into logical device categories in Home Assistant for eas
 
 These six sensors are available for each period: **Yesterday**, **This Month**, **This Year**, **Last Week**, **Last Month**, and **Month to Date**.
 
-### 💰 Rate Breakdown (Last 7 Days)
+### 💰 Rate Breakdown
 
-Seven per-day sensors showing consumption and cost split by rate type:
+Stable summaries for Yesterday, This Month, This Year, and All Time show
+consumption and cost split by rate type without rotating Day 1–7 entity IDs:
 
 | Rate Type | Example Use |
 |-----------|-------------|
@@ -222,7 +239,8 @@ Seven per-day sensors showing consumption and cost split by rate type:
 | `OFF_PEAK` | Standard off-peak |
 | `OTHER` | Catch-all for remaining intervals |
 
-Each day also includes counterfactual analysis showing what you would have paid on a different rate structure.
+Each summary also includes counterfactual analysis showing what the same usage
+would have cost on another rate structure.
 
 ### 🏆 OVO Savings
 
@@ -296,13 +314,13 @@ entities:
 
 ```
 custom_components/ovo_energy_au/
-  __init__.py          # Integration setup (82 lines)
+  __init__.py          # Integration setup and lifecycle
   coordinator.py       # DataUpdateCoordinator, 5-min polling
   api.py               # OAuth2 PKCE auth, GraphQL client
-  sensor.py            # Sensor platform (~800 lines)
+  sensor.py            # Sensor platform and rich summary entities
   config_flow.py       # UI config + options flow
   models.py            # TypedDict / dataclass definitions
-  const.py             # Constants (~70 lines)
+  const.py             # Constants and plan defaults
   graphql/
     queries.py         # All GraphQL query strings
   sensors/
@@ -366,13 +384,9 @@ See [`CHANGELOG.md`](CHANGELOG.md) for version history and [`CLAUDE.md`](CLAUDE.
 ## 💬 Support
 
 - **Issues:** [GitHub Issues](https://github.com/HallyAus/OVO_Aus_api/issues)
-- **Buy Me a Coffee:** [buymeacoffee.com/printforge](https://buymeacoffee.com/printforge)
+- **Buy Me a Coffee:** [buymeacoffee.com/hallyaus](https://buymeacoffee.com/hallyaus)
 
 ---
-
-## 📄 License
-
-This project is released under the [MIT](LICENSE) license.
 
 **Disclaimer:** This is an unofficial, community-built integration. It is not affiliated with, endorsed by, or supported by OVO Energy Australia.
 
