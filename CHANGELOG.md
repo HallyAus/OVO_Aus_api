@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.9.2] - 2026-09-05
+
+> - **OVO referral code:** `daniel16485`
+> - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+> - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
+
 ### Changed
+- Declared Australia in `hacs.json` so the integration can be submitted to the default HACS catalogue with the correct country filter.
 - Changed the repository license from CC0-1.0 to the OSI-approved MIT license so current HACS validation accepts the project.
 - CI now installs the project with its development dependencies before running tests and uses the current Node.js 24-based checkout/setup actions.
+- The README now shows release-download information, clearer support links, and a friendly invitation for OVO to discuss an official supported API pathway.
 
 ## [4.9.1] - 2026-09-04
 

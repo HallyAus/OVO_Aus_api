@@ -1,5 +1,6 @@
 {
   "name": "OVO Energy Australia",
+  "country": "AU",
   "content_in_root": false,
   "homeassistant": "2026.8.3",
   "render_readme": true
