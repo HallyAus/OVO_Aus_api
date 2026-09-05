@@ -37,7 +37,7 @@ def client():
 @pytest.fixture
 def entry(hass):
     result = MockConfigEntry(domain=DOMAIN, title="OVO Fixture", unique_id="fixture-account",
-                            data={"username": "fixture@example.invalid", "password": "fixture-password",
+                            data={"username": "fixture@example.invalid", "password": "fixture-password",  # pragma: allowlist secret
                                   "account_id": "fixture-account", "plan_type": "basic"})
     result.add_to_hass(hass)
     return result

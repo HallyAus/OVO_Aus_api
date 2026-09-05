@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ovo-energy-au"
-version = "4.9.3"
+version = "4.10.0"
 description = "OVO Energy Australia Home Assistant Integration"
 license = "MIT"
 license-files = ["LICENSE"]

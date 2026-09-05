@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.10.0] - 2026-09-05
+
+> - **OVO referral code:** `daniel16485`
+> - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
+> - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
+
+### Changed
+- Advanced the release line to 4.10.0 after the independently reviewed reliability work in 4.9.3 was merged, validated and published.
+- Marked the Home Assistant runtime-test password as an explicit non-secret fixture so the full pre-commit suite passes cleanly.
+- No entity keys, unique IDs or vehicle controls changed in this version increment.
+
 ## [4.9.3] - 2026-09-05
 
 ### Fixed
