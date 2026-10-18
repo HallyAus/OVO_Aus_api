@@ -1,0 +1,199 @@
+name: OVO private-source validation and candidate archive
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: personal-ubuntu
+    container:
+      image: python:3.12-bookworm@sha256:5560e9ab8709f459489e5b8aa696eda8a07ef821e14bb122be62d91234bfa98b
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact private VM300 source
+        env:
+          SOURCE_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        shell: sh
+        run: |
+          set -eu
+          test "$GITHUB_SERVER_URL" = 'http://192.168.1.130:3000'
+          test "$GITHUB_REPOSITORY" = 'hallyaus/OVO_Aus_api'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test -n "${SOURCE_TOKEN:?Repository job token required}"
+          case "$GITHUB_SHA" in ''|*[!0-9a-f]*) exit 1;; esac
+          test "${#GITHUB_SHA}" -eq 40
+          command -v git >/dev/null || apk add --no-cache git
+          helper="$(mktemp "${RUNNER_TEMP:-/tmp}/ovo-askpass.XXXXXX")"
+          trap 'rm -f "$helper"' EXIT
+          cat > "$helper" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'x-access-token' ;;
+            *Password*) printf '%s\n' "$SOURCE_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          ASKPASS
+          chmod 700 "$helper"
+          export GIT_ASKPASS="$helper" GIT_TERMINAL_PROMPT=0
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -c credential.helper= fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Original Ruff and full unit gates plus POSIX archive regressions
+        shell: sh
+        run: |
+          set -eu
+          python -m pip install --disable-pip-version-check 'ruff==0.17.1' -e '.[dev]'
+          python -m ruff check custom_components/ovo_energy_au/
+          python -m pytest tests/ -v
+          python .gitea/scripts/test_package_release.py
+          python .gitea/scripts/test_release_plan.py
+  runtime:
+    needs: [unit]
+    runs-on: personal-ubuntu
+    container:
+      image: python:3.14-bookworm@sha256:7ee7e4d4fb42c3ad45b8fdc473b64ec69c3cf6e80ae5d52f6fa55f77fac29027
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact private VM300 source
+        env:
+          SOURCE_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        shell: sh
+        run: |
+          set -eu
+          test "$GITHUB_SERVER_URL" = 'http://192.168.1.130:3000'
+          test "$GITHUB_REPOSITORY" = 'hallyaus/OVO_Aus_api'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test -n "${SOURCE_TOKEN:?Repository job token required}"
+          case "$GITHUB_SHA" in ''|*[!0-9a-f]*) exit 1;; esac
+          test "${#GITHUB_SHA}" -eq 40
+          command -v git >/dev/null || apk add --no-cache git
+          helper="$(mktemp "${RUNNER_TEMP:-/tmp}/ovo-askpass.XXXXXX")"
+          trap 'rm -f "$helper"' EXIT
+          cat > "$helper" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'x-access-token' ;;
+            *Password*) printf '%s\n' "$SOURCE_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          ASKPASS
+          chmod 700 "$helper"
+          export GIT_ASKPASS="$helper" GIT_TERMINAL_PROMPT=0
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -c credential.helper= fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Original real Home Assistant runtime regressions
+        shell: sh
+        run: |
+          set -eu
+          python -m pip install --disable-pip-version-check -r requirements-test-ha.txt
+          python -m pytest tests_ha/ -q --asyncio-mode=auto
+  hassfest:
+    needs: [runtime]
+    runs-on: personal-ubuntu
+    container:
+      image: ghcr.io/home-assistant/hassfest@sha256:2dce3c5423a600e7965e5a3d5a95e0707e8452fb001ab2b5d0602099bbecba92
+    timeout-minutes: 20
+    steps:
+      - name: Check out the exact private VM300 source
+        env:
+          SOURCE_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        shell: sh
+        run: |
+          set -eu
+          test "$GITHUB_SERVER_URL" = 'http://192.168.1.130:3000'
+          test "$GITHUB_REPOSITORY" = 'hallyaus/OVO_Aus_api'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test -n "${SOURCE_TOKEN:?Repository job token required}"
+          case "$GITHUB_SHA" in ''|*[!0-9a-f]*) exit 1;; esac
+          test "${#GITHUB_SHA}" -eq 40
+          command -v git >/dev/null || apk add --no-cache git
+          helper="$(mktemp "${RUNNER_TEMP:-/tmp}/ovo-askpass.XXXXXX")"
+          trap 'rm -f "$helper"' EXIT
+          cat > "$helper" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'x-access-token' ;;
+            *Password*) printf '%s\n' "$SOURCE_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          ASKPASS
+          chmod 700 "$helper"
+          export GIT_ASKPASS="$helper" GIT_TERMINAL_PROMPT=0
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -c credential.helper= fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Official hassfest inside the job container
+        shell: sh
+        run: |
+          set -eu
+          test -f /usr/src/homeassistant/script/hassfest/docker/entrypoint.sh
+          # This entrypoint discovers custom_components relative to the checkout,
+          # then changes to its installed core tree before invoking hassfest.
+          /usr/src/homeassistant/script/hassfest/docker/entrypoint.sh
+  candidate:
+    needs: [unit, runtime, hassfest]
+    runs-on: personal-ubuntu
+    container:
+      image: node:24-bookworm@sha256:14078204b6bb268c107ceff6d3c43f45a888105e5c2b18b14c32b3409d93a1b0
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact private VM300 source
+        env:
+          SOURCE_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        shell: sh
+        run: |
+          set -eu
+          test "$GITHUB_SERVER_URL" = 'http://192.168.1.130:3000'
+          test "$GITHUB_REPOSITORY" = 'hallyaus/OVO_Aus_api'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test -n "${SOURCE_TOKEN:?Repository job token required}"
+          case "$GITHUB_SHA" in ''|*[!0-9a-f]*) exit 1;; esac
+          test "${#GITHUB_SHA}" -eq 40
+          command -v git >/dev/null || apk add --no-cache git
+          helper="$(mktemp "${RUNNER_TEMP:-/tmp}/ovo-askpass.XXXXXX")"
+          trap 'rm -f "$helper"' EXIT
+          cat > "$helper" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'x-access-token' ;;
+            *Password*) printf '%s\n' "$SOURCE_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          ASKPASS
+          chmod 700 "$helper"
+          export GIT_ASKPASS="$helper" GIT_TERMINAL_PROMPT=0
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -c credential.helper= fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Build an immutable non-publishing archive with exact-source receipt
+        env:
+          GATE_UNIT: ${{ needs.unit.result }}
+          GATE_RUNTIME: ${{ needs.runtime.result }}
+          GATE_HASSFEST: ${{ needs.hassfest.result }}
+        shell: sh
+        run: |
+          set -eu
+          python3 -c 'import sys; assert sys.version_info >= (3, 11)'
+          test "$GATE_UNIT" = success
+          test "$GATE_RUNTIME" = success
+          test "$GATE_HASSFEST" = success
+          python3 .gitea/scripts/package_release.py
+      - name: Retain the candidate on private Gitea
+        uses: https://github.com/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
+        with:
+          name: ovo-candidate-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+

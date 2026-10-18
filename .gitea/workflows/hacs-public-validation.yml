@@ -1,0 +1,66 @@
+name: Official HACS public compatibility gate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hacs:
+    runs-on: personal-ubuntu
+    container:
+      image: ghcr.io/hacs/action@sha256:2cbf62255159613a0e2f07decda684007f4d3d99abed5d9820a2818e02dbb98a
+    timeout-minutes: 20
+    steps:
+      - name: Validate only the identical public recovery commit with official HACS
+        env:
+          INPUT_GITHUB_TOKEN: ${{ secrets.HACS_PUBLIC_READ_TOKEN }}
+          REPOSITORY: HallyAus/OVO_Aus_api
+          CATEGORY: integration
+          REPOSITORY_REF: ${{ github.sha }}
+          INPUT_COMMENT: 'false'
+        shell: sh
+        run: |
+          set -eu
+          test "$GITHUB_SERVER_URL" = 'http://192.168.1.130:3000'
+          test "$GITHUB_REPOSITORY" = 'hallyaus/OVO_Aus_api'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          # Never pass a Gitea job token to a GitHub client as fallback auth.
+          unset GITHUB_TOKEN GITEA_TOKEN
+          test -n "${INPUT_GITHUB_TOKEN:?Repository-only HACS_PUBLIC_READ_TOKEN must be configured through the reviewed credential handoff}"
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.request
+
+          sha = os.environ['REPOSITORY_REF']
+          if not re.fullmatch(r'[0-9a-f]{40}', sha) or sha != os.environ['GITHUB_SHA']:
+              raise SystemExit('Exact primary workflow source required')
+          def read(path):
+              req = urllib.request.Request('https://api.github.com/' + path, headers={
+                  'Authorization': 'Bearer ' + os.environ['INPUT_GITHUB_TOKEN'],
+                  'Accept': 'application/vnd.github+json',
+                  'User-Agent': 'ovo-private-gitea-hacs-preflight',
+              })
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  raise SystemExit(f'Public HACS preflight refused HTTP {error.code}') from None
+          user = read('user')
+          repo = read('repos/HallyAus/OVO_Aus_api')
+          commit = read('repos/HallyAus/OVO_Aus_api/commits/' + sha)
+          if user.get('id') != 37143514 or user.get('login') != 'HallyAus':
+              raise SystemExit('Expected Daniel personal read credential')
+          if repo.get('id') != 1137905255 or repo.get('private') is not False:
+              raise SystemExit('Expected existing public HACS compatibility repository')
+          if commit.get('sha') != sha:
+              raise SystemExit('Public recovery source differs from VM300 source')
+          print(json.dumps({'public_repository': 'HallyAus/OVO_Aus_api', 'source_sha': sha,
+                            'credential_identity_verified': True, 'requests': 'read-only'}))
+          PY
+          # The fixed official image already contains HACS and its dependencies.
+          # The action reads the exact public commit; it does not check out or
+          # publish private primary source. No checks are ignored.
+          cd /hacs
+          python3 /hacs/action.py

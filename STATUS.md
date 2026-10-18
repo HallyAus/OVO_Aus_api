@@ -2,14 +2,14 @@
 
 Volatile project state for coding agents and maintainers. Update this file when release/runtime/CI truth changes. Do not put permanent engineering rules here; those belong in `AGENTS.md`. Historical incidents belong in `LEARNINGS.md`.
 
-Verified: 2026-09-05.
+Release metadata rechecked: 2026-10-19 Sydney (2026-10-18 UTC).
 
 ## Production / release
 
-- Latest stable GitHub/HACS release: **v4.9.3**.
-- Latest stable release target: `b7191988d4c7faf28b5697cdad6f8b6a1c4cbdfc`.
-- Current `main` source version: **4.10.0** (release preparation committed, not yet the latest published release at the time of this verification).
-- Current `main` head at verification: `2a849bf007fa3f04c48cd385bc3a191a56f284e7` (`chore(release): prepare v4.10.0`).
+- Latest stable GitHub/HACS release: **v4.10.0**, published 2026-09-05T09:08:34Z with `ovo_energy_au.zip`.
+- Latest stable release target: `2a849bf007fa3f04c48cd385bc3a191a56f284e7`.
+- Current `main` source version: **4.10.0**; no new product release is part of CI migration.
+- Imported `main` head before Gitea tooling changes: `9f5212ab5f7892c7e86e9fe468ceb6cbcb013b4e` (`docs: make repository guidance Astra-ready`).
 - Distribution: HACS resolves from the latest GitHub release; a version present only on `main` has not shipped to users.
 
 ## Supported runtime
@@ -22,7 +22,17 @@ Verified: 2026-09-05.
 
 ## CI gates
 
-`.github/workflows/ci.yml` currently runs on pushes/PRs to `main` and contains five gates:
+Personal migration preparation: private Gitea VM300 is the source of truth.
+GitHub remains public for existing HACS distribution with Actions disabled.
+The new `.gitea/workflows/ci.yml` preserves Ruff/full units/Python 3.14 HA
+runtime/hassfest and creates a non-publishing POSIX candidate archive. It is
+prepared but has not yet run. Official HACS validation is still a required
+external release gate: its action needs a GitHub token and checks public GitHub
+content rather than private Gitea source. No credential is transferred and no
+HACS pass or release readiness is claimed. See `docs/gitea-release-route.md`.
+
+The retained `.github/workflows/ci.yml` describes the original five gates;
+GitHub Actions is disabled, so recovery pushes do not execute it:
 
 1. Ruff lint (`custom_components/ovo_energy_au/`).
 2. Unit/packaging tests (`pytest tests/ -v`).
