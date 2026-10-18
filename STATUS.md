@@ -17,10 +17,27 @@ Release metadata rechecked: 2026-10-19 Sydney (2026-10-18 UTC).
 - Home Assistant minimum advertised/enforced by HACS: **2026.8.3**.
 - Python support: 3.11+; CI unit checks currently run on Python 3.12.
 - Home Assistant runtime regressions currently run on Python 3.14 using `requirements-test-ha.txt`.
-- Runtime dependency: `PyJWT>=2.13.0,<3.0.0`.
+- Package dependency contract: `PyJWT>=2.13.0,<3.0.0`. In supported Home Assistant,
+  PyJWT is supplied by core rather than reinstalled by this integration.
 - Timezone authority: `Australia/Sydney`.
 
 ## CI gates
+
+Unpublished compatibility correction following the first private runner run:
+official hassfest refused the duplicate core PyJWT manifest requirement and
+warned that integration-level `async_setup` lacked a schema. The manifest now
+leaves core PyJWT to HA, while `pyproject.toml` and the HACS minimum remain
+unchanged; `CONFIG_SCHEMA` uses the official config-entry-only helper. No auth,
+service, entity/lifecycle implementation, version, tag or release asset changed.
+Focused metadata and real-HA schema/dependency regressions cover these contracts.
+
+Official tagged evidence: [HA 2026.8.3 requirements](https://github.com/home-assistant/core/blob/2026.8.3/requirements.txt),
+[HA 2026.9.1 requirements](https://github.com/home-assistant/core/blob/2026.9.1/requirements.txt)
+and both releases' `homeassistant/package_constraints.txt` pin `PyJWT==2.13.0`.
+The [2026.8.3 schema helper](https://github.com/home-assistant/core/blob/2026.8.3/homeassistant/helpers/config_validation.py)
+explicitly covers integrations with `async_setup` and no YAML support. The
+real-HA runtime test asserts the existing JWT range; a future HA dependency
+change requires review rather than an automatic compatibility claim.
 
 Personal migration preparation: private Gitea VM300 is the source of truth.
 GitHub remains public for existing HACS distribution with Actions disabled.

@@ -2,11 +2,31 @@
 from datetime import datetime
 from unittest.mock import patch
 
+import jwt
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import entity_registry as er
+from packaging.specifiers import SpecifierSet
 
+from custom_components.ovo_energy_au import CONFIG_SCHEMA
 from custom_components.ovo_energy_au.api import OVOEnergyAUApiClientAuthenticationError
 from custom_components.ovo_energy_au.const import AU_TIMEZONE, DOMAIN
+
+
+def test_core_pyjwt_satisfies_the_supported_dependency_contract():
+    """The real HA environment must supply the range omitted from manifest.json."""
+    assert jwt.__version__ in SpecifierSet(">=2.13.0,<3.0.0")
+
+
+async def test_config_entry_schema_reports_unsupported_yaml_without_authentication(hass, caplog):
+    """UI setup stays supported; a YAML domain is explained instead of interpreted."""
+    config = {"default_config": {}}
+    assert CONFIG_SCHEMA(config) == config
+    assert "does not support YAML setup" not in caplog.text
+
+    yaml_config = {**config, DOMAIN: {}}
+    assert CONFIG_SCHEMA(yaml_config) == yaml_config
+    assert f"The {DOMAIN} integration does not support YAML setup" in caplog.text
+    assert not hass.config_entries.async_entries(DOMAIN)
 
 
 def entity_id(hass):

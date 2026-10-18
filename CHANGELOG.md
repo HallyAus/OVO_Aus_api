@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Removed the duplicate PyJWT manifest requirement to follow Home Assistant's
+  core-dependency policy. Supported HA 2026.8.3 and 2026.9.1 already pin
+  PyJWT 2.13.0; the package retains `>=2.13.0,<3.0.0` and HACS minimum 2026.8.3.
+- Declared the official config-entry-only schema for integration-level action
+  setup. Unsupported YAML configuration now receives Home Assistant's standard
+  explanation; UI config entries and the existing refresh action are unchanged.
+- These are unpublished compatibility corrections. The v4.10.0 tag and release
+  archive have not been replaced, and no new version has been published.
+
 ## [4.10.0] - 2026-09-05
 
 > - **OVO referral code:** `daniel16485`
