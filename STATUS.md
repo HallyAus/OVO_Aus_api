@@ -2,13 +2,14 @@
 
 Volatile project state for coding agents and maintainers. Update this file when release/runtime/CI truth changes. Do not put permanent engineering rules here; those belong in `AGENTS.md`. Historical incidents belong in `LEARNINGS.md`.
 
-Release metadata rechecked: 2026-10-19 Sydney (2026-10-18 UTC).
+Release metadata rechecked: 2026-10-20 Sydney.
 
 ## Production / release
 
 - Latest stable GitHub/HACS release: **v4.10.0**, published 2026-09-05T09:08:34Z with `ovo_energy_au.zip`.
 - Latest stable release target: `2a849bf007fa3f04c48cd385bc3a191a56f284e7`.
-- Current `main` source version: **4.10.0**; no new product release is part of CI migration.
+- Current release candidate version: **4.10.2**. It removes promotional content
+  from Home Assistant and HACS dialogs while keeping support links in README.
 - Imported `main` head before Gitea tooling changes: `9f5212ab5f7892c7e86e9fe468ceb6cbcb013b4e` (`docs: make repository guidance Astra-ready`).
 - Distribution: HACS resolves from the latest GitHub release; a version present only on `main` has not shipped to users.
 
@@ -17,8 +18,9 @@ Release metadata rechecked: 2026-10-19 Sydney (2026-10-18 UTC).
 - Home Assistant minimum advertised/enforced by HACS: **2026.8.3**.
 - Python support: 3.11+; CI unit checks currently run on Python 3.12.
 - Home Assistant runtime regressions currently run on Python 3.14 using `requirements-test-ha.txt`.
-- Package dependency contract: `PyJWT>=2.13.0,<3.0.0`. In supported Home Assistant,
-  PyJWT is supplied by core rather than reinstalled by this integration.
+- Package dependency contract: the Python package supports
+  `PyJWT>=2.13.0,<3.0.0`, while the integration manifest deliberately leaves
+  PyJWT to Home Assistant core rather than reinstalling or pinning it.
 - Timezone authority: `Australia/Sydney`.
 
 ## CI gates

@@ -1,5 +1,7 @@
 """Config options-flow regression tests."""
 
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -22,7 +24,7 @@ from custom_components.ovo_energy_au.const import (
 
 
 @pytest.mark.asyncio
-async def test_sign_in_shows_direct_and_friendly_referral_urls():
+async def test_sign_in_does_not_inject_promotional_placeholders():
     flow = ConfigFlow()
 
     def show_form(**kwargs):
@@ -32,11 +34,29 @@ async def test_sign_in_shows_direct_and_friendly_referral_urls():
 
     result = await flow.async_step_user()
 
-    placeholders = result["description_placeholders"]
-    assert placeholders["ovo_url"] == (
-        "https://www.ovoenergy.com.au/refer/daniel16485"
+    assert "description_placeholders" not in result
+
+
+def test_config_dialogs_do_not_contain_promotions_or_referral_links():
+    integration_dir = Path(__file__).parents[1] / "custom_components" / "ovo_energy_au"
+    translation_files = [integration_dir / "strings.json"]
+    translation_files.extend(sorted((integration_dir / "translations").glob("*.json")))
+    forbidden = (
+        "daniel16485",
+        "starlink",
+        "ovo_url",
+        "ovo_friendly_url",
+        "github_url",
+        "referral code",
     )
-    assert placeholders["ovo_friendly_url"] == "https://ovoreferralcode.com/"
+
+    for translation_file in translation_files:
+        data = json.loads(translation_file.read_text(encoding="utf-8"))
+        dialog_text = json.dumps(
+            {"config": data.get("config", {}), "options": data.get("options", {})},
+            ensure_ascii=False,
+        ).casefold()
+        assert not any(term in dialog_text for term in forbidden), translation_file
 
 
 @pytest.mark.asyncio

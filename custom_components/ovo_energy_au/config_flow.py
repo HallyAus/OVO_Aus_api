@@ -48,17 +48,6 @@ STEP_USER_SCHEMA = vol.Schema(
     }
 )
 
-# URLs rendered into the config-flow description. Passed via
-# description_placeholders so translation strings stay URL-free
-# (hassfest rule: no raw URLs in translatable content).
-_DESCRIPTION_PLACEHOLDERS = {
-    "ovo_url": "https://www.ovoenergy.com.au/refer/daniel16485",
-    "ovo_friendly_url": "https://ovoreferralcode.com/",
-    "starlink_url": "https://starlink.com/residential?referral=RC-2455784-77014-69&app_source=share",
-    "github_url": "https://github.com/HallyAus/OVO_Aus_api",
-}
-
-
 async def validate_input(hass: HomeAssistant, username: str, password: str) -> dict[str, Any]:
     """Validate the user input by authenticating and fetching account info.
 
@@ -258,7 +247,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=STEP_USER_SCHEMA,
             errors=errors,
-            description_placeholders=_DESCRIPTION_PLACEHOLDERS,
         )
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
@@ -318,7 +306,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=STEP_USER_SCHEMA,
             errors=errors,
-            description_placeholders=_DESCRIPTION_PLACEHOLDERS,
         )
 
     @staticmethod
@@ -429,7 +416,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=options_schema,
-            description_placeholders=_DESCRIPTION_PLACEHOLDERS,
         )
 
 

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.10.2] - 2026-10-20
+
+### Fixed
+- Removed referral promotions and unrelated links from setup, reauthentication,
+  options and HACS information dialogs. Support and referral links remain in the
+  README, outside Home Assistant's functional UI.
+- Retained the Home Assistant-provided PyJWT dependency contract introduced in
+  4.10.1; the integration manifest does not install or pin the core package.
+
 ## [4.10.1] - 2026-10-19
 
 ### Fixed

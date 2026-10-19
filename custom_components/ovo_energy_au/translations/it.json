@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connetti a OVO Energy Australia",
-        "description": "🎁 **Nuovo cliente OVO?** Credito di $180\n\n**Codice referral:** `daniel16485`\n**Iscrizione OVO diretta:** {ovo_url}\n**Link facile:** {ovo_friendly_url}\n\n💚 I referral sono l'unico guadagno da questo progetto gratuito e open-source.\n🛰️ **Ti serve internet?** 1 mese di Starlink gratis: {starlink_url}\n⭐ **Ti piace l'integrazione?** Metti una stella al repo: {github_url}\n\n---\n\nAccedi con il tuo account OVO Energy Australia per monitorare energia, costi, produzione solare e veicoli connessi.\n\n**Privacy e Sicurezza:**\n• Le credenziali sono archiviate solo in Home Assistant\n• I token di breve durata vengono aggiornati per primi\n• La password viene riutilizzata solo se OVO rifiuta il refresh token\n• Le credenziali non vengono condivise con terze parti",
+        "description": "Accedi con il tuo account OVO Energy Australia per monitorare energia, costi, produzione solare e veicoli connessi.\n\n**Privacy e Sicurezza:**\n• Le credenziali sono archiviate solo in Home Assistant\n• I token di breve durata vengono aggiornati per primi\n• La password viene riutilizzata solo se OVO rifiuta il refresh token\n• Le credenziali non vengono condivise con terze parti",
         "data": {
           "username": "Indirizzo Email",
           "password": "Password"
@@ -11,7 +11,7 @@
       },
       "reauth_confirm": {
         "title": "Ri-autenticazione con OVO Energy",
-        "description": "💚 **Questo progetto è gratuito e open-source — i referral sono il mio unico guadagno.**\n\n🎁 **Nuovo cliente OVO?** Credito di $120–$180 (guadagniamo entrambi): {ovo_url}\n🛰️ **Ti serve internet?** 1 mese di Starlink gratis: {starlink_url}\n⭐ **Ti piace l'integrazione?** Metti una stella al repo: {github_url}\n\n---\n\nLa tua sessione OVO Energy è scaduta. Accedi nuovamente per ripristinare il monitoraggio energetico.\n\n**Cosa succede dopo:**\n• Le tue credenziali sono ancora archiviate in modo sicuro\n• I sensori riprenderanno l'aggiornamento dopo la ri-autenticazione\n• Questa è un'azione una tantum - la ri-autenticazione automatica continuerà\n\nInserisci le tue credenziali OVO Energy qui sotto:",
+        "description": "La tua sessione OVO Energy è scaduta. Accedi nuovamente per ripristinare il monitoraggio energetico.\n\n**Cosa succede dopo:**\n• Le tue credenziali sono ancora archiviate in modo sicuro\n• I sensori riprenderanno l'aggiornamento dopo la ri-autenticazione\n• Questa è un'azione una tantum - la ri-autenticazione automatica continuerà\n\nInserisci le tue credenziali OVO Energy qui sotto:",
         "data": {
           "username": "Indirizzo Email",
           "password": "Password"
@@ -34,7 +34,7 @@
     "step": {
       "init": {
         "title": "Aggiorna Impostazioni Piano Energetico",
-        "description": "💚 **Questo progetto è gratuito e open-source — i referral sono il mio unico guadagno.**\n\n🎁 **Nuovo cliente OVO?** Credito di $120–$180 (guadagniamo entrambi): {ovo_url}\n🛰️ **Ti serve internet?** 1 mese di Starlink gratis: {starlink_url}\n⭐ **Ti piace l'integrazione?** Metti una stella al repo: {github_url}\n\n---\n\nModifica il tuo piano elettrico e le tariffe. Le modifiche hanno effetto immediato e aggiornano tutti i calcoli dei costi.\n\n**Suggerimento:** Se hai cambiato piano con OVO, aggiorna la tua selezione qui per garantire un monitoraggio accurato dei costi e dei risparmi.\n\n**Piano Free 3:** L'API di OVO riporta il consumo di punta/fuori punta come \"Other\". Imposta le ore della fascia di punta qui sotto per suddividerlo in punta e fuori punta. Lascia entrambi i valori uguali per disattivare.",
+        "description": "Modifica il tuo piano elettrico e le tariffe. Le modifiche hanno effetto immediato e aggiornano tutti i calcoli dei costi.\n\n**Suggerimento:** Se hai cambiato piano con OVO, aggiorna la tua selezione qui per garantire un monitoraggio accurato dei costi e dei risparmi.\n\n**Piano Free 3:** L'API di OVO riporta il consumo di punta/fuori punta come \"Other\". Imposta le ore della fascia di punta qui sotto per suddividerlo in punta e fuori punta. Lascia entrambi i valori uguali per disattivare.",
         "data": {
           "plan_type": "Piano Energetico",
           "peak_rate": "Tariffa di Punta ($/kWh)",
