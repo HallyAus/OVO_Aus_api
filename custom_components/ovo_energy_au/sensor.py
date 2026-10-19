@@ -19,6 +19,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, PLAN_EV, PLAN_FREE_3, PLAN_FREE_4, PLAN_ONE
 from .sensors.base import (
@@ -568,11 +569,13 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
         return bool(getattr(self.coordinator, "last_update_success", True))
 
     def _period_details(self) -> dict:
-        """Calculate the plan-aware period and rate for the current AU hour."""
+        """Calculate the plan-aware period and rate for the current local hour."""
+        # Tariff windows are customer wall-clock times, so follow Home
+        # Assistant's configured time zone (SA, QLD, NT and WA differ from Sydney).
         return get_tariff_details(
             self.coordinator.plan_config,
             self.coordinator.data,
-            datetime.now(AU_TIMEZONE).hour,
+            dt_util.now().hour,
         )
 
     @property
@@ -651,7 +654,7 @@ class OVORateComparisonSensor(OVOBaseSensor):
         # Project annual savings from monthly. Skip the first few days of a
         # month — extrapolating 1-2 days of data to a year is wildly unstable.
         if monthly_savings > 0:
-            now = datetime.now(AU_TIMEZONE)
+            now = dt_util.now()
             day_of_month = now.day
             if day_of_month >= 3:
                 projected_monthly = monthly_savings / day_of_month * 30.44

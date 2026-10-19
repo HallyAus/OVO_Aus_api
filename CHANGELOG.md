@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- The current tariff period now follows Home Assistant's configured time zone, so
+  customers in SA, QLD, NT and WA no longer see periods change early or late (#86).
 - Removed the duplicate PyJWT manifest requirement to follow Home Assistant's
   core-dependency policy. Supported HA 2026.8.3 and 2026.9.1 already pin
   PyJWT 2.13.0; the package retains `>=2.13.0,<3.0.0` and HACS minimum 2026.8.3.
