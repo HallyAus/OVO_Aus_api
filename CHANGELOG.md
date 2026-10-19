@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.10.1] - 2026-10-19
+
 ### Fixed
 - The current tariff period now follows Home Assistant's configured time zone, so
   customers in SA, QLD, NT and WA no longer see periods change early or late (#86).
@@ -16,8 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Declared the official config-entry-only schema for integration-level action
   setup. Unsupported YAML configuration now receives Home Assistant's standard
   explanation; UI config entries and the existing refresh action are unchanged.
-- These are unpublished compatibility corrections. The v4.10.0 tag and release
-  archive have not been replaced, and no new version has been published.
 
 ## [4.10.0] - 2026-09-05
 
