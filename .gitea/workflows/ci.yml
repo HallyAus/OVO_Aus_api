@@ -239,7 +239,7 @@ jobs:
           export GIT_ASKPASS="$helper" GIT_TERMINAL_PROMPT=0
           git init .
           git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
-          git -c credential.helper= fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git -c credential.helper= fetch --no-tags origin "$GITHUB_SHA"
           git checkout --detach FETCH_HEAD
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           # Gitea credentials are not exported past this point.
