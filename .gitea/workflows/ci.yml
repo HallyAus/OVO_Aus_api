@@ -51,6 +51,7 @@ jobs:
           python -m pytest tests/ -v
           python .gitea/scripts/test_package_release.py
           python .gitea/scripts/test_release_plan.py
+          python .gitea/scripts/test_recover_github.py
   runtime:
     needs: [unit]
     runs-on: personal-ubuntu
@@ -196,4 +197,54 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 14
-
+  recover:
+    # Runs only after every gate above succeeded for this exact commit.
+    needs: [unit, runtime, hassfest, candidate]
+    runs-on: personal-ubuntu
+    concurrency:
+      group: ovo-github-recovery
+      cancel-in-progress: false
+    container:
+      image: python:3.12-bookworm@sha256:5560e9ab8709f459489e5b8aa696eda8a07ef821e14bb122be62d91234bfa98b
+    timeout-minutes: 10
+    steps:
+      - name: Fast-forward the identical verified commit to GitHub recovery
+        env:
+          SOURCE_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          RECOVERY_DEPLOY_KEY: ${{ secrets.GITHUB_RECOVERY_DEPLOY_KEY }}
+          RECOVERY_GATES: ${{ toJSON(needs) }}
+        shell: sh
+        run: |
+          set -eu
+          test "$GITHUB_SERVER_URL" = 'http://192.168.1.130:3000'
+          test "$GITHUB_REPOSITORY" = 'hallyaus/OVO_Aus_api'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          case "$GITHUB_SHA" in ''|*[!0-9a-f]*) exit 1;; esac
+          test "${#GITHUB_SHA}" -eq 40
+          test -n "${RECOVERY_DEPLOY_KEY:?Repository-only recovery deploy key is not configured; recovery refused}"
+          helper="$(mktemp "${RUNNER_TEMP:-/tmp}/ovo-askpass.XXXXXX")"
+          keyfile="$(mktemp "${RUNNER_TEMP:-/tmp}/ovo-recovery-key.XXXXXX")"
+          trap 'rm -f "$helper" "$keyfile"' EXIT
+          cat > "$helper" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'x-access-token' ;;
+            *Password*) printf '%s\n' "$SOURCE_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          ASKPASS
+          chmod 700 "$helper"
+          printf '%s\n' "$RECOVERY_DEPLOY_KEY" > "$keyfile"
+          chmod 600 "$keyfile"
+          export GIT_ASKPASS="$helper" GIT_TERMINAL_PROMPT=0
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -c credential.helper= fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          # Gitea credentials are not exported past this point.
+          unset SOURCE_TOKEN GIT_ASKPASS
+          export RECOVERY_KEY_FILE="$keyfile" RECOVERY_REMOTE='git@github.com:HallyAus/OVO_Aus_api.git'
+          export RECOVERY_GATES="$(python -c 'import json,os;print(json.dumps({k:v["result"] for k,v in json.loads(os.environ["RECOVERY_GATES"]).items()}))')"
+          export RECOVERY_KNOWN_HOSTS="$PWD/.gitea/scripts/github_known_hosts"
+          python .gitea/scripts/recover_github.py
