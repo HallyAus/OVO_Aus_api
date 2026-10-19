@@ -211,7 +211,7 @@ jobs:
       - name: Fast-forward the identical verified commit to GitHub recovery
         env:
           SOURCE_TOKEN: ${{ secrets.GITEA_TOKEN }}
-          RECOVERY_DEPLOY_KEY: ${{ secrets.GITHUB_RECOVERY_DEPLOY_KEY }}
+          RECOVERY_DEPLOY_KEY: ${{ secrets.OVO_RECOVERY_DEPLOY_KEY }}
           RECOVERY_GATES: ${{ toJSON(needs) }}
         shell: sh
         run: |
