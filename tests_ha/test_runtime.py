@@ -14,6 +14,7 @@ from custom_components.ovo_energy_au.const import AU_TIMEZONE, DOMAIN
 
 def test_core_pyjwt_satisfies_the_supported_dependency_contract():
     """The real HA environment must supply the range omitted from manifest.json."""
+    # Intentionally >=2.13.0: HA core pins PyJWT==2.13.0; the >=2.14.0 floor lives only in pyproject.toml.
     assert jwt.__version__ in SpecifierSet(">=2.13.0,<3.0.0")
 
 
