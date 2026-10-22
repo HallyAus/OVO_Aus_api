@@ -20,9 +20,9 @@ def test_package_keeps_the_jwt_security_floor_and_major_compatibility_bound():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
     jwt = next(Requirement(item) for item in project["project"]["dependencies"]
                if Requirement(item).name.casefold() == "pyjwt")
-    assert jwt.specifier == SpecifierSet(">=2.13.0,<3.0.0")
-    assert Version("2.13.0") in jwt.specifier
-    assert Version("2.12.1") not in jwt.specifier
+    assert jwt.specifier == SpecifierSet(">=2.14.0,<3.0.0")
+    assert Version("2.14.0") in jwt.specifier
+    assert Version("2.13.0") not in jwt.specifier
     assert Version("3.0.0") not in jwt.specifier
 
 
