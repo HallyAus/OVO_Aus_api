@@ -67,7 +67,7 @@ class OVOBaseSensor(CoordinatorEntity, SensorEntity):
                 and not self._sensor_name.startswith(prefix)
                 and prefix not in self._sensor_name
             ):
-                return f"{prefix} {self._sensor_name}"
+                return f"{self._sensor_name} ({prefix})"
         return self._sensor_name
 
     @property

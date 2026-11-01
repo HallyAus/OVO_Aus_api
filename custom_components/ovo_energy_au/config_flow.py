@@ -430,20 +430,20 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         current_peak_end = current.get(CONF_PEAK_END_HOUR, 0)
 
         schema_fields = {
-            vol.Optional(
+            vol.Required(
                 CONF_CONSOLIDATE_DEVICES,
                 default=current.get(CONF_CONSOLIDATE_DEVICES, False),
             ): bool,
-            vol.Optional(
+            vol.Required(
                 CONF_BILLING_CYCLE_DAY, default=current_billing_cycle_day
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=31)),
-            vol.Optional(
+            vol.Required(
                 CONF_PEAK_START_HOUR, default=current_peak_start
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
-            vol.Optional(
+            vol.Required(
                 CONF_PEAK_END_HOUR, default=current_peak_end
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
-            vol.Optional(
+            vol.Required(
                 CONF_MANUAL_OVERRIDE, default=has_manual_override
             ): bool,
         }

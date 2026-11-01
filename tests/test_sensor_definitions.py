@@ -104,7 +104,7 @@ class TestSensorStatePrecision:
             lambda data: 1,
             "Yesterday",
         )
-        assert sensor.name == "Yesterday Grid Consumption"
+        assert sensor.name == "Grid Consumption (Yesterday)"
 
     def test_unconsolidated_devices_keeps_original_entity_name(self):
         coordinator = MagicMock()
