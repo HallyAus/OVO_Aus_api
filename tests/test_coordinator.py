@@ -296,3 +296,40 @@ async def test_hourly_status_recovers_after_a_good_response():
     assert coordinator.hourly_data_status == "fresh"
     assert coordinator.hourly_data_stale is False
     assert coordinator.hourly_data_issue is None
+
+
+@pytest.mark.asyncio
+async def test_auto_detect_billing_cycle_updates_day_from_statements():
+    client = _client_with_hourly_results([_GOOD_HOURLY_DATA])
+    client.get_statements.return_value = {
+        "statements": [
+            {"periodFrom": "2026-02-17T00:00:00Z", "issueDate": "2026-03-18"}
+        ]
+    }
+    plan_config = PlanConfig(billing_cycle_day=1)
+    coordinator = OVOEnergyAUDataUpdateCoordinator(
+        MagicMock(), client, "account", plan_config, auto_detect_billing_cycle=True
+    )
+
+    await coordinator._async_update_data()
+
+    assert coordinator.plan_config.billing_cycle_day == 17
+
+
+@pytest.mark.asyncio
+async def test_auto_detect_billing_cycle_disabled_preserves_configured_day():
+    client = _client_with_hourly_results([_GOOD_HOURLY_DATA])
+    client.get_statements.return_value = {
+        "statements": [
+            {"periodFrom": "2026-02-17T00:00:00Z", "issueDate": "2026-03-18"}
+        ]
+    }
+    plan_config = PlanConfig(billing_cycle_day=1)
+    coordinator = OVOEnergyAUDataUpdateCoordinator(
+        MagicMock(), client, "account", plan_config, auto_detect_billing_cycle=False
+    )
+
+    await coordinator._async_update_data()
+
+    assert coordinator.plan_config.billing_cycle_day == 1
+

@@ -30,6 +30,7 @@ from .tariffs import (
     get_current_product,
     update_plan_config_rates,
 )
+from .time_utils import parse_ovo_datetime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
         account_id: str,
         plan_config: PlanConfig | None = None,
         auto_detect_plan: bool = True,
+        auto_detect_billing_cycle: bool = True,
         consolidate_devices: bool = False,
     ) -> None:
         """Initialize the coordinator."""
@@ -57,6 +59,7 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
         self.account_id = account_id
         self.plan_config = plan_config or PlanConfig()
         self.auto_detect_plan = auto_detect_plan
+        self.auto_detect_billing_cycle = auto_detect_billing_cycle
         self.consolidate_devices = consolidate_devices
         self.account_device_id: str | None = None
         self._vehicle_warning_active = False
@@ -225,6 +228,23 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                 processed["statements"] = statements
                 if statements:
                     latest = statements[0]
+                    if self.auto_detect_billing_cycle and latest.get("periodFrom"):
+                        stmt_dt = parse_ovo_datetime(latest["periodFrom"])
+                        if (
+                            stmt_dt
+                            and 1 <= stmt_dt.day <= 31
+                            and stmt_dt.day != self.plan_config.billing_cycle_day
+                        ):
+                            _LOGGER.info(
+                                "Auto-detected billing cycle start day %d from latest statement",
+                                stmt_dt.day,
+                            )
+                            self.plan_config.billing_cycle_day = stmt_dt.day
+                            if interval_data:
+                                reprocessed = process_interval_data(
+                                    interval_data, self.plan_config.billing_cycle_day
+                                )
+                                processed.update(reprocessed)
                     charges_total = ((latest.get("charges") or {}).get("total") or {})
                     processed["latest_bill"] = {
                         "total": charges_total.get("value"),

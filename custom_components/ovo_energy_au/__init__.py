@@ -10,11 +10,13 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import OVOEnergyAUApiClient, OVOEnergyAUApiClientAuthenticationError, OVOEnergyAUApiClientError
 from .const import (
     CONF_ACCOUNT_ID,
+    CONF_BILLING_CYCLE_DAY,
     CONF_CONSOLIDATE_DEVICES,
     CONF_PEAK_END_HOUR,
     CONF_PEAK_START_HOUR,
@@ -92,6 +94,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         account_id=account_id,
         plan_config=plan_config,
         auto_detect_plan=CONF_PLAN_TYPE not in entry.options,
+        auto_detect_billing_cycle=CONF_BILLING_CYCLE_DAY not in entry.options,
         consolidate_devices=bool(entry.options.get(CONF_CONSOLIDATE_DEVICES, False)),
     )
     await coordinator.async_config_entry_first_refresh()
@@ -112,9 +115,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator.account_device_id = account_device.id
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    if coordinator.consolidate_devices:
+        dev_reg = dr.async_get(hass)
+        ent_reg = er.async_get(hass)
+        for dev in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
+            if dev.id != account_device.id and not er.async_entries_for_device(ent_reg, dev.id):
+                dev_reg.async_remove_device(dev.id)
+
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, config_entry: ConfigEntry, device_entry: dr.DeviceEntry
+) -> bool:
+    """Remove a config entry from a device."""
+    return True

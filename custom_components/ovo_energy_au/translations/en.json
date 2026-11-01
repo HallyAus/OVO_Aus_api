@@ -33,19 +33,26 @@
   "options": {
     "step": {
       "init": {
-        "title": "Update Energy Plan Settings",
-        "description": "Modify your electricity plan and rates. Changes take effect immediately and update all cost calculations. Recognised plan switches are detected automatically; saving a plan here makes it your manual override.\n\n**Billing cycle:** If your OVO bill doesn't start on the 1st, set the **Billing Cycle Start Day** to the day your cycle begins (e.g. 24 for a 24th–23rd cycle). Month-to-date usage, daily averages and bill estimates then follow your real billing period. Leave it at 1 for a calendar month.\n\n**Tariff schedule:** Free 3, Free 4 and EV product windows are automatic. OVO does not return every distributor-specific peak boundary, and some usage is reported as \"Other\". Set the peak window hours below to make Current Tariff Period and hourly TOU data distinguish peak from off-peak. Leave both values equal to disable the manual split.",
+        "title": "OVO Energy Settings",
+        "description": "Configure device grouping, billing cycle, and optional distributor peak schedules. Plan and tariff rates are automatically detected from OVO's API unless manual override is selected.\n\n**Billing cycle:** Set to the day your billing cycle begins (1-31). Leave at 1 to follow calendar months or auto-detect from your latest bill.\n\n**Peak schedule:** Free and EV windows are automatic. Set peak start and end hours only if your network distributor uses Time-of-Use peak boundaries not reported by OVO.",
+        "data": {
+          "consolidate_devices": "Consolidate into single account device",
+          "billing_cycle_day": "Billing Cycle Start Day (1-31)",
+          "peak_start_hour": "Peak Window Start Hour (0-23)",
+          "peak_end_hour": "Peak Window End Hour (0-23)",
+          "manual_override": "Advanced: Manually override plan and tariff rates"
+        }
+      },
+      "manual_rates": {
+        "title": "Manual Plan & Tariff Overrides",
+        "description": "Manually specify your energy plan and tariff rates. These will override the values automatically detected from OVO's API.",
         "data": {
           "plan_type": "Energy Plan",
           "peak_rate": "Peak Rate ($/kWh)",
           "shoulder_rate": "Shoulder Rate ($/kWh)",
           "off_peak_rate": "Off-Peak Rate ($/kWh)",
           "ev_rate": "EV Off-Peak Rate ($/kWh)",
-          "flat_rate": "Flat Rate ($/kWh)",
-          "billing_cycle_day": "Billing Cycle Start Day (1-31)",
-          "consolidate_devices": "Consolidate into single account device",
-          "peak_start_hour": "Peak Window Start Hour (0-23)",
-          "peak_end_hour": "Peak Window End Hour (0-23)"
+          "flat_rate": "Flat Rate ($/kWh)"
         }
       }
     }

@@ -14,6 +14,7 @@ from custom_components.ovo_energy_au.const import (
     CONF_CONSOLIDATE_DEVICES,
     CONF_EV_RATE,
     CONF_FLAT_RATE,
+    CONF_MANUAL_OVERRIDE,
     CONF_OFF_PEAK_RATE,
     CONF_PEAK_END_HOUR,
     CONF_PEAK_RATE,
@@ -150,6 +151,59 @@ async def test_options_stores_consolidate_devices():
 
     assert result["type"] == "create_entry"
     assert result["data"][CONF_CONSOLIDATE_DEVICES] is True
+
+
+@pytest.mark.asyncio
+async def test_options_default_automatic_flow_creates_clean_entry():
+    flow = OptionsFlowHandler()
+    flow.config_entry = SimpleNamespace(data={}, options={})
+
+    result = await flow.async_step_init(
+        {
+            CONF_CONSOLIDATE_DEVICES: True,
+            CONF_MANUAL_OVERRIDE: False,
+        }
+    )
+
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_CONSOLIDATE_DEVICES] is True
+    assert result["data"][CONF_MANUAL_OVERRIDE] is False
+    assert CONF_PLAN_TYPE not in result["data"]
+
+
+@pytest.mark.asyncio
+async def test_options_manual_override_routes_to_manual_rates_step():
+    flow = OptionsFlowHandler()
+    flow.config_entry = SimpleNamespace(data={}, options={})
+
+    # Step 1: select manual override
+    result = await flow.async_step_init(
+        {
+            CONF_CONSOLIDATE_DEVICES: True,
+            CONF_MANUAL_OVERRIDE: True,
+        }
+    )
+
+    assert result["type"] == "form"
+    assert result["step_id"] == "manual_rates"
+
+    # Step 2: submit manual rates
+    rates_result = await flow.async_step_manual_rates(
+        {
+            CONF_PLAN_TYPE: PLAN_EV,
+            CONF_BILLING_CYCLE_DAY: 12,
+            CONF_PEAK_RATE: 0.45,
+            CONF_EV_RATE: 0.08,
+        }
+    )
+
+    assert rates_result["type"] == "create_entry"
+    assert rates_result["data"][CONF_CONSOLIDATE_DEVICES] is True
+    assert rates_result["data"][CONF_MANUAL_OVERRIDE] is True
+    assert rates_result["data"][CONF_PLAN_TYPE] == PLAN_EV
+    assert rates_result["data"][CONF_BILLING_CYCLE_DAY] == 12
+    assert rates_result["data"][CONF_EV_RATE] == 0.08
+
 
 
 @pytest.mark.asyncio

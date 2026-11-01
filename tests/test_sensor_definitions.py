@@ -89,6 +89,40 @@ class TestSensorStatePrecision:
         assert sensor.device_info["name"] == "OVO Energy AU"
         assert "via_device_id" not in sensor.device_info
 
+    def test_consolidate_devices_prefixes_generic_names_with_category(self):
+        coordinator = MagicMock()
+        coordinator.account_id = "12345"
+        coordinator.consolidate_devices = True
+        sensor = OVOEnergySensor(
+            coordinator,
+            "yesterday_grid_consumption",
+            "Grid Consumption",
+            "kWh",
+            None,
+            None,
+            "mdi:flash",
+            lambda data: 1,
+            "Yesterday",
+        )
+        assert sensor.name == "Yesterday Grid Consumption"
+
+    def test_unconsolidated_devices_keeps_original_entity_name(self):
+        coordinator = MagicMock()
+        coordinator.account_id = "12345"
+        coordinator.consolidate_devices = False
+        sensor = OVOEnergySensor(
+            coordinator,
+            "yesterday_grid_consumption",
+            "Grid Consumption",
+            "kWh",
+            None,
+            None,
+            "mdi:flash",
+            lambda data: 1,
+            "Yesterday",
+        )
+        assert sensor.name == "Grid Consumption"
+
     def test_hourly_sensor_is_unavailable_until_real_data_exists(self):
         coordinator = SimpleNamespace(
             account_id="12345",
@@ -589,7 +623,7 @@ async def test_setup_does_not_register_rotating_day_or_hourly_day_entities():
     coordinator = MagicMock()
     coordinator.account_id = "account-id"
     coordinator.data = {}
-    coordinator.plan_config = PlanConfig()
+    coordinator.plan_config = PlanConfig(plan_type="ev")
     coordinator.async_add_listener.return_value = lambda: None
     entry = MagicMock()
     entry.runtime_data = coordinator
@@ -608,6 +642,29 @@ async def test_setup_does_not_register_rotating_day_or_hourly_day_entities():
     # 18 rate sensors + 4 counterfactuals + 11 specialized + 3 energy dashboard
     expected = len(ENERGY_SENSORS) + len(ANALYTICS_SENSORS) + 18 + 4 + 11 + 3
     assert len(entities) == expected
+
+
+@pytest.mark.asyncio
+async def test_setup_omits_ev_sensors_when_plan_is_not_ev():
+    """Non-EV accounts omit EV charging and EV off-peak sensors."""
+    from custom_components.ovo_energy_au.sensor import (
+        _EV_SENSOR_KEYS,
+        async_setup_entry,
+    )
+
+    coordinator = MagicMock()
+    coordinator.account_id = "account-id"
+    coordinator.data = {}
+    coordinator.plan_config = PlanConfig(plan_type="free_3")
+    coordinator.async_add_listener.return_value = lambda: None
+    entry = MagicMock()
+    entry.runtime_data = coordinator
+    entities = []
+
+    await async_setup_entry(MagicMock(), entry, entities.extend)
+
+    keys = {getattr(entity, "_sensor_key", "") for entity in entities}
+    assert not any(key in _EV_SENSOR_KEYS for key in keys)
 
 
 @pytest.mark.asyncio
