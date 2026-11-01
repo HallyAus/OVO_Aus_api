@@ -422,7 +422,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             # Automatic mode: return base options without plan/rate overrides
             return self.async_create_entry(title="", data=self._options)
 
-        has_manual_override = CONF_PLAN_TYPE in self.config_entry.options
+        has_manual_override = bool(
+            self.config_entry.options.get(CONF_MANUAL_OVERRIDE, False)
+        )
         current_billing_cycle_day = current.get(CONF_BILLING_CYCLE_DAY, 1)
         current_peak_start = current.get(CONF_PEAK_START_HOUR, 0)
         current_peak_end = current.get(CONF_PEAK_END_HOUR, 0)
