@@ -1,3 +1,9 @@
-# This harness pins a compatible Home Assistant version and its test dependencies.
+# Build this explicitly labelled stable security backport before installing:
+# python scripts/build_ha_security_runtime.py --output-dir /tmp/ovo-ha-security
+# pip install --find-links /tmp/ovo-ha-security -r requirements-test-ha.txt
+# The wheel consistently applies the upstream Pillow 13 fix to HA's dependency
+# metadata, runtime constraints and integration manifests. No resolver override.
+homeassistant==2026.10.4+ovo.pillow13.1
+# This official harness accepts the stable base version's local backport.
 # Keep real HA tests separate from tests/, whose conftest mocks HA modules.
 pytest-homeassistant-custom-component==0.13.375

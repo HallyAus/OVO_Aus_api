@@ -1,1140 +1,1043 @@
 {
-  "review_date_sydney": "2026-11-02",
-  "homeassistant": "2026.10.4",
-  "test_harness": "pytest-homeassistant-custom-component==0.13.375",
-  "python": "3.14.8",
+  "actual_osv": {
+    "packages": 153,
+    "skipped": 0,
+    "vulnerabilities": 0
+  },
+  "actual_osv_report": {
+    "dependencies": [
+      {
+        "name": "acme",
+        "version": "5.7.0",
+        "vulns": []
+      },
+      {
+        "name": "aiodns",
+        "version": "4.0.4",
+        "vulns": []
+      },
+      {
+        "name": "aiogithubapi",
+        "version": "26.0.0",
+        "vulns": []
+      },
+      {
+        "name": "aiohappyeyeballs",
+        "version": "2.7.1",
+        "vulns": []
+      },
+      {
+        "name": "aiohasupervisor",
+        "version": "0.6.0",
+        "vulns": []
+      },
+      {
+        "name": "aiohttp",
+        "version": "3.14.5",
+        "vulns": []
+      },
+      {
+        "name": "aiohttp-asyncmdnsresolver",
+        "version": "0.2.0",
+        "vulns": []
+      },
+      {
+        "name": "aiohttp-cors",
+        "version": "0.8.1",
+        "vulns": []
+      },
+      {
+        "name": "aiohttp-fast-zlib",
+        "version": "0.3.0",
+        "vulns": []
+      },
+      {
+        "name": "aiooui",
+        "version": "0.1.11",
+        "vulns": []
+      },
+      {
+        "name": "aiosignal",
+        "version": "1.4.0",
+        "vulns": []
+      },
+      {
+        "name": "aiozoneinfo",
+        "version": "0.2.3",
+        "vulns": []
+      },
+      {
+        "name": "annotated-types",
+        "version": "0.8.0",
+        "vulns": []
+      },
+      {
+        "name": "annotatedyaml",
+        "version": "1.0.2",
+        "vulns": []
+      },
+      {
+        "name": "anyio",
+        "version": "4.16.0",
+        "vulns": []
+      },
+      {
+        "name": "astral",
+        "version": "2.2",
+        "vulns": []
+      },
+      {
+        "name": "async-interrupt",
+        "version": "1.2.2",
+        "vulns": []
+      },
+      {
+        "name": "atomicwrites-homeassistant",
+        "version": "1.4.1",
+        "vulns": []
+      },
+      {
+        "name": "attrs",
+        "version": "26.1.0",
+        "vulns": []
+      },
+      {
+        "name": "audioop-lts",
+        "version": "0.2.2",
+        "vulns": []
+      },
+      {
+        "name": "awesomeversion",
+        "version": "25.8.0",
+        "vulns": []
+      },
+      {
+        "name": "backoff",
+        "version": "2.2.1",
+        "vulns": []
+      },
+      {
+        "name": "bcrypt",
+        "version": "5.0.0",
+        "vulns": []
+      },
+      {
+        "name": "bleak",
+        "version": "3.0.2",
+        "vulns": []
+      },
+      {
+        "name": "bleak-retry-connector",
+        "version": "4.7.1",
+        "vulns": []
+      },
+      {
+        "name": "bluetooth-adapters",
+        "version": "2.4.0",
+        "vulns": []
+      },
+      {
+        "name": "bluetooth-auto-recovery",
+        "version": "1.6.4",
+        "vulns": []
+      },
+      {
+        "name": "bluetooth-data-tools",
+        "version": "1.29.24",
+        "vulns": []
+      },
+      {
+        "name": "boolean-py",
+        "version": "5.0",
+        "vulns": []
+      },
+      {
+        "name": "boto3",
+        "version": "1.43.123",
+        "vulns": []
+      },
+      {
+        "name": "botocore",
+        "version": "1.43.123",
+        "vulns": []
+      },
+      {
+        "name": "btsocket",
+        "version": "0.3.0",
+        "vulns": []
+      },
+      {
+        "name": "build",
+        "version": "1.6.1",
+        "vulns": []
+      },
+      {
+        "name": "certifi",
+        "version": "2026.10.23",
+        "vulns": []
+      },
+      {
+        "name": "cffi",
+        "version": "2.1.1",
+        "vulns": []
+      },
+      {
+        "name": "charset-normalizer",
+        "version": "3.5.2",
+        "vulns": []
+      },
+      {
+        "name": "ciso8601",
+        "version": "2.3.3",
+        "vulns": []
+      },
+      {
+        "name": "coverage",
+        "version": "7.16.2",
+        "vulns": []
+      },
+      {
+        "name": "cronsim",
+        "version": "2.7",
+        "vulns": []
+      },
+      {
+        "name": "cryptography",
+        "version": "50.0.1",
+        "vulns": []
+      },
+      {
+        "name": "dbus-fast",
+        "version": "5.2.0",
+        "vulns": []
+      },
+      {
+        "name": "envs",
+        "version": "1.4",
+        "vulns": []
+      },
+      {
+        "name": "execnet",
+        "version": "2.1.2",
+        "vulns": []
+      },
+      {
+        "name": "fnv-hash-fast",
+        "version": "2.0.3",
+        "vulns": []
+      },
+      {
+        "name": "fnvhash",
+        "version": "0.2.1",
+        "vulns": []
+      },
+      {
+        "name": "freezegun",
+        "version": "1.5.5",
+        "vulns": []
+      },
+      {
+        "name": "frozenlist",
+        "version": "1.8.0",
+        "vulns": []
+      },
+      {
+        "name": "greenlet",
+        "version": "3.5.6",
+        "vulns": []
+      },
+      {
+        "name": "grpcio",
+        "version": "1.85.1",
+        "vulns": []
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0",
+        "vulns": []
+      },
+      {
+        "name": "habluetooth",
+        "version": "7.1.2",
+        "vulns": []
+      },
+      {
+        "name": "hass-nabucasa",
+        "version": "2.7.0",
+        "vulns": []
+      },
+      {
+        "name": "home-assistant-bluetooth",
+        "version": "2.0.0",
+        "vulns": []
+      },
+      {
+        "name": "homeassistant",
+        "version": "2026.10.4+ovo.pillow13.1",
+        "vulns": []
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9",
+        "vulns": []
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1",
+        "vulns": []
+      },
+      {
+        "name": "icmplib",
+        "version": "3.0.4",
+        "vulns": []
+      },
+      {
+        "name": "idna",
+        "version": "3.20",
+        "vulns": []
+      },
+      {
+        "name": "ifaddr",
+        "version": "0.2.0",
+        "vulns": []
+      },
+      {
+        "name": "iniconfig",
+        "version": "2.3.1",
+        "vulns": []
+      },
+      {
+        "name": "installer",
+        "version": "1.1.0",
+        "vulns": []
+      },
+      {
+        "name": "jinja2",
+        "version": "3.1.6",
+        "vulns": []
+      },
+      {
+        "name": "jmespath",
+        "version": "1.1.0",
+        "vulns": []
+      },
+      {
+        "name": "josepy",
+        "version": "2.2.0",
+        "vulns": []
+      },
+      {
+        "name": "license-expression",
+        "version": "30.4.4",
+        "vulns": []
+      },
+      {
+        "name": "lru-dict",
+        "version": "1.4.1",
+        "vulns": []
+      },
+      {
+        "name": "markdown-it-py",
+        "version": "4.2.0",
+        "vulns": []
+      },
+      {
+        "name": "markupsafe",
+        "version": "3.0.4",
+        "vulns": []
+      },
+      {
+        "name": "mashumaro",
+        "version": "3.23",
+        "vulns": []
+      },
+      {
+        "name": "mdurl",
+        "version": "0.1.2",
+        "vulns": []
+      },
+      {
+        "name": "mock-open",
+        "version": "1.4.0",
+        "vulns": []
+      },
+      {
+        "name": "multidict",
+        "version": "7.2.1",
+        "vulns": []
+      },
+      {
+        "name": "nab",
+        "version": "0.0.23",
+        "vulns": []
+      },
+      {
+        "name": "nab-index",
+        "version": "0.0.23",
+        "vulns": []
+      },
+      {
+        "name": "nab-markersets",
+        "version": "0.0.23",
+        "vulns": []
+      },
+      {
+        "name": "nab-project",
+        "version": "0.0.23",
+        "vulns": []
+      },
+      {
+        "name": "nab-provider",
+        "version": "0.0.23",
+        "vulns": []
+      },
+      {
+        "name": "nab-resolver",
+        "version": "0.0.23",
+        "vulns": []
+      },
+      {
+        "name": "numpy",
+        "version": "2.3.2",
+        "vulns": []
+      },
+      {
+        "name": "orjson",
+        "version": "3.11.9",
+        "vulns": []
+      },
+      {
+        "name": "packaging",
+        "version": "26.3",
+        "vulns": []
+      },
+      {
+        "name": "paho-mqtt",
+        "version": "2.1.0",
+        "vulns": []
+      },
+      {
+        "name": "pillow",
+        "version": "13.0.0",
+        "vulns": []
+      },
+      {
+        "name": "pip",
+        "version": "26.2.2",
+        "vulns": []
+      },
+      {
+        "name": "pipdeptree",
+        "version": "4.2.5",
+        "vulns": []
+      },
+      {
+        "name": "pluggy",
+        "version": "1.7.0",
+        "vulns": []
+      },
+      {
+        "name": "probatio",
+        "version": "0.13.0",
+        "vulns": []
+      },
+      {
+        "name": "propcache",
+        "version": "0.5.4",
+        "vulns": []
+      },
+      {
+        "name": "psutil",
+        "version": "7.2.2",
+        "vulns": []
+      },
+      {
+        "name": "psutil-home-assistant",
+        "version": "0.0.1",
+        "vulns": []
+      },
+      {
+        "name": "pycares",
+        "version": "5.2.1",
+        "vulns": []
+      },
+      {
+        "name": "pycognito",
+        "version": "2024.5.1",
+        "vulns": []
+      },
+      {
+        "name": "pycparser",
+        "version": "3.12",
+        "vulns": []
+      },
+      {
+        "name": "pydantic",
+        "version": "2.13.5",
+        "vulns": []
+      },
+      {
+        "name": "pydantic-core",
+        "version": "2.46.5",
+        "vulns": []
+      },
+      {
+        "name": "pygithub",
+        "version": "2.10.0",
+        "vulns": []
+      },
+      {
+        "name": "pygments",
+        "version": "2.21.0",
+        "vulns": []
+      },
+      {
+        "name": "pyjwt",
+        "version": "2.15.1",
+        "vulns": []
+      },
+      {
+        "name": "pynacl",
+        "version": "1.6.2",
+        "vulns": []
+      },
+      {
+        "name": "pyopenssl",
+        "version": "26.4.0",
+        "vulns": []
+      },
+      {
+        "name": "pyproject-hooks",
+        "version": "1.3.3",
+        "vulns": []
+      },
+      {
+        "name": "pyrfc3339",
+        "version": "2.1.1",
+        "vulns": []
+      },
+      {
+        "name": "pyric",
+        "version": "0.1.6.3",
+        "vulns": []
+      },
+      {
+        "name": "pytest",
+        "version": "9.0.3",
+        "vulns": []
+      },
+      {
+        "name": "pytest-aiohttp",
+        "version": "1.1.1",
+        "vulns": []
+      },
+      {
+        "name": "pytest-asyncio",
+        "version": "1.4.0",
+        "vulns": []
+      },
+      {
+        "name": "pytest-codspeed",
+        "version": "5.0.3",
+        "vulns": []
+      },
+      {
+        "name": "pytest-cov",
+        "version": "7.1.0",
+        "vulns": []
+      },
+      {
+        "name": "pytest-freezer",
+        "version": "0.4.9",
+        "vulns": []
+      },
+      {
+        "name": "pytest-github-actions-annotate-failures",
+        "version": "0.4.2",
+        "vulns": []
+      },
+      {
+        "name": "pytest-homeassistant-custom-component",
+        "version": "0.13.375",
+        "vulns": []
+      },
+      {
+        "name": "pytest-picked",
+        "version": "0.5.1",
+        "vulns": []
+      },
+      {
+        "name": "pytest-socket",
+        "version": "0.8.1",
+        "vulns": []
+      },
+      {
+        "name": "pytest-timeout",
+        "version": "2.4.0",
+        "vulns": []
+      },
+      {
+        "name": "pytest-unordered",
+        "version": "0.8.0",
+        "vulns": []
+      },
+      {
+        "name": "pytest-xdist",
+        "version": "3.8.0",
+        "vulns": []
+      },
+      {
+        "name": "python-dateutil",
+        "version": "2.9.0.post0",
+        "vulns": []
+      },
+      {
+        "name": "python-slugify",
+        "version": "9.1.2",
+        "vulns": []
+      },
+      {
+        "name": "pytz",
+        "version": "2026.6",
+        "vulns": []
+      },
+      {
+        "name": "pyyaml",
+        "version": "6.0.3",
+        "vulns": []
+      },
+      {
+        "name": "regex",
+        "version": "2026.9.29",
+        "vulns": []
+      },
+      {
+        "name": "requests",
+        "version": "2.34.2",
+        "vulns": []
+      },
+      {
+        "name": "requests-mock",
+        "version": "1.12.1",
+        "vulns": []
+      },
+      {
+        "name": "respx",
+        "version": "0.23.1",
+        "vulns": []
+      },
+      {
+        "name": "rich",
+        "version": "15.0.0",
+        "vulns": []
+      },
+      {
+        "name": "s3transfer",
+        "version": "0.19.3",
+        "vulns": []
+      },
+      {
+        "name": "securetar",
+        "version": "2026.4.1",
+        "vulns": []
+      },
+      {
+        "name": "sentence-stream",
+        "version": "1.4.0",
+        "vulns": []
+      },
+      {
+        "name": "six",
+        "version": "1.17.0",
+        "vulns": []
+      },
+      {
+        "name": "snitun",
+        "version": "0.47.0",
+        "vulns": []
+      },
+      {
+        "name": "sqlalchemy",
+        "version": "2.0.54",
+        "vulns": []
+      },
+      {
+        "name": "standard-aifc",
+        "version": "3.13.0",
+        "vulns": []
+      },
+      {
+        "name": "standard-chunk",
+        "version": "3.13.0",
+        "vulns": []
+      },
+      {
+        "name": "standard-telnetlib",
+        "version": "3.13.0",
+        "vulns": []
+      },
+      {
+        "name": "syrupy",
+        "version": "6.1.1",
+        "vulns": []
+      },
+      {
+        "name": "text-unidecode",
+        "version": "1.3",
+        "vulns": []
+      },
+      {
+        "name": "tomli",
+        "version": "2.5.0",
+        "vulns": []
+      },
+      {
+        "name": "tomli-w",
+        "version": "1.2.0",
+        "vulns": []
+      },
+      {
+        "name": "tqdm",
+        "version": "4.70.1",
+        "vulns": []
+      },
+      {
+        "name": "truststore",
+        "version": "0.10.5",
+        "vulns": []
+      },
+      {
+        "name": "typing-extensions",
+        "version": "4.16.0",
+        "vulns": []
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.4",
+        "vulns": []
+      },
+      {
+        "name": "tzdata",
+        "version": "2026.6",
+        "vulns": []
+      },
+      {
+        "name": "uart-devices",
+        "version": "0.1.1",
+        "vulns": []
+      },
+      {
+        "name": "ulid-transform",
+        "version": "2.2.9",
+        "vulns": []
+      },
+      {
+        "name": "unidiff",
+        "version": "1.0.1",
+        "vulns": []
+      },
+      {
+        "name": "urllib3",
+        "version": "2.8.0",
+        "vulns": []
+      },
+      {
+        "name": "usb-devices",
+        "version": "0.5.1",
+        "vulns": []
+      },
+      {
+        "name": "uv",
+        "version": "0.13.5",
+        "vulns": []
+      },
+      {
+        "name": "voluptuous",
+        "version": "0.16.0",
+        "vulns": []
+      },
+      {
+        "name": "webrtc-models",
+        "version": "0.3.0",
+        "vulns": []
+      },
+      {
+        "name": "yarl",
+        "version": "1.25.1",
+        "vulns": []
+      },
+      {
+        "name": "zeroconf",
+        "version": "0.151.5",
+        "vulns": []
+      }
+    ],
+    "fixes": []
+  },
   "audit_tool": "pip-audit==2.10.1",
-  "status": "failed",
-  "package_count": 152,
-  "advisory_count": 39,
-  "dependencies": [
-    {
-      "name": "acme",
-      "version": "5.7.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiodns",
-      "version": "4.0.4",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiogithubapi",
-      "version": "26.0.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiohappyeyeballs",
-      "version": "2.7.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiohasupervisor",
-      "version": "0.6.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiohttp",
-      "version": "3.14.5",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiohttp-asyncmdnsresolver",
-      "version": "0.2.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiohttp-cors",
-      "version": "0.8.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiohttp-fast-zlib",
-      "version": "0.3.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiooui",
-      "version": "0.1.11",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiosignal",
-      "version": "1.4.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "aiozoneinfo",
-      "version": "0.2.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "annotated-types",
-      "version": "0.8.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "annotatedyaml",
-      "version": "1.0.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "anyio",
-      "version": "4.16.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "astral",
-      "version": "2.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "async-interrupt",
-      "version": "1.2.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "atomicwrites-homeassistant",
-      "version": "1.4.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "attrs",
-      "version": "26.1.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "audioop-lts",
-      "version": "0.2.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "awesomeversion",
-      "version": "25.8.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "backoff",
-      "version": "2.2.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "bcrypt",
-      "version": "5.0.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "bleak",
-      "version": "3.0.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "bleak-retry-connector",
-      "version": "4.7.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "bluetooth-adapters",
-      "version": "2.4.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "bluetooth-auto-recovery",
-      "version": "1.6.4",
-      "vulnerabilities": []
-    },
-    {
-      "name": "bluetooth-data-tools",
-      "version": "1.29.24",
-      "vulnerabilities": []
-    },
-    {
-      "name": "boolean-py",
-      "version": "5.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "boto3",
-      "version": "1.43.123",
-      "vulnerabilities": []
-    },
-    {
-      "name": "botocore",
-      "version": "1.43.123",
-      "vulnerabilities": []
-    },
-    {
-      "name": "btsocket",
-      "version": "0.3.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "build",
-      "version": "1.6.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "certifi",
-      "version": "2026.10.23",
-      "vulnerabilities": []
-    },
-    {
-      "name": "cffi",
-      "version": "2.1.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "charset-normalizer",
-      "version": "3.5.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "ciso8601",
-      "version": "2.3.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "coverage",
-      "version": "7.16.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "cronsim",
-      "version": "2.7",
-      "vulnerabilities": []
-    },
-    {
-      "name": "cryptography",
-      "version": "50.0.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "dbus-fast",
-      "version": "5.2.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "envs",
-      "version": "1.4",
-      "vulnerabilities": []
-    },
-    {
-      "name": "execnet",
-      "version": "2.1.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "fnv-hash-fast",
-      "version": "2.0.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "fnvhash",
-      "version": "0.2.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "freezegun",
-      "version": "1.5.5",
-      "vulnerabilities": []
-    },
-    {
-      "name": "frozenlist",
-      "version": "1.8.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "greenlet",
-      "version": "3.5.6",
-      "vulnerabilities": []
-    },
-    {
-      "name": "grpcio",
-      "version": "1.85.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "h11",
-      "version": "0.16.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "habluetooth",
-      "version": "7.1.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "hass-nabucasa",
-      "version": "2.7.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "home-assistant-bluetooth",
-      "version": "2.0.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "homeassistant",
-      "version": "2026.10.4",
-      "vulnerabilities": []
-    },
-    {
-      "name": "httpcore",
-      "version": "1.0.9",
-      "vulnerabilities": []
-    },
-    {
-      "name": "httpx",
-      "version": "0.28.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "icmplib",
-      "version": "3.0.4",
-      "vulnerabilities": []
-    },
-    {
-      "name": "idna",
-      "version": "3.20",
-      "vulnerabilities": []
-    },
-    {
-      "name": "ifaddr",
-      "version": "0.2.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "iniconfig",
-      "version": "2.3.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "installer",
-      "version": "1.1.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "jinja2",
-      "version": "3.1.6",
-      "vulnerabilities": []
-    },
-    {
-      "name": "jmespath",
-      "version": "1.1.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "josepy",
-      "version": "2.2.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "license-expression",
-      "version": "30.4.4",
-      "vulnerabilities": []
-    },
-    {
-      "name": "lru-dict",
-      "version": "1.4.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "markdown-it-py",
-      "version": "4.2.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "markupsafe",
-      "version": "3.0.4",
-      "vulnerabilities": []
-    },
-    {
-      "name": "mashumaro",
-      "version": "3.23",
-      "vulnerabilities": []
-    },
-    {
-      "name": "mdurl",
-      "version": "0.1.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "mock-open",
-      "version": "1.4.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "multidict",
-      "version": "7.2.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "nab",
-      "version": "0.0.23",
-      "vulnerabilities": []
-    },
-    {
-      "name": "nab-index",
-      "version": "0.0.23",
-      "vulnerabilities": []
-    },
-    {
-      "name": "nab-markersets",
-      "version": "0.0.23",
-      "vulnerabilities": []
-    },
-    {
-      "name": "nab-project",
-      "version": "0.0.23",
-      "vulnerabilities": []
-    },
-    {
-      "name": "nab-provider",
-      "version": "0.0.23",
-      "vulnerabilities": []
-    },
-    {
-      "name": "nab-resolver",
-      "version": "0.0.23",
-      "vulnerabilities": []
-    },
-    {
-      "name": "numpy",
-      "version": "2.3.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "orjson",
-      "version": "3.11.9",
-      "vulnerabilities": []
-    },
-    {
-      "name": "packaging",
-      "version": "26.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "paho-mqtt",
-      "version": "2.1.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pillow",
-      "version": "12.3.0",
-      "vulnerabilities": [
+  "build_backend_pypi": {
+    "packages": 1,
+    "report": {
+      "dependencies": [
         {
-          "id": "PYSEC-2026-4327",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-4558-3h8r-v8xp",
-            "CVE-2026-112394"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4328",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-4rr5-89j8-mwwm",
-            "CVE-2026-112396"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4326",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-27h8-gf7j-v5hc",
-            "CVE-2026-112392"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4339",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "CVE-2026-96639",
-            "GHSA-v9pv-5gc8-w2m6"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4340",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-4rm8-3hmm-39fg",
-            "CVE-2026-96641"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4343",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-9v9v-9qvf-h2hj",
-            "CVE-2026-96644"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4334",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "CVE-2026-112896",
-            "GHSA-pchr-8j38-3x4p"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4337",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "CVE-2026-96636",
-            "GHSA-p8hx-v2p6-rp84"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4341",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-3j72-p6qg-6xp7",
-            "CVE-2026-96642"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4330",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "CVE-2026-112398",
-            "GHSA-5x8w-8jj5-q52h"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4338",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-g842-9rc4-69pw",
-            "CVE-2026-96637"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4335",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "CVE-2026-112901",
-            "GHSA-xgh8-jp6q-p5x8"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4336",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-654x-cwwv-5j9c",
-            "CVE-2026-114501"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4331",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-7mwm-ghpf-9vrm",
-            "CVE-2026-112402"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4332",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-8g5g-8vmr-9782",
-            "CVE-2026-112403"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4329",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "CVE-2026-112397",
-            "GHSA-58r4-6rv3-gfh8"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4333",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-cp9v-662q-vvx9",
-            "CVE-2026-112405"
-          ]
-        },
-        {
-          "id": "PYSEC-2026-4342",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "CVE-2026-96643",
-            "GHSA-g4qv-2jxx-769h"
-          ]
-        },
-        {
-          "id": "CVE-2026-112895",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-p4wg-p73j-c528"
-          ]
-        },
-        {
-          "id": "CVE-2026-112400",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-65qm-jvmh-6pqg"
-          ]
-        },
-        {
-          "id": "CVE-2026-112897",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-q45j-58j2-45rg"
-          ]
-        },
-        {
-          "id": "CVE-2026-112395",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-462x-pgg6-55fp"
-          ]
-        },
-        {
-          "id": "CVE-2026-112404",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-c6hw-5grf-ff96"
-          ]
-        },
-        {
-          "id": "CVE-2026-112899",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-vx6w-vv9f-6gvg"
-          ]
-        },
-        {
-          "id": "CVE-2026-112900",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-w889-685w-c8fh"
-          ]
-        },
-        {
-          "id": "CVE-2026-112893",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-j4m9-6w36-pw47"
-          ]
-        },
-        {
-          "id": "CVE-2026-112891",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-fc9g-5qg7-mf45"
-          ]
-        },
-        {
-          "id": "CVE-2026-112390",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-22hg-r758-rrw9"
-          ]
-        },
-        {
-          "id": "CVE-2026-112401",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-74r2-7ff9-mjj2"
-          ]
-        },
-        {
-          "id": "CVE-2026-112391",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-254f-3936-288h"
-          ]
-        },
-        {
-          "id": "CVE-2026-112894",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-jg86-v3jv-hrpm"
-          ]
-        },
-        {
-          "id": "CVE-2026-112406",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-f2g6-542v-9j58"
-          ]
-        },
-        {
-          "id": "CVE-2026-112399",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-5xm2-6676-qcp9"
-          ]
-        },
-        {
-          "id": "CVE-2026-112892",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-gg2r-wvfm-q9rx"
-          ]
-        },
-        {
-          "id": "CVE-2026-112393",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-332p-7hrc-92wf"
-          ]
-        },
-        {
-          "id": "CVE-2026-96638",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-24rc-8hj2-v98c"
-          ]
-        },
-        {
-          "id": "CVE-2026-96640",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-mrfp-p49p-3hf2"
-          ]
-        },
-        {
-          "id": "CVE-2026-96778",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": [
-            "GHSA-g7cr-3p24-7wf7"
-          ]
-        },
-        {
-          "id": "GHSA-78g4-xqwv-q3g8",
-          "fix_versions": [
-            "13.0.0"
-          ],
-          "aliases": []
+          "name": "setuptools",
+          "version": "84.1.0",
+          "vulns": []
         }
-      ]
-    },
-    {
-      "name": "pipdeptree",
-      "version": "4.2.5",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pluggy",
-      "version": "1.7.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "probatio",
-      "version": "0.13.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "propcache",
-      "version": "0.5.4",
-      "vulnerabilities": []
-    },
-    {
-      "name": "psutil",
-      "version": "7.2.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "psutil-home-assistant",
-      "version": "0.0.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pycares",
-      "version": "5.2.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pycognito",
-      "version": "2024.5.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pycparser",
-      "version": "3.12",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pydantic",
-      "version": "2.13.5",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pydantic-core",
-      "version": "2.46.5",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pygithub",
-      "version": "2.10.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pygments",
-      "version": "2.21.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pyjwt",
-      "version": "2.15.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pynacl",
-      "version": "1.6.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pyopenssl",
-      "version": "26.4.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pyproject-hooks",
-      "version": "1.3.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pyrfc3339",
-      "version": "2.1.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pyric",
-      "version": "0.1.6.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest",
-      "version": "9.0.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-aiohttp",
-      "version": "1.1.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-asyncio",
-      "version": "1.4.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-codspeed",
-      "version": "5.0.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-cov",
-      "version": "7.1.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-freezer",
-      "version": "0.4.9",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-github-actions-annotate-failures",
-      "version": "0.4.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-homeassistant-custom-component",
-      "version": "0.13.375",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-picked",
-      "version": "0.5.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-socket",
-      "version": "0.8.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-timeout",
-      "version": "2.4.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-unordered",
-      "version": "0.8.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytest-xdist",
-      "version": "3.8.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "python-dateutil",
-      "version": "2.9.0.post0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "python-slugify",
-      "version": "9.1.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pytz",
-      "version": "2026.6",
-      "vulnerabilities": []
-    },
-    {
-      "name": "pyyaml",
-      "version": "6.0.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "regex",
-      "version": "2026.9.29",
-      "vulnerabilities": []
-    },
-    {
-      "name": "requests",
-      "version": "2.34.2",
-      "vulnerabilities": []
-    },
-    {
-      "name": "requests-mock",
-      "version": "1.12.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "respx",
-      "version": "0.23.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "rich",
-      "version": "15.0.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "s3transfer",
-      "version": "0.19.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "securetar",
-      "version": "2026.4.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "sentence-stream",
-      "version": "1.4.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "six",
-      "version": "1.17.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "snitun",
-      "version": "0.47.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "sqlalchemy",
-      "version": "2.0.54",
-      "vulnerabilities": []
-    },
-    {
-      "name": "standard-aifc",
-      "version": "3.13.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "standard-chunk",
-      "version": "3.13.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "standard-telnetlib",
-      "version": "3.13.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "syrupy",
-      "version": "6.1.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "text-unidecode",
-      "version": "1.3",
-      "vulnerabilities": []
-    },
-    {
-      "name": "tomli",
-      "version": "2.5.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "tomli-w",
-      "version": "1.2.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "tqdm",
-      "version": "4.70.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "truststore",
-      "version": "0.10.5",
-      "vulnerabilities": []
-    },
-    {
-      "name": "typing-extensions",
-      "version": "4.16.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "typing-inspection",
-      "version": "0.4.4",
-      "vulnerabilities": []
-    },
-    {
-      "name": "tzdata",
-      "version": "2026.6",
-      "vulnerabilities": []
-    },
-    {
-      "name": "uart-devices",
-      "version": "0.1.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "ulid-transform",
-      "version": "2.2.9",
-      "vulnerabilities": []
-    },
-    {
-      "name": "unidiff",
-      "version": "1.0.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "urllib3",
-      "version": "2.8.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "usb-devices",
-      "version": "0.5.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "uv",
-      "version": "0.13.5",
-      "vulnerabilities": []
-    },
-    {
-      "name": "voluptuous",
-      "version": "0.16.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "webrtc-models",
-      "version": "0.3.0",
-      "vulnerabilities": []
-    },
-    {
-      "name": "yarl",
-      "version": "1.25.1",
-      "vulnerabilities": []
-    },
-    {
-      "name": "zeroconf",
-      "version": "0.151.5",
-      "vulnerabilities": []
-    }
-  ]
+      ],
+      "fixes": []
+    },
+    "skipped": 0,
+    "vulnerabilities": 0
+  },
+  "build_tools_pypi": {
+    "packages": 4,
+    "report": {
+      "dependencies": [
+        {
+          "name": "build",
+          "version": "1.6.1",
+          "vulns": []
+        },
+        {
+          "name": "packaging",
+          "version": "26.3",
+          "vulns": []
+        },
+        {
+          "name": "pip",
+          "version": "26.2.1",
+          "vulns": []
+        },
+        {
+          "name": "pyproject-hooks",
+          "version": "1.3.3",
+          "vulns": []
+        }
+      ],
+      "fixes": []
+    },
+    "skipped": 0,
+    "vulnerabilities": 0
+  },
+  "provenance": {
+    "backport_patch_sha256": "2929b83c9bb38cc7a5ef03d09c812f466df38f5769d6bee03f0b30e1e429af9c",
+    "base_commit": "357cae5c598dfcd7a0ea7dc5b1facccd4ec6037b",
+    "base_version": "2026.10.4",
+    "build_backend": "setuptools==84.1.0",
+    "build_backend_advisory": "GHSA-xmj3-9gf7-h52w",
+    "build_backend_fix_commit": "6d07b8d17890dda58d944ac51e58f54af92d52af",
+    "build_frontend": "build==1.6.1",
+    "identity_files": [
+      "pyproject.toml",
+      "homeassistant/const.py"
+    ],
+    "local_version": "2026.10.4+ovo.pillow13.1",
+    "omitted_nonpackage_symlinks": [
+      ".agent/skills",
+      ".gemini/skills",
+      "CLAUDE.md"
+    ],
+    "pillow_version": "13.0.0",
+    "pin_files": [
+      "homeassistant/components/doods/manifest.json",
+      "homeassistant/components/generic/manifest.json",
+      "homeassistant/components/image_upload/manifest.json",
+      "homeassistant/components/matrix/manifest.json",
+      "homeassistant/components/proxy/manifest.json",
+      "homeassistant/components/qrcode/manifest.json",
+      "homeassistant/components/seven_segments/manifest.json",
+      "homeassistant/components/sighthound/manifest.json",
+      "homeassistant/package_constraints.txt",
+      "pyproject.toml",
+      "requirements.txt",
+      "requirements_all.txt"
+    ],
+    "purpose": "OVO CI security runtime; not an official Home Assistant release",
+    "python_version": "3.14.8",
+    "runtime_version": "2026.10.4",
+    "schema_version": 1,
+    "security_backport": "ovo.pillow13.1",
+    "source_date_epoch": "1792872089",
+    "source_sha256": "09023dea97cfe7d37ae70f4cedcbd3c9177da79ad3d5f5dfc469ff425f8d6432",
+    "source_url": "https://codeload.github.com/home-assistant/core/tar.gz/357cae5c598dfcd7a0ea7dc5b1facccd4ec6037b",
+    "upstream_build_backend": "setuptools==84.0.0",
+    "upstream_patch_sha256": "bb995998e00f6ad6b8561dbd5f342a131c42caa04d0ae94fe871beb49555c835",
+    "upstream_pillow13_commit": "ae6f8602aab71b21505ff0974e7440fbff4aac21",
+    "upstream_repository": "https://github.com/home-assistant/core",
+    "wheel_filename": "homeassistant-2026.10.4+ovo.pillow13.1-py3-none-any.whl",
+    "wheel_sha256": "f75fa049383591ba3fbf2bb9d0915b27bcdf43ef790676d3eeb7d49185e75955",
+    "wheel_size_bytes": 20324202
+  },
+  "python": "3.14.8",
+  "review_date_sydney": "2026-11-02",
+  "scanner_tools_pypi": {
+    "packages": 28,
+    "report": {
+      "dependencies": [
+        {
+          "name": "boolean-py",
+          "version": "5.0",
+          "vulns": []
+        },
+        {
+          "name": "cachecontrol",
+          "version": "0.14.4",
+          "vulns": []
+        },
+        {
+          "name": "certifi",
+          "version": "2026.10.23",
+          "vulns": []
+        },
+        {
+          "name": "charset-normalizer",
+          "version": "3.5.2",
+          "vulns": []
+        },
+        {
+          "name": "cyclonedx-python-lib",
+          "version": "11.12.0",
+          "vulns": []
+        },
+        {
+          "name": "defusedxml",
+          "version": "0.7.1",
+          "vulns": []
+        },
+        {
+          "name": "filelock",
+          "version": "4.2.6",
+          "vulns": []
+        },
+        {
+          "name": "idna",
+          "version": "3.20",
+          "vulns": []
+        },
+        {
+          "name": "license-expression",
+          "version": "30.4.4",
+          "vulns": []
+        },
+        {
+          "name": "markdown-it-py",
+          "version": "4.2.0",
+          "vulns": []
+        },
+        {
+          "name": "mdurl",
+          "version": "0.1.2",
+          "vulns": []
+        },
+        {
+          "name": "msgpack",
+          "version": "1.2.4",
+          "vulns": []
+        },
+        {
+          "name": "packageurl-python",
+          "version": "0.17.6",
+          "vulns": []
+        },
+        {
+          "name": "packaging",
+          "version": "26.3",
+          "vulns": []
+        },
+        {
+          "name": "pip",
+          "version": "26.2.1",
+          "vulns": []
+        },
+        {
+          "name": "pip-api",
+          "version": "0.0.35",
+          "vulns": []
+        },
+        {
+          "name": "pip-audit",
+          "version": "2.10.1",
+          "vulns": []
+        },
+        {
+          "name": "pip-requirements-parser",
+          "version": "32.0.1",
+          "vulns": []
+        },
+        {
+          "name": "platformdirs",
+          "version": "4.14.3",
+          "vulns": []
+        },
+        {
+          "name": "py-serializable",
+          "version": "2.1.0",
+          "vulns": []
+        },
+        {
+          "name": "pygments",
+          "version": "2.21.0",
+          "vulns": []
+        },
+        {
+          "name": "pyparsing",
+          "version": "3.3.3",
+          "vulns": []
+        },
+        {
+          "name": "requests",
+          "version": "2.34.2",
+          "vulns": []
+        },
+        {
+          "name": "rich",
+          "version": "15.0.0",
+          "vulns": []
+        },
+        {
+          "name": "sortedcontainers",
+          "version": "2.4.0",
+          "vulns": []
+        },
+        {
+          "name": "tomli",
+          "version": "2.5.0",
+          "vulns": []
+        },
+        {
+          "name": "tomli-w",
+          "version": "1.2.0",
+          "vulns": []
+        },
+        {
+          "name": "urllib3",
+          "version": "2.8.0",
+          "vulns": []
+        }
+      ],
+      "fixes": []
+    },
+    "skipped": 0,
+    "vulnerabilities": 0
+  },
+  "schema_version": 1,
+  "status": "passed",
+  "test_harness": "pytest-homeassistant-custom-component==0.13.375",
+  "upstream_pypi": {
+    "packages": 1,
+    "skipped": 0,
+    "vulnerabilities": 0
+  },
+  "upstream_pypi_report": {
+    "dependencies": [
+      {
+        "name": "homeassistant",
+        "version": "2026.10.4",
+        "vulns": []
+      }
+    ],
+    "fixes": []
+  },
+  "verified_wheel_files": 14563
 }

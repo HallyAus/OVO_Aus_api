@@ -49,9 +49,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added explicit CI gates for secret scanning, production Python security,
   resolved package dependencies and the exact Home Assistant dependency set.
   Runtime auditing is isolated from Home Assistant's pinned packages.
-- Updated the supported test harness to Home Assistant 2026.10.4 through
-  `pytest-homeassistant-custom-component==0.13.375`; audit results still need
-  to be clear before merge. No advisory is suppressed or core dependency forced.
+- Corrected the remaining test-runtime dependency by reproducibly backporting
+  Home Assistant's official Pillow 13 update to its stable 2026.10.4 source.
+  The custom `2026.10.4+ovo.pillow13.1` distribution updates all affected pins
+  consistently and resolves with the unchanged official 0.13.375 test harness.
+  Source, patch and wheel provenance are verified before use; Home Assistant's
+  internal calendar-version comparisons remain intact.
+- Updated the isolated HA build backend to patched `setuptools==84.1.0` and
+  audit the separate build/scanner environments as well as runtime packages.
+- Audit every actual runtime package and additionally the verified official HA
+  base, so local package labels cannot hide upstream advisories. Added actual HA
+  image-processing and version-order regressions for the Pillow update. This
+  test build does not replace core packages in users' Home Assistant systems.
 
 ## [4.10.2] - 2026-10-20
 

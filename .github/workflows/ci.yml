@@ -64,7 +64,13 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14"
-      - run: pip install -r requirements-test-ha.txt
+      - name: Build the verified stable Home Assistant security backport
+        run: |
+          python -m venv "$RUNNER_TEMP/ovo-ha-build"
+          "$RUNNER_TEMP/ovo-ha-build/bin/python" -m pip install build==1.6.1
+          "$RUNNER_TEMP/ovo-ha-build/bin/python" scripts/build_ha_security_runtime.py --output-dir "$RUNNER_TEMP/ovo-ha-security"
+      - run: pip install --find-links "$RUNNER_TEMP/ovo-ha-security" -r requirements-test-ha.txt
+      - run: python -m pip check
       - run: python -m pytest tests_ha/ -q --asyncio-mode=auto
 
   security:
@@ -99,11 +105,31 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14"
-      - run: pip install -r requirements-test-ha.txt
-      # The scanner has a separate environment so it cannot upgrade or replace
-      # any exact dependency owned by Home Assistant. Fail on known advisories.
-      - run: |
-          python -m venv .audit-venv
-          .audit-venv/bin/python -m pip install pip-audit==2.10.1
-          HA_SITE_PACKAGES=$(python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
-          .audit-venv/bin/python -m pip_audit --strict --path "$HA_SITE_PACKAGES"
+      - name: Build the verified stable Home Assistant security backport
+        run: |
+          python -m venv "$RUNNER_TEMP/ovo-ha-build"
+          "$RUNNER_TEMP/ovo-ha-build/bin/python" -m pip install build==1.6.1
+          "$RUNNER_TEMP/ovo-ha-build/bin/python" scripts/build_ha_security_runtime.py --output-dir "$RUNNER_TEMP/ovo-ha-security"
+      - run: pip install --find-links "$RUNNER_TEMP/ovo-ha-security" -r requirements-test-ha.txt
+      - run: python -m pip check
+      # Test the exact resolved environment that is audited in this job too.
+      - run: python -m pytest tests_ha/ -q --asyncio-mode=auto
+      # Keep the scanner isolated from HA's dependency pins. Audit every actual
+      # package with OSV and additionally the verified upstream HA base with
+      # PyPI, so the local version label cannot hide an upstream advisory.
+      - name: Audit actual dependencies and the upstream base without exclusions
+        run: |
+          python -m venv "$RUNNER_TEMP/ovo-ha-auditor"
+          "$RUNNER_TEMP/ovo-ha-auditor/bin/python" -m pip install pip-audit==2.10.1
+          "$RUNNER_TEMP/ovo-ha-auditor/bin/python" scripts/audit_ha_security_runtime.py \
+            --runtime-python "$(command -v python)" \
+            --provenance "$RUNNER_TEMP/ovo-ha-security/provenance.json" \
+            --output-dir "$RUNNER_TEMP/ovo-ha-audit"
+      - name: Audit the isolated build and scanner dependencies
+        run: |
+          OVO_BUILD_SITE_PACKAGES=$("$RUNNER_TEMP/ovo-ha-build/bin/python" -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
+          OVO_AUDITOR_SITE_PACKAGES=$("$RUNNER_TEMP/ovo-ha-auditor/bin/python" -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
+          "$RUNNER_TEMP/ovo-ha-auditor/bin/python" -m pip_audit --strict --path "$OVO_BUILD_SITE_PACKAGES"
+          "$RUNNER_TEMP/ovo-ha-auditor/bin/python" -m pip_audit --strict --path "$OVO_AUDITOR_SITE_PACKAGES"
+          python -c 'from scripts.build_ha_security_runtime import BUILD_BACKEND; print(BUILD_BACKEND)' > "$RUNNER_TEMP/ovo-ha-backend-audit.txt"
+          "$RUNNER_TEMP/ovo-ha-auditor/bin/python" -m pip_audit --strict --no-deps --disable-pip -r "$RUNNER_TEMP/ovo-ha-backend-audit.txt"

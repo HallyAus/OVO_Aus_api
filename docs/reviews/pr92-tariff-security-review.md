@@ -8,12 +8,17 @@ by rutj87, head `4fe5c65f7bb29d2ded56278943ddc46f239f559b`, based on
 
 ## Merge decision
 
-**Keep the corrected contribution in draft until the full runtime dependency
-security gate and the final GitHub checks pass.** The confirmed tariff defects
-and repository security issues described below are corrected and covered by
-regressions. The current stable Home Assistant dependency set still includes
-vulnerable Pillow 12.3.0. No advisory is suppressed and no Home Assistant pin is
-overridden to manufacture a passing result.
+**The confirmed tariff and security defects have been corrected. Keep the
+corrective PR #93 in draft until GitHub Actions is enabled and all hosted checks
+pass for its final commit.** The dependency correction is a verified stable HA
+security backport using the already merged upstream Pillow 13 change. Its
+package metadata, runtime constraints and integration manifests agree, and the
+normal resolver accepts it with the existing official test harness.
+
+No vulnerability is ignored. The full actual inventory is audited, and the
+verified official HA base is audited separately to prevent a custom version
+label from hiding an upstream advisory. The test build is explicitly identified
+as custom; it is not represented as an official HA release.
 
 The review branch retains the contributor's feature commit and adds corrections.
 It does not publish a release or install anything into a user's Home Assistant.
@@ -104,19 +109,21 @@ real credentials were exposed. No live OVO account or vehicle control was used.
 |---|---|
 | Original unit baseline | 213 passed, despite confirmed runtime failures |
 | Original real-HA reproduction subset | 7 failed: incorrect binary state/MRO and stale price at the boundary |
-| Final integration/unit tests | 358 passed |
+| Final integration/unit tests | 433 passed, including 75 source-build/audit regressions |
 | Final offline release/recovery tools | 24 passed, plus 24 subtests |
-| Combined unit/tool command | 382 passed, 24 subtests |
-| Real HA 2026.10.4 / Python 3.14.8 | 30 passed; 23 newly added tariff regressions |
+| Combined unit/tool command | 457 passed, 24 subtests |
+| Verified HA 2026.10.4 security backport / Python 3.14.8 | 40 passed; 23 tariff and 10 Pillow/version regressions added |
 | Real HA 2026.9.0 earlier compatibility run | 30 passed before the broader auth cleanup |
 | Ruff and patch whitespace | Passed |
 | Production Python Bandit | Passed, zero findings |
-| Repository secret hook | Passed; existing baseline false positives only, plus explicit non-secret public revision annotations |
+| Repository secret hook | Passed; reviewed per-value public-provenance hash false positives, plus explicit non-secret public revision annotations |
 | Resolved standalone external dependencies | Passed, 62 packages, zero known vulnerabilities |
 | Dependency consistency | Both isolated unit and current HA environments pass `uv pip check` |
 | Official hassfest | Passed: 1 integration, 0 invalid; all validators ran |
-| HACS / final hosted GitHub checks | Require the final published ref and normal GitHub Actions execution; no local pass claimed |
-| Current stable HA dependency security | **Failed: 39 distinct Pillow advisories** |
+| HACS / final hosted GitHub checks | Pending: repository Actions is explicitly disabled; no hosted or HACS pass claimed |
+| Corrected full HA dependency security | **Passed: 153 actual packages plus the verified upstream base; zero vulnerabilities and zero skips** |
+| Installed HA artifact integrity | 14,563 original wheel files verified against the built artifact |
+| Isolated build/scanner dependency security | Passed: 4 build packages, 28 scanner packages and patched setuptools 84.1.0; zero vulnerabilities or skips |
 
 The synthetic HTTP security tests need permission for loopback sockets. The HA
 runtime suite uses the real framework with mocked OVO transport. Clock tests stop
@@ -128,20 +135,100 @@ severity subprocess/PATH warnings because they intentionally invoke Git, SSH and
 the GitHub CLI. Their actual shell, argument, credential and provenance risks were
 reviewed and regression-tested rather than hidden by scanner exclusions.
 
-## Remaining upstream dependency blocker
+## Upstream dependency corrected in the test runtime
 
-The old pinned test harness installed HA 2026.9.0 with 66 distinct advisory IDs
-across aiohttp, cryptography, Pillow, PyJWT and uv. Updating to the latest stable
-official harness removes every affected package from that set except Pillow:
+The original pinned test harness installed HA 2026.9.0 with 66 distinct advisory
+IDs across aiohttp, cryptography, Pillow, PyJWT and uv. Moving to the latest
+stable official harness fixed that set except Pillow:
 
 `pytest-homeassistant-custom-component==0.13.375 → homeassistant==2026.10.4
 → Pillow==12.3.0`.
 
-The current environment has 152 packages and 39 distinct Pillow advisories. All
-have 13.0.0 listed as a fixed version. The integration has no Pillow imports or
-image-processing path; a PR-specific Pillow exploit has not been demonstrated.
-The full runtime audit remains a required failing gate under the requested
-security standard.
+That unmodified stable environment had 152 packages and 39 distinct Pillow
+advisories, all listing 13.0.0 as a fixed version. The original failing inventory
+is preserved in `pr92-unpatched-runtime-dependency-audit.json`.
+
+### Reproducible stable backport
+
+The repository now carries a narrow backport of the already merged official
+Pillow update. `scripts/build_ha_security_runtime.py`:
+
+1. Downloads the exact official HA 2026.10.4 source commit
+   `357cae5c598dfcd7a0ea7dc5b1facccd4ec6037b` and verifies its SHA-256 before
+   extraction. Archive extraction rejects unsafe paths, unexpected links and
+   special files. Three known non-package documentation symlinks are omitted.
+2. Verifies the checked-in upstream and derived patches by hash and file scope.
+   The change comes from official HA commit
+   `ae6f8602aab71b21505ff0974e7440fbff4aac21`. All 12 affected Pillow pins become
+   `13.0.0`, including the eight affected integration manifests. The builder
+   independently checks the precise expected contents after applying the patch.
+3. Builds the explicitly labelled distribution
+   `homeassistant==2026.10.4+ovo.pillow13.1` with pinned build tools. The derived
+   patch also raises the isolated build backend from `setuptools==84.0.0` to
+   `84.1.0`, fixing `GHSA-xmj3-9gf7-h52w`; the original source pin is separately
+   verified before this explicit change. It preserves
+   HA's internal calendar version `2026.10.4` and adds the discoverable
+   `SECURITY_BACKPORT="ovo.pillow13.1"` marker. A local suffix on HA's internal
+   version was tested and rejected because AwesomeVersion would classify it as
+   semantic rather than calendar versioning and break upgrade comparisons.
+4. Verifies the wheel's distribution identity, Pillow requirement, runtime
+   constraints, manifests and backport marker. It records the exact wheel hash,
+   source hashes, patch hashes and tool versions in `provenance.json`.
+
+`requirements-test-ha.txt` pins this explicit custom version together with the
+unchanged official fixture package. The normal resolver installs both and
+`pip check` must succeed. Installation does not use dependency bypasses or
+force an incompatible Pillow version into stock HA.
+
+### Conservative auditing and compatibility
+
+`scripts/audit_ha_security_runtime.py` collects the actual installed inventory,
+verifies its backport provenance and rejects unexpected custom packages. It
+runs a strict OSV audit of every installed distribution, plus a strict PyPI audit
+of the verified upstream HA base. Both must succeed and report complete coverage
+with no skipped packages or ignored advisories.
+
+The additional base audit is necessary: positive controls found that adding a
+local version suffix could omit an exact-boundary PyJWT advisory represented by
+two database records, even though other advisories still made the scan fail.
+Auditing the original official HA version conservatively prevents this class of
+false green result.
+
+The real-HA suite also exercises JPEG, PNG and GIF thumbnails, RGBA/LA/palette
+conversion to JPEG, EXIF orientation, bounding-box/font rendering, the installed
+Pillow version and HA's version-order comparisons. These tests address the
+compatibility risk introduced by the major Pillow update in addition to the
+original OVO entity regressions. Review of the official beta's corresponding
+image calls found no additional Pillow-specific runtime adaptations required.
+
+The final machine-readable inventory, both audit results and provenance are
+recorded in `pr92-runtime-dependency-audit.json`. CI builds from the same pinned
+source and executes the runtime suite in the exact environment it audits.
+The isolated build frontend, scanner environment and exact build backend are
+also audited with strict PyPI checks. The backend advisory concerns a legacy
+installer path outside this PEP 517 build route, but its vulnerable pin was
+removed to meet the complete dependency gate without exemptions.
+
+### Scope and remaining hosted gate
+
+This fixes the repository's Home Assistant test dependency. HACS distributes the
+OVO integration; installing it does not upgrade Home Assistant core or Pillow in
+an existing user's system. The integration itself has no Pillow imports or
+image-processing path, and no PR-specific Pillow exploit has been demonstrated.
+No live Home Assistant installation was accessed or upgraded during this work.
+The custom wheel is a test artifact, not an official HA release or a claim that
+all existing stock installations have been patched.
+
+On 2026-11-02 Sydney, the repository's Actions settings visibly had **Disable
+actions** selected. Default tokens were read-only and first-time fork runs
+required approval. GitGuardian passed on the corrective PR, but normal CI and
+HACS have no runs for its source. These missing hosted results remain a merge
+gate; they are not reported as security test passes. The repository setting must
+be enabled before final hosted verification can complete.
+
+The temporary backport should be retired when a compatible official stable
+HA/test-harness combination includes patched Pillow. Its replacement must pass
+normal dependency resolution, the complete audit and the real runtime suite.
 
 Primary evidence:
 
@@ -151,14 +238,6 @@ Primary evidence:
 - [Pillow 13 security release notes](https://pillow.readthedocs.io/en/stable/releasenotes/13.0.0.html)
 - [Critical multi-frame advisory](https://github.com/python-pillow/Pillow/security/advisories/GHSA-v9pv-5gc8-w2m6)
 - [Upstream HA Pillow update](https://github.com/home-assistant/core/commit/ae6f8602aab71b21505ff0974e7440fbff4aac21)
-
-The upstream fix exists in HA 2026.11.0b0/b1. Those are prereleases; no matching
-published official test harness exists yet. Every stable HA version from this
-integration's existing minimum through 2026.10.4 still pins Pillow 12.3.0.
-A resolver dry run confirms stable HA plus Pillow 13 has incompatible requirements.
-
-To clear the remaining gate, update to a released stable HA/test-harness pair
-that includes patched Pillow, then rerun dependency consistency, the full audit,
-runtime regressions and hosted CI. Do not force a conflicting Pillow pin or
-suppress the findings. The exact current dependency inventory and advisory IDs
-are recorded in `pr92-runtime-dependency-audit.json` beside this report.
+- [Setuptools build-tool advisory and patched version](https://github.com/pypa/setuptools/security/advisories/GHSA-xmj3-9gf7-h52w)
+- [Setuptools path-containment fix and affected invocation path](https://github.com/pypa/setuptools/commit/6d07b8d17890dda58d944ac51e58f54af92d52af)
+- [pip-audit supported audit services and strict mode](https://github.com/pypa/pip-audit)

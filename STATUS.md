@@ -2,7 +2,7 @@
 
 Volatile project state for coding agents and maintainers. Update this file when release/runtime/CI truth changes. Do not put permanent engineering rules here; those belong in `AGENTS.md`. Historical incidents belong in `LEARNINGS.md`.
 
-Release metadata rechecked: 2026-10-20 Sydney.
+Release metadata rechecked: 2026-11-02 Sydney.
 
 ## PR #92 review — 2026-11-02 Sydney
 
@@ -18,79 +18,81 @@ Release metadata rechecked: 2026-10-20 Sydney.
 - The requested repository security cleanup also fixes credential forwarding
   through redirects, legacy token disclosure/retention, provider error leakage,
   malformed token cache updates and release-tool integrity failures.
-- Final local verification: 358 integration/unit tests plus 24 offline tooling
-  tests (24 additional subtests), 30 real-HA runtime tests on HA 2026.10.4, Ruff,
-  production Bandit and official hassfest pass. Secret and external dependency
-  scans are separate gates; the full HA dependency audit remains blocked below.
-- Security remains a merge gate. The current official test harness
-  (`pytest-homeassistant-custom-component==0.13.375`, HA 2026.10.4) pins
-  Pillow 12.3.0, which fails the dependency audit; upstream fixes require 13.0.0.
-  Do not suppress the advisories or override Home Assistant's exact core pins.
+- Security remains a merge gate. The original stable HA 2026.10.4 pins Pillow
+  12.3.0. The test runtime now builds a labelled stable security backport,
+  `homeassistant==2026.10.4+ovo.pillow13.1`, with the official upstream Pillow 13
+  change applied consistently to all 12 affected dependency locations.
+  The original official test harness remains at 0.13.375. Normal dependency
+  resolution must succeed; no conflicting package is forced into the runtime.
+  The isolated backend is explicitly patched to `setuptools==84.1.0` for
+  `GHSA-xmj3-9gf7-h52w`; build and scanner dependency graphs are also audited.
+- The build verifies immutable source/patch provenance. Full installed-package
+  OSV auditing is supplemented with a conservative PyPI audit of the verified
+  upstream HA base, so a custom version label cannot hide an upstream advisory.
+  Audit coverage must equal the inventory with zero skips or ignored findings.
 - New GitHub CI jobs explicitly check secrets, production source security,
-  external package dependencies and the unmodified Home Assistant dependency
+  external package dependencies and the actual patched Home Assistant dependency
   set. Existing Ruff, unit, runtime, hassfest and HACS gates remain in place.
+- Final local verification: 457 unit/tool tests plus 24 subtests, 40 real-HA
+  regressions, production Bandit, Ruff, secret scanning and official hassfest
+  pass. The corrected runtime audit covers all 153 installed distributions
+  plus the verified upstream base, with zero known vulnerabilities or skips.
 - These are review-branch changes, not a release. See
-  `docs/reviews/pr92-tariff-security-review.md` for validation and the remaining
-  dependency blocker.
+  `docs/reviews/pr92-tariff-security-review.md` for exact validation results.
 
 ## Production / release
 
-- Latest stable GitHub/HACS release: **v4.10.0**, published 2026-09-05T09:08:34Z with `ovo_energy_au.zip`.
-- Latest stable release target: `2a849bf007fa3f04c48cd385bc3a191a56f284e7`.
-- Current release candidate version: **4.10.2**. It removes promotional content
+- Latest stable GitHub/HACS release: **v4.10.2**, published 2026-10-20T07:37:35Z with `ovo_energy_au.zip`.
+- Latest stable release target: `eb201cfe3c5063feff56f3b14c4ce2cd9d3f19cb`.
+- Current source version: **4.10.2**. The published release removes promotional content
   from Home Assistant and HACS dialogs while keeping support links in README.
-- Imported `main` head before Gitea tooling changes: `9f5212ab5f7892c7e86e9fe468ceb6cbcb013b4e` (`docs: make repository guidance Astra-ready`).
+- Main rechecked at `d3ebf9de719547e15efeca491d5dad4e2a570430`; review work is on
+  `fix/pr92-tariffs-security-review` in corrective PR #93, retaining PR #92's
+  contributor commit. No new release or merge has been performed.
 - Distribution: HACS resolves from the latest GitHub release; a version present only on `main` has not shipped to users.
 
 ## Supported runtime
 
 - Home Assistant minimum advertised/enforced by HACS: **2026.8.3**.
 - Python support: 3.11+; CI unit checks currently run on Python 3.12.
-- Home Assistant runtime regressions run on Python 3.14 using the compatible
-  HA 2026.10.4 test harness pinned in `requirements-test-ha.txt`.
+- Home Assistant runtime regressions run on Python 3.14 using the explicit
+  2026.10.4 security backport and official fixture dependency pinned in
+  `requirements-test-ha.txt`. The distribution carries its custom version;
+  HA's internal calendar version remains the stable base for version guards.
 - Package dependency contract: standalone Python installs require
   `PyJWT>=2.15.1,<3.0.0` and `aiohttp>=3.14.4,<4.0.0`. The integration manifest
   leaves core-owned packages to Home Assistant rather than reinstalling or
   overriding its exact pins. The separate runtime dependency audit checks the
-  actual supported Home Assistant environment.
+  actual test environment. HACS installation does not update Home Assistant core
+  or repair Pillow in an existing installation; this test build is not an
+  official HA release or a deployment to users.
 - Timezone authority: customer-local HA configuration for live tariff windows;
   `Australia/Sydney` for existing OVO API parsing and historical aggregation.
 
 ## CI gates
 
-Unpublished compatibility correction following the first private runner run:
-official hassfest refused the duplicate core PyJWT manifest requirement and
-warned that integration-level `async_setup` lacked a schema. The manifest now
-leaves core PyJWT to HA, while `pyproject.toml` and the HACS minimum remain
-unchanged; `CONFIG_SCHEMA` uses the official config-entry-only helper. No auth,
-service, entity/lifecycle implementation, version, tag or release asset changed.
-Focused metadata and real-HA schema/dependency regressions cover these contracts.
+GitHub is canonical under the 2026-10-22 policy in `AGENTS.md`. The retired
+Gitea/recovery scripts are retained for offline verification only; no former
+hosting or deployment route was reactivated.
 
-Official tagged evidence: [HA 2026.8.3 requirements](https://github.com/home-assistant/core/blob/2026.8.3/requirements.txt),
-[HA 2026.9.1 requirements](https://github.com/home-assistant/core/blob/2026.9.1/requirements.txt)
-and both releases' `homeassistant/package_constraints.txt` pin `PyJWT==2.13.0`.
-The [2026.8.3 schema helper](https://github.com/home-assistant/core/blob/2026.8.3/homeassistant/helpers/config_validation.py)
-explicitly covers integrations with `async_setup` and no YAML support. The
-real-HA runtime test asserts the existing JWT range; a future HA dependency
-change requires review rather than an automatic compatibility claim.
+The repository's Actions settings were directly inspected on 2026-11-02 Sydney:
+**Disable actions** is selected. Default workflow-token permissions are read-only,
+first-time fork contributors need approval, and Actions cannot approve PRs.
+The corrective PR has a successful GitGuardian secret check, but GitHub Actions
+cannot execute the following required gates while Actions is disabled:
 
-Personal migration preparation: private Gitea VM300 is the source of truth.
-GitHub remains public for existing HACS distribution with Actions disabled.
-The new `.gitea/workflows/ci.yml` preserves Ruff/full units/Python 3.14 HA
-runtime/hassfest and creates a non-publishing POSIX candidate archive. It is
-prepared but has not yet run. Official HACS validation is still a required
-external release gate: its action needs a GitHub token and checks public GitHub
-content rather than private Gitea source. No credential is transferred and no
-HACS pass or release readiness is claimed. See `docs/gitea-release-route.md`.
+1. Ruff lint.
+2. Unit/packaging tests.
+3. Official Home Assistant hassfest.
+4. Official HACS integration validation.
+5. Actual Home Assistant runtime regressions, including tariff and Pillow checks.
+6. Secrets, production Python security, offline tools and external dependencies.
+7. Exact Home Assistant dependency audit and conservative upstream-base audit.
 
-The retained `.github/workflows/ci.yml` describes the original five gates;
-GitHub Actions is disabled, so recovery pushes do not execute it:
-
-1. Ruff lint (`custom_components/ovo_energy_au/`).
-2. Unit/packaging tests (`pytest tests/ -v`).
-3. Home Assistant hassfest.
-4. HACS integration validation.
-5. Actual Home Assistant runtime regressions (`pytest tests_ha/ -q --asyncio-mode=auto`).
+CI uses hosted runners, read-only tokens, immutable action revisions and
+validator images. Release verification refuses publication unless every named
+job succeeded in the latest main-push run for the exact source SHA. Local checks
+do not substitute for missing hosted CI or HACS results.
 
 Treat exact test counts as volatile; inspect the current run rather than copying old counts from README/docs.
 

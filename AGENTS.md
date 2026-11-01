@@ -110,6 +110,16 @@ Before merge:
 - require Ruff, hassfest and HACS validation where CI provides them;
 - add a regression test for each meaningful bug class fixed.
 
+The temporary HA test dependency in `requirements-test-ha.txt` is an explicitly
+labelled security backport. Build it with `scripts/build_ha_security_runtime.py`
+before installation, then use the normal resolver and `pip check`. Audit the
+actual runtime with `scripts/audit_ha_security_runtime.py` from a separate scanner
+environment; both the complete actual inventory and verified upstream base must
+pass. Do not replace this with an incompatible forced Pillow install, package
+exclusions or a local-version-only audit. This test build does not upgrade users'
+Home Assistant installations. Retire the backport when an official compatible
+stable HA/harness pair includes the fix and passes these same checks.
+
 Before release:
 - CI must pass for the exact source being released;
 - version declarations must agree;
