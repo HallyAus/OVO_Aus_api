@@ -132,25 +132,41 @@ class OVOEnergyAUApiClient:
         expires_in: int | None = None,
     ) -> None:
         """Set authentication tokens."""
-        self._access_token = access_token
-        self._id_token = id_token
-        self._refresh_token = refresh_token
-        self._token_created_at = datetime.now(UTC)
+        if (
+            not isinstance(access_token, str)
+            or not access_token
+            or not isinstance(id_token, str)
+            or not id_token
+            or (refresh_token is not None and not isinstance(refresh_token, str))
+        ):
+            raise OVOEnergyAUApiClientCommunicationError("Incomplete token response")
+        created_at = datetime.now(UTC)
 
         if expires_in is not None:
-            self._token_expires_at = self._token_created_at + timedelta(seconds=expires_in)
+            try:
+                expires_at = created_at + timedelta(seconds=expires_in)
+            except (TypeError, ValueError, OverflowError):
+                raise OVOEnergyAUApiClientCommunicationError("Invalid token lifetime") from None
+            if isinstance(expires_in, bool) or expires_at <= created_at:
+                raise OVOEnergyAUApiClientCommunicationError("Invalid token lifetime")
         else:
             try:
                 decoded = jwt.decode(access_token, options={"verify_signature": False})
                 exp_timestamp = decoded.get("exp")
                 if exp_timestamp:
-                    self._token_expires_at = datetime.fromtimestamp(exp_timestamp, tz=UTC)
+                    expires_at = datetime.fromtimestamp(exp_timestamp, tz=UTC)
                 else:
-                    self._token_expires_at = self._token_created_at + timedelta(hours=1)
+                    expires_at = created_at + timedelta(hours=1)
             except Exception:
-                self._token_expires_at = self._token_created_at + timedelta(hours=1)
+                expires_at = created_at + timedelta(hours=1)
 
-        token_lifetime = (self._token_expires_at - self._token_created_at).total_seconds()
+        # Validate the entire response before replacing last-known-good tokens.
+        self._access_token = access_token
+        self._id_token = id_token
+        self._refresh_token = refresh_token
+        self._token_created_at = created_at
+        self._token_expires_at = expires_at
+        token_lifetime = (expires_at - created_at).total_seconds()
         _LOGGER.debug(
             "Tokens set. Lifetime: %d seconds (%.1f hours)",
             token_lifetime,
@@ -212,8 +228,10 @@ class OVOEnergyAUApiClient:
             }
 
             async with self._session.post(
-                OAUTH_LOGIN_URL, json=login_payload, headers=headers
+                OAUTH_LOGIN_URL, json=login_payload, headers=headers, allow_redirects=False
             ) as response:
+                if 300 <= response.status < 400:
+                    raise OVOEnergyAUApiClientCommunicationError("Unexpected redirect from OVO login endpoint")
                 if response.status != 200:
                     # Don't include the response body — it may echo request
                     # context (the payload contains the cleartext password)
@@ -230,6 +248,12 @@ class OVOEnergyAUApiClient:
                 )
 
             form_action = html.unescape(action_match.group(1))
+            # The returned form contains an authentication ticket. Only submit
+            # it to the configured HTTPS issuer, never an arbitrary HTML URL.
+            action_url = urlparse(form_action)
+            issuer_url = urlparse(AUTH_BASE_URL)
+            if (action_url.scheme, action_url.netloc) != (issuer_url.scheme, issuer_url.netloc):
+                raise OVOEnergyAUApiClientAuthenticationError("Unexpected OVO login form destination")
             form_data = {}
             for match in re.finditer(
                 r'<input[^>]+type="hidden"[^>]+name="([^"]+)"[^>]+value="([^"]*)"',
@@ -254,10 +278,8 @@ class OVOEnergyAUApiClient:
                 query_params = parse_qs(urlparse(final_url).query)
 
                 if "error" in query_params:
-                    error_code = query_params.get("error", ["unknown"])[0]
-                    error_desc = query_params.get("error_description", ["No description"])[0]
                     raise OVOEnergyAUApiClientAuthenticationError(
-                        f"Authentication failed: {error_code} - {error_desc}"
+                        "OVO authentication was rejected"
                     )
 
                 authorization_code = query_params.get("code", [None])[0]
@@ -284,15 +306,16 @@ class OVOEnergyAUApiClient:
 
         except OVOEnergyAUApiClientError:
             raise
-        except (aiohttp.ClientError, TimeoutError) as err:
-            raise OVOEnergyAUApiClientCommunicationError("Unable to reach OVO authentication service") from err
+        except (aiohttp.ClientError, TimeoutError):
+            # Transport exceptions can contain callback URLs, codes or tokens.
+            raise OVOEnergyAUApiClientCommunicationError("Unable to reach OVO authentication service") from None
         except Exception as err:
             # Static messages only — the login payload holds the cleartext
             # password, so never interpolate exception text into logs here
             _LOGGER.error("Authentication error (%s)", type(err).__name__)
             raise OVOEnergyAUApiClientAuthenticationError(
                 "Authentication failed due to an unexpected error"
-            ) from err
+            ) from None
 
     async def _exchange_code_for_tokens(
         self,
@@ -310,9 +333,13 @@ class OVOEnergyAUApiClient:
             "code_verifier": code_verifier,
         }
         try:
-            async with self._session.post(OAUTH_TOKEN_URL, json=data) as response:
+            async with self._session.post(OAUTH_TOKEN_URL, json=data, allow_redirects=False) as response:
+                if 300 <= response.status < 400:
+                    raise OVOEnergyAUApiClientCommunicationError("Unexpected redirect from OVO token endpoint")
                 response.raise_for_status()
                 token_data = await response.json()
+                if not isinstance(token_data, dict):
+                    raise OVOEnergyAUApiClientCommunicationError("Invalid token response")
 
                 if expected_nonce:
                     try:
@@ -320,10 +347,10 @@ class OVOEnergyAUApiClient:
                             token_data["id_token"],
                             options={"verify_signature": False},
                         )
-                    except (KeyError, jwt.PyJWTError) as err:
+                    except (KeyError, jwt.PyJWTError):
                         raise OVOEnergyAUApiClientAuthenticationError(
                             "Could not validate the ID token nonce"
-                        ) from err
+                        ) from None
                     token_nonce = claims.get("nonce")
                     # OVO's Auth0 tenant intermittently omits the nonce claim
                     # from an otherwise valid authorization-code response. The
@@ -348,14 +375,16 @@ class OVOEnergyAUApiClient:
                     expires_in=token_data.get("expires_in"),
                 )
                 return token_data
-        except (aiohttp.ClientError, TimeoutError) as err:
+        except OVOEnergyAUApiClientError:
+            raise
+        except (aiohttp.ClientError, TimeoutError):
             raise OVOEnergyAUApiClientCommunicationError(
                 "Error communicating with Auth0"
-            ) from err
-        except Exception as err:
+            ) from None
+        except Exception:
             raise OVOEnergyAUApiClientAuthenticationError(
                 "Error exchanging code for tokens"
-            ) from err
+            ) from None
 
     async def refresh_tokens(self) -> dict[str, Any]:
         """Refresh tokens; only an explicit rejection permits password fallback."""
@@ -363,7 +392,9 @@ class OVOEnergyAUApiClient:
             raise OVOEnergyAUApiClientAuthenticationError("No refresh token available")
         data = {"grant_type": "refresh_token", "client_id": OAUTH_CLIENT_ID, "refresh_token": self._refresh_token}
         try:
-            async with self._session.post(OAUTH_TOKEN_URL, json=data) as response:
+            async with self._session.post(OAUTH_TOKEN_URL, json=data, allow_redirects=False) as response:
+                if 300 <= response.status < 400:
+                    raise OVOEnergyAUApiClientCommunicationError("Unexpected redirect from OVO token endpoint")
                 if response.status in (401, 403):
                     raise OVOEnergyAUApiClientAuthenticationError("Refresh token rejected")
                 if response.status == 400:
@@ -383,8 +414,8 @@ class OVOEnergyAUApiClient:
                 return token_data
         except OVOEnergyAUApiClientError:
             raise
-        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError) as err:
-            raise OVOEnergyAUApiClientCommunicationError("Unable to refresh OVO tokens") from err
+        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError):
+            raise OVOEnergyAUApiClientCommunicationError("Unable to refresh OVO tokens") from None
 
     # ─── Internal helpers ────────────────────────────────────────────
 
@@ -497,7 +528,12 @@ class OVOEnergyAUApiClient:
                 GRAPHQL_URL,
                 json=payload,
                 headers=self._graphql_headers(referer_path),
+                # aiohttp strips Authorization across origins, but retains our
+                # custom myovo-id-token header. Refuse forwarding credentials.
+                allow_redirects=False,
             ) as response:
+                if 300 <= response.status < 400:
+                    raise OVOEnergyAUApiClientCommunicationError("Unexpected redirect from OVO API")
                 response.raise_for_status()
 
                 content_type = response.headers.get("Content-Type", "")
@@ -543,11 +579,11 @@ class OVOEnergyAUApiClient:
                     await self._ensure_authenticated()
                 except OVOEnergyAUApiClientError:
                     raise
-                except Exception as reauth_err:
+                except Exception:
                     # A transport failure does not prove the credentials wrong.
                     raise OVOEnergyAUApiClientCommunicationError(
                         "Unable to refresh authentication after HTTP 401"
-                    ) from reauth_err
+                    ) from None
                 # Retry the request once
                 return await self._graphql_request(
                     operation_name, query, variables, result_key,
@@ -556,14 +592,14 @@ class OVOEnergyAUApiClient:
             if err.status == 401:
                 raise OVOEnergyAUApiClientAuthenticationError(
                     "Authentication failed"
-                ) from err
+                ) from None
             raise OVOEnergyAUApiClientCommunicationError(
                 "Error communicating with OVO API"
-            ) from err
-        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError) as err:
+            ) from None
+        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError):
             raise OVOEnergyAUApiClientCommunicationError(
                 "Error communicating with OVO API"
-            ) from err
+            ) from None
 
     # ─── Public API methods ──────────────────────────────────────────
 
@@ -577,8 +613,8 @@ class OVOEnergyAUApiClient:
                 raise OVOEnergyAUApiClientError("Email not found in ID token")
         except OVOEnergyAUApiClientError:
             raise
-        except Exception as err:
-            raise OVOEnergyAUApiClientError("Error decoding ID token") from err
+        except Exception:
+            raise OVOEnergyAUApiClientError("Error decoding ID token") from None
 
         return await self._graphql_request(
             operation_name="GetContactInfo",
@@ -624,10 +660,10 @@ class OVOEnergyAUApiClient:
         try:
             datetime.strptime(start_date, "%Y-%m-%d")
             datetime.strptime(end_date, "%Y-%m-%d")
-        except ValueError as err:
+        except ValueError:
             raise OVOEnergyAUApiClientError(
-                f"Invalid date format (expected YYYY-MM-DD): {err}"
-            ) from err
+                "Invalid date format (expected YYYY-MM-DD)"
+            ) from None
 
         return await self._graphql_request(
             operation_name="GetHourlyData",

@@ -1,10 +1,13 @@
 """Offline refusal-path tests using local bare repositories only."""
 import importlib.util
+import json
 import os
-from pathlib import Path
+import shlex
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("recover_github", Path(__file__).with_name("recover_github.py"))
 mod = importlib.util.module_from_spec(spec)
@@ -80,6 +83,53 @@ class RecoverTests(unittest.TestCase):
         run(self.work, "tag", "v9.9.9")
         mod.recover(self.c2, OK, self.remote)
         self.assertEqual(run(self.work, "ls-remote", "--tags", self.remote), "")
+
+    def test_refuses_missing_named_gates_before_any_git_command(self):
+        for missing in OK:
+            with self.subTest(missing=missing), patch.object(mod, "git") as git:
+                with self.assertRaises(mod.Refused):
+                    mod.recover(self.c2, {k: v for k, v in OK.items() if k != missing}, self.remote)
+                git.assert_not_called()
+
+    def test_refuses_option_or_control_character_remote_before_git(self):
+        for remote in ("", "--upload-pack=untrusted", "-oProxyCommand=untrusted", "repo\nother"):
+            with self.subTest(remote=remote), patch.object(mod, "git") as git:
+                with self.assertRaises(mod.Refused):
+                    mod.recover(self.c2, OK, remote)
+                git.assert_not_called()
+
+    def test_ssh_command_quotes_paths_and_drops_plaintext_key_environment(self):
+        root = Path(self.tmp.name)
+        key = root / "deploy key; $(untrusted)"
+        hosts = root / 'known hosts; "quoted"'
+        key.write_text("synthetic fixture", encoding="utf-8")
+        key.chmod(0o600)
+        hosts.write_text("synthetic fixture", encoding="utf-8")
+        environment = {
+            "RECOVERY_GATES": json.dumps(OK), "RECOVERY_KEY_FILE": str(key),
+            "RECOVERY_KNOWN_HOSTS": str(hosts), "GITHUB_SHA": self.c2,
+            "RECOVERY_REMOTE": "git@github.com:HallyAus/OVO_Aus_api.git",
+            "RECOVERY_DEPLOY_KEY": "synthetic-private-key", "SOURCE_TOKEN": "synthetic-token",
+            "GH_TOKEN": "synthetic-token", "GITHUB_TOKEN": "synthetic-token",
+            "GITEA_TOKEN": "synthetic-token", "INPUT_GITHUB_TOKEN": "synthetic-token",
+            "GIT_ASKPASS": "/untrusted/helper", "SSH_ASKPASS": "/untrusted/helper",
+        }
+        with patch.dict(os.environ, environment, clear=True), patch.object(mod, "recover") as recover, \
+                patch("builtins.print"):
+            mod.main()
+        env = recover.call_args.args[3]
+        ssh_args = shlex.split(env["GIT_SSH_COMMAND"])
+        self.assertEqual(ssh_args[ssh_args.index("-i") + 1], str(key))
+        self.assertIn("UserKnownHostsFile=" + json.dumps(str(hosts)), ssh_args)
+        for sensitive in ("RECOVERY_DEPLOY_KEY", "SOURCE_TOKEN", "GIT_ASKPASS", "SSH_ASKPASS",
+                          "GH_TOKEN", "GITHUB_TOKEN", "GITEA_TOKEN", "INPUT_GITHUB_TOKEN"):
+            self.assertNotIn(sensitive, env)
+
+    def test_main_refuses_unexpected_remote_before_reading_key(self):
+        with patch.dict(os.environ, {"RECOVERY_REMOTE": "git@unexpected.invalid:repo"}, clear=True), \
+                patch.object(mod, "recover") as recover, self.assertRaises(mod.Refused):
+            mod.main()
+        recover.assert_not_called()
 
 
 if __name__ == "__main__":

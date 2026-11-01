@@ -13,8 +13,10 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: pip install ruff
@@ -23,8 +25,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
@@ -33,25 +37,73 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: home-assistant/actions/hassfest@master
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/hassfest
 
   hacs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: hacs/action@main
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/hacs
         with:
           category: integration
+          comment: "false"
 
   runtime:
     name: Home Assistant runtime regressions
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14"
       - run: pip install -r requirements-test-ha.txt
       - run: python -m pytest tests_ha/ -q --asyncio-mode=auto
+
+  security:
+    name: Secrets, source security and package dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]" -r requirements-security.txt
+      - run: pre-commit run detect-secrets --all-files
+      - run: bandit -r custom_components/ovo_energy_au/ -q
+      - run: python -m pytest .gitea/scripts/ -q
+      # The unpublished editable integration is checked as source above.
+      # Audit every installed external distribution, including scanner tools.
+      - run: |
+          python -m pip list --format=freeze --exclude-editable > "$RUNNER_TEMP/ovo-dependency-audit.txt"
+          python -m pip_audit --strict --no-deps --disable-pip -r "$RUNNER_TEMP/ovo-dependency-audit.txt"
+
+  runtime-security:
+    name: Home Assistant dependency security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements-test-ha.txt
+      # The scanner has a separate environment so it cannot upgrade or replace
+      # any exact dependency owned by Home Assistant. Fail on known advisories.
+      - run: |
+          python -m venv .audit-venv
+          .audit-venv/bin/python -m pip install pip-audit==2.10.1
+          HA_SITE_PACKAGES=$(python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
+          .audit-venv/bin/python -m pip_audit --strict --path "$HA_SITE_PACKAGES"

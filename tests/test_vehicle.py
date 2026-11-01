@@ -1,9 +1,11 @@
 """Kaluza vehicle decoding, privacy, and sensor regression tests."""
 
+import traceback
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
 
+import aiohttp
 import jwt
 import pytest
 
@@ -18,6 +20,7 @@ from custom_components.ovo_energy_au.sensors.vehicle import (
 )
 from custom_components.ovo_energy_au.vehicle import (
     OVOVehicleApiClient,
+    OVOVehicleCommunicationError,
     build_vehicle_data,
     decode_firestore_documents,
     decode_firestore_value,
@@ -65,8 +68,8 @@ class _FakeSession:
             )
         return _FakeResponse({})
 
-    def post(self, url, json):
-        self.calls.append(("POST", url, {}, {"json": json}))
+    def post(self, url, json, **kwargs):
+        self.calls.append(("POST", url, {}, {"json": json, **kwargs}))
         if json["grant_type"] == "refresh_token":
             if self.reject_refresh:
                 return _FakeResponse({}, status=401)
@@ -150,6 +153,11 @@ async def test_vehicle_client_uses_verified_get_only_token_chain_and_cache():
     assert all(call[2]["authorization"] == "Bearer flex-token" for call in data_calls)
     assert all("/users/user-id/" in call[1] for call in data_calls)
     assert all(call[1].startswith("https://") for call in session.calls)
+    assert all(
+        call[3]["allow_redirects"] is False
+        for call in session.calls
+        if "/authorize?" not in call[1]
+    )
 
 
 @pytest.mark.asyncio
@@ -177,6 +185,7 @@ async def test_vehicle_client_prefers_kaluza_refresh_token_over_sso():
         and call[3]["json"].get("grant_type") == "refresh_token"
     ]
     assert len(refresh_calls) == 1
+    assert refresh_calls[0][3]["allow_redirects"] is False
     flex_call = next(
         call
         for call in session.calls
@@ -208,6 +217,98 @@ async def test_vehicle_client_uses_sso_only_after_kaluza_refresh_rejection():
     ]
     assert grants == ["refresh_token", "authorization_code"]
     assert len([call for call in session.calls if "/authorize?" in call[1]]) == 1
+
+
+async def _call_vehicle_endpoint(client, operation):
+    if operation == "data":
+        return await client._get_json("https://example.test/data", "synthetic-access")
+    if operation == "exchange":
+        return await client._authorize_kaluza("synthetic-account", "synthetic-customer")
+    return await client._refresh_kaluza_token("synthetic-account", "synthetic-refresh")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["data", "exchange", "refresh"])
+@pytest.mark.parametrize("redirect_status", [302, 307, 308])
+async def test_vehicle_endpoints_reject_redirect_responses(operation, redirect_status):
+    session = _FakeSession()
+    if operation == "data":
+        session.get = MagicMock(return_value=_FakeResponse({}, status=redirect_status))
+    else:
+        session.post = MagicMock(return_value=_FakeResponse({}, status=redirect_status))
+    client = OVOVehicleApiClient(session, AsyncMock())
+
+    with pytest.raises(OVOVehicleCommunicationError, match="redirect"):
+        await _call_vehicle_endpoint(client, operation)
+
+    request = session.get if operation == "data" else session.post
+    assert request.call_args.kwargs["allow_redirects"] is False
+    assert client._kaluza_tokens == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["data", "exchange", "refresh"])
+@pytest.mark.parametrize("error_type", [aiohttp.ClientError, TimeoutError])
+async def test_vehicle_transport_errors_hide_provider_context(operation, error_type):
+    session = MagicMock()
+    private_context = "sensitive-vehicle-provider-context"
+    session.get.side_effect = error_type(private_context)
+    session.post.side_effect = error_type(private_context)
+    client = OVOVehicleApiClient(session, AsyncMock())
+
+    with pytest.raises(OVOVehicleCommunicationError) as captured:
+        await _call_vehicle_endpoint(client, operation)
+
+    assert private_context not in "".join(traceback.format_exception(captured.value))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload", [None, [], "malformed"])
+@pytest.mark.parametrize("optional", [False, True])
+async def test_malformed_vehicle_data_is_not_treated_as_empty(payload, optional):
+    session = MagicMock()
+    session.get.return_value = _FakeResponse(payload)
+    client = OVOVehicleApiClient(session, AsyncMock())
+
+    with pytest.raises(OVOVehicleCommunicationError, match="Invalid vehicle API response"):
+        await client._get_json("https://example.test/data", "synthetic-access", optional=optional)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["kaluza", "flex"])
+@pytest.mark.parametrize("expires_in", ["invalid", float("inf"), 10**100, -1, 0, True])
+async def test_invalid_vehicle_token_lifetime_preserves_cache(source, expires_in):
+    client = OVOVehicleApiClient(MagicMock(), AsyncMock())
+    previous = ("synthetic-old-access", "synthetic-old-refresh", datetime.now(UTC))
+    client._kaluza_tokens["account"] = previous
+    client._token_cache["account"] = previous
+
+    with pytest.raises(OVOVehicleCommunicationError):
+        if source == "kaluza":
+            client._store_kaluza_tokens("account", {"access_token": "synthetic-new-access", "expires_in": expires_in})
+        else:
+            client._get_json = AsyncMock(
+                return_value={"idToken": "synthetic-new-access", "userId": "synthetic-user", "expiresIn": expires_in}
+            )
+            await client._get_flex_token("account", "synthetic-kaluza-access", force=True)
+
+    assert client._kaluza_tokens["account"] == previous
+    assert client._token_cache["account"] == previous
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source,field", [("kaluza", "access_token"), ("flex", "idToken"), ("flex", "userId")])
+async def test_empty_vehicle_token_fields_are_rejected(source, field):
+    client = OVOVehicleApiClient(MagicMock(), AsyncMock())
+    with pytest.raises(OVOVehicleCommunicationError):
+        if source == "kaluza":
+            client._store_kaluza_tokens("account", {field: ""})
+        else:
+            client._get_json = AsyncMock(return_value={"idToken": "synthetic-access", "userId": "synthetic-user", field: ""})
+            await client._get_flex_token("account", "synthetic-kaluza-access")
+
+    assert client._kaluza_tokens == {}
+    assert client._token_cache == {}
 
 
 def test_firestore_document_id_is_only_retained_for_local_matching():

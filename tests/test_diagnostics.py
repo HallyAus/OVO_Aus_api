@@ -45,7 +45,11 @@ async def test_diagnostics_redact_identity_and_omit_sensitive_payloads():
             "username": "person@example.com",
             "password": "test-password",  # pragma: allowlist secret
             "account_id": "account",
+            "access_token": "legacy-access-value",
+            "id_token": "legacy-identity-value",
+            "refresh_token": "legacy-refresh-value",
         },
+        "options": {"nested": [{"refresh_token": "nested-legacy-value"}]},
     }
 
     result = await async_get_config_entry_diagnostics(MagicMock(), entry)
@@ -54,6 +58,10 @@ async def test_diagnostics_redact_identity_and_omit_sensitive_payloads():
     assert "person@example.com" not in rendered
     assert "sensitive-meter-id" not in rendered
     assert "signed.example" not in rendered
+    assert "legacy-access-value" not in rendered
+    assert "legacy-identity-value" not in rendered
+    assert "legacy-refresh-value" not in rendered
+    assert "nested-legacy-value" not in rendered
     assert result["coordinator"]["statements_available"] == 1
     assert result["coordinator"]["payments_available"] == 1
     assert result["coordinator"]["hourly_data_status"] == "stale"

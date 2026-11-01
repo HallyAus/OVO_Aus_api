@@ -4,6 +4,35 @@ Volatile project state for coding agents and maintainers. Update this file when 
 
 Release metadata rechecked: 2026-10-20 Sydney.
 
+## PR #92 review — 2026-11-02 Sydney
+
+- Reviewed the original contribution at `4fe5c65f7bb29d2ded56278943ddc46f239f559b`.
+- Real Home Assistant reproductions confirmed sensor-class state handling made
+  the new binary entity publish `unknown`, and clock boundaries did not publish
+  tariff/price changes without a coordinator refresh. Corrected with a
+  platform-neutral tariff base and entity-owned local time listeners.
+- Preserved the explicit customer-local timezone fix from issue #86 and commit
+  `64c417f2`; forcing Sydney globally would restore the Adelaide regression.
+- Added binary-state, Free 3/Free 4 boundary, DST, interstate, timer lifecycle,
+  zero-rate, privacy and malformed-rate regressions.
+- The requested repository security cleanup also fixes credential forwarding
+  through redirects, legacy token disclosure/retention, provider error leakage,
+  malformed token cache updates and release-tool integrity failures.
+- Final local verification: 358 integration/unit tests plus 24 offline tooling
+  tests (24 additional subtests), 30 real-HA runtime tests on HA 2026.10.4, Ruff,
+  production Bandit and official hassfest pass. Secret and external dependency
+  scans are separate gates; the full HA dependency audit remains blocked below.
+- Security remains a merge gate. The current official test harness
+  (`pytest-homeassistant-custom-component==0.13.375`, HA 2026.10.4) pins
+  Pillow 12.3.0, which fails the dependency audit; upstream fixes require 13.0.0.
+  Do not suppress the advisories or override Home Assistant's exact core pins.
+- New GitHub CI jobs explicitly check secrets, production source security,
+  external package dependencies and the unmodified Home Assistant dependency
+  set. Existing Ruff, unit, runtime, hassfest and HACS gates remain in place.
+- These are review-branch changes, not a release. See
+  `docs/reviews/pr92-tariff-security-review.md` for validation and the remaining
+  dependency blocker.
+
 ## Production / release
 
 - Latest stable GitHub/HACS release: **v4.10.0**, published 2026-09-05T09:08:34Z with `ovo_energy_au.zip`.
@@ -17,11 +46,15 @@ Release metadata rechecked: 2026-10-20 Sydney.
 
 - Home Assistant minimum advertised/enforced by HACS: **2026.8.3**.
 - Python support: 3.11+; CI unit checks currently run on Python 3.12.
-- Home Assistant runtime regressions currently run on Python 3.14 using `requirements-test-ha.txt`.
-- Package dependency contract: the Python package supports
-  `PyJWT>=2.13.0,<3.0.0`, while the integration manifest deliberately leaves
-  PyJWT to Home Assistant core rather than reinstalling or pinning it.
-- Timezone authority: `Australia/Sydney`.
+- Home Assistant runtime regressions run on Python 3.14 using the compatible
+  HA 2026.10.4 test harness pinned in `requirements-test-ha.txt`.
+- Package dependency contract: standalone Python installs require
+  `PyJWT>=2.15.1,<3.0.0` and `aiohttp>=3.14.4,<4.0.0`. The integration manifest
+  leaves core-owned packages to Home Assistant rather than reinstalling or
+  overriding its exact pins. The separate runtime dependency audit checks the
+  actual supported Home Assistant environment.
+- Timezone authority: customer-local HA configuration for live tariff windows;
+  `Australia/Sydney` for existing OVO API parsing and historical aggregation.
 
 ## CI gates
 

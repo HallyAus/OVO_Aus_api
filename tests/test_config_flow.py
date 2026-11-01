@@ -3,9 +3,11 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from custom_components.ovo_energy_au import config_flow as flow_module
 from custom_components.ovo_energy_au.config_flow import ConfigFlow, OptionsFlowHandler
 from custom_components.ovo_energy_au.const import (
     CONF_BILLING_CYCLE_DAY,
@@ -148,3 +150,37 @@ async def test_options_stores_consolidate_devices():
 
     assert result["type"] == "create_entry"
     assert result["data"][CONF_CONSOLIDATE_DEVICES] is True
+
+
+@pytest.mark.asyncio
+async def test_successful_reauth_retires_persisted_legacy_tokens(monkeypatch):
+    """Older releases stored tokens; reauth must not retain obsolete secrets."""
+    monkeypatch.setattr(flow_module, "CONF_USERNAME", "username")
+    monkeypatch.setattr(flow_module, "CONF_PASSWORD", "password")
+    flow = ConfigFlow()
+    flow._auth_data = {
+        "username": "old@example.test",
+        "password": "synthetic-old-password",  # pragma: allowlist secret
+        "account_id": "account",
+        "plan_type": PLAN_EV,
+        **{key: f"legacy-{key}" for key in ("access_token", "id_token", "refresh_token")},
+    }
+    flow._reauth_entry = SimpleNamespace(unique_id="account", entry_id="entry")
+    entries = SimpleNamespace(async_update_entry=MagicMock(), async_reload=AsyncMock())
+    flow.hass = SimpleNamespace(config_entries=entries)
+    flow.async_abort = lambda **kwargs: kwargs
+    monkeypatch.setattr(flow_module, "validate_input", AsyncMock(return_value={"account_id": "account"}))
+
+    result = await flow.async_step_reauth_confirm(
+        {"username": "new@example.test", "password": "synthetic-new-password"}  # pragma: allowlist secret
+    )
+
+    assert result == {"reason": "reauth_successful"}
+    saved_data = entries.async_update_entry.call_args.kwargs["data"]
+    assert saved_data == {
+        "username": "new@example.test",
+        "password": "synthetic-new-password",  # pragma: allowlist secret
+        "account_id": "account",
+        "plan_type": PLAN_EV,
+    }
+    entries.async_reload.assert_awaited_once_with("entry")

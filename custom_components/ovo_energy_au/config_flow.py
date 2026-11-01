@@ -283,11 +283,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     and info["account_id"] != reauth_entry.unique_id
                 ):
                     return self.async_abort(reason="reauth_account_mismatch")
-                # Update the existing entry with new credentials
+                # Tokens from older releases are obsolete: current clients
+                # keep them only in memory. Do not persist them after reauth.
+                updated_data = {
+                    key: value
+                    for key, value in self._auth_data.items()
+                    if key not in {"access_token", "id_token", "refresh_token"}
+                }
                 self.hass.config_entries.async_update_entry(
                     reauth_entry,
                     data={
-                        **self._auth_data,
+                        **updated_data,
                         CONF_USERNAME: user_input[CONF_USERNAME],
                         CONF_PASSWORD: user_input[CONF_PASSWORD],
                         CONF_ACCOUNT_ID: info["account_id"],

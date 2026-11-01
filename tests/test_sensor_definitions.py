@@ -368,7 +368,7 @@ class TestSpecializedSensorSafety:
         }
         return coordinator
 
-    @patch("custom_components.ovo_energy_au.sensor.dt_util")
+    @patch("custom_components.ovo_energy_au.tariff_entity.dt_util")
     def test_flat_plan_never_claims_ev_period(self, mock_datetime):
         from custom_components.ovo_energy_au.sensor import OVOTariffPeriodSensor
 
@@ -377,7 +377,7 @@ class TestSpecializedSensorSafety:
         assert sensor.native_value == "Standard"
         assert sensor.extra_state_attributes["rate_cents_kwh"] == 28
 
-    @patch("custom_components.ovo_energy_au.sensor.dt_util")
+    @patch("custom_components.ovo_energy_au.tariff_entity.dt_util")
     def test_ev_and_free_periods_require_matching_plan_or_api_rate(self, mock_datetime):
         from custom_components.ovo_energy_au.sensor import OVOTariffPeriodSensor
 
@@ -388,7 +388,7 @@ class TestSpecializedSensorSafety:
         assert OVOTariffPeriodSensor(self._coord("free_3")).native_value == "Super Off-Peak (FREE)"
         assert OVOTariffPeriodSensor(self._coord("ev", {"superOffPeak": 0})).native_value == "Super Off-Peak (FREE)"
 
-    @patch("custom_components.ovo_energy_au.sensor.dt_util")
+    @patch("custom_components.ovo_energy_au.tariff_entity.dt_util")
     def test_current_electricity_price_sensor(self, mock_datetime):
         from custom_components.ovo_energy_au.sensor import OVOElectricityPriceSensor
 

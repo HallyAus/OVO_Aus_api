@@ -1,0 +1,5 @@
+name: Pinned official hassfest validation
+description: Run the official Home Assistant validator at an immutable digest
+runs:
+  using: docker
+  image: Dockerfile

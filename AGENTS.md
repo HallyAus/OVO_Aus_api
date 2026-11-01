@@ -59,7 +59,7 @@ Do not treat dates, versions, entity counts or test counts in old docs/issues as
 4. **Kaluza auth is separate.** EV data uses a separate Kaluza/Firebase token chain. Do not send the normal MyOVO access token to Kaluza endpoints or gate vehicle discovery on `flex.hasOnboarded`.
 5. **Never turn auth/transport failure into unexplained empty data.** Distinguish unavailable/retryable failures from valid empty results.
 6. **Money is AUD dollars.** OVO commonly returns cents; convert deliberately. Per-kWh sensors retain four decimal places where required.
-7. **All date/time maths uses `Australia/Sydney`.** Never depend on the host's local timezone or naive datetimes.
+7. **Use timezone-aware clocks.** Live tariff windows follow Home Assistant's configured customer timezone (the deliberate #86 fix in `64c417f2`); Sydney installations use `Australia/Sydney`, including DST. Existing OVO API parsing and historical aggregation retain their `Australia/Sydney` conventions. Never depend on the host's local timezone or naive datetimes.
 8. **`CREDIT` means solar export.** Every other charge direction is grid consumption unless a source-specific rule proves otherwise.
 9. **Unclassified hourly tariff data remains `OTHER`.** Do not default unknown hourly rate data to shoulder/peak/off-peak; plan-window rebucketing depends on `OTHER`.
 10. **A source snapshot is usable only after validation.** Do not let malformed/partial upstream responses overwrite last-known-good state or resolve incidents/usage implicitly.

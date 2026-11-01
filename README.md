@@ -212,6 +212,19 @@ Free 3 (11am-2pm), Free 4 (11am-3pm), and EV overnight (midnight-6am) product wi
 
 When an account moves to another recognised OVO plan, the integration detects the new plan on refresh. A plan explicitly saved in **Configure** remains a manual override.
 
+The live tariff period, electricity price and free-window binary sensor follow
+Home Assistant's configured timezone. For a Sydney property, select
+**Australia/Sydney** in Home Assistant; daylight saving is handled automatically.
+Interstate installations use their own local timezone, preserving the correction
+for [issue #86](https://github.com/HallyAus/OVO_Aus_api/issues/86).
+
+The free-window binary sensor is on from 11:00 inclusive until 14:00 exclusive
+for Free 3, or until 15:00 exclusive for Free 4. These live tariff entities update
+at local whole-hour boundaries without waiting for an OVO API refresh. Normal
+Home Assistant scheduler latency applies. The `hours_remaining` attribute is a
+fractional snapshot refreshed with entity updates, not a continuously ticking
+countdown. OVO usage totals still arrive on the provider's normal delayed schedule.
+
 ---
 
 ## 📡 Sensors
@@ -346,7 +359,7 @@ The integration communicates with OVO Energy Australia's GraphQL API:
 - **Token refresh:** Automatic, with 401 retry and re-authentication fallback
 - **Polling interval:** 5 minutes via Home Assistant's `DataUpdateCoordinator`
 - **Data source:** Daily data is available after 6:00 AM for the previous day
-- **Timezone:** `ZoneInfo("Australia/Sydney")` -- handles AEST/AEDT transitions correctly
+- **Timezone:** Live tariff windows use Home Assistant's configured local timezone; existing API period parsing and historical aggregation use `ZoneInfo("Australia/Sydney")`. Both use timezone-aware datetimes.
 
 ### Null Safety
 

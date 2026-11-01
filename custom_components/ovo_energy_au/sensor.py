@@ -34,13 +34,13 @@ from .sensors.definitions import (
     get_rate_value,
 )
 from .sensors.vehicle import create_vehicle_sensors
+from .tariff_entity import OVOTariffEntity
 from .tariffs import (
     detect_plan_type,
     get_current_agreement,
     get_current_product,
     get_product_rates,
     get_schedule_attributes,
-    get_tariff_details,
 )
 from .time_utils import parse_ovo_datetime
 
@@ -548,11 +548,11 @@ class OVOHealthSensor(OVOBaseSensor):
         }
 
 
-class OVOTariffPeriodSensor(OVOBaseSensor):
+class OVOTariffPeriodSensor(OVOTariffEntity, SensorEntity):
     """Sensor showing the current tariff/rate period based on time of day."""
 
     def __init__(self, coordinator):
-        super().__init__(coordinator, "current_tariff_period", "Current Tariff Period", "Tariff")
+        super().__init__(coordinator, "current_tariff_period", "Current Tariff Period")
         self._attr_icon = "mdi:clock-time-four"
 
     @property
@@ -564,35 +564,7 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
     def extra_state_attributes(self) -> dict:
         return self._period_details()
 
-    @property
-    def available(self) -> bool:
-        """Do not present expired, future or unavailable auto-detected tariffs."""
-        if (getattr(self.coordinator, "auto_detect_plan", False) is True
-                and not get_current_product(self.coordinator.data)):
-            return False
-        return bool(getattr(self.coordinator, "last_update_success", True))
-
-    def _period_details(self) -> dict:
-        """Calculate the plan-aware period and rate for the current local hour."""
-        # Tariff windows are customer wall-clock times, so follow Home
-        # Assistant's configured time zone (SA, QLD, NT and WA differ from Sydney).
-        return get_tariff_details(
-            self.coordinator.plan_config,
-            self.coordinator.data,
-            dt_util.now().hour,
-        )
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self.coordinator.account_id)},
-            "name": "OVO Energy AU",
-            "manufacturer": "OVO Energy Australia",
-            "model": "Energy Monitor",
-        }
-
-
-class OVOElectricityPriceSensor(OVOBaseSensor):
+class OVOElectricityPriceSensor(OVOTariffEntity, SensorEntity):
     """Sensor exposing current electricity rate in AUD/kWh for the HA Energy Dashboard."""
 
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -603,7 +575,6 @@ class OVOElectricityPriceSensor(OVOBaseSensor):
             coordinator,
             "current_electricity_price",
             "Current Electricity Price",
-            "Tariff",
         )
         self._attr_native_unit_of_measurement = "AUD/kWh"
         self._attr_icon = "mdi:cash"
@@ -623,31 +594,6 @@ class OVOElectricityPriceSensor(OVOBaseSensor):
     @property
     def extra_state_attributes(self) -> dict:
         return self._period_details()
-
-    @property
-    def available(self) -> bool:
-        if (
-            getattr(self.coordinator, "auto_detect_plan", False) is True
-            and not get_current_product(self.coordinator.data)
-        ):
-            return False
-        return bool(getattr(self.coordinator, "last_update_success", True))
-
-    def _period_details(self) -> dict:
-        return get_tariff_details(
-            self.coordinator.plan_config,
-            self.coordinator.data,
-            dt_util.now().hour,
-        )
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self.coordinator.account_id)},
-            "name": "OVO Energy AU",
-            "manufacturer": "OVO Energy Australia",
-            "model": "Energy Monitor",
-        }
 
 
 class OVOSolarFeedInTariffSensor(OVOBaseSensor):

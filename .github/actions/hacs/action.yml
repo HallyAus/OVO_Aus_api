@@ -1,0 +1,25 @@
+name: Pinned official HACS validation
+description: Run the official HACS image at a verified immutable digest
+inputs:
+  ignore:
+    description: Space-separated checks to ignore (none by default)
+    required: false
+    default: ""
+  category:
+    description: Repository category
+    required: true
+  repository:
+    description: Repository override (current repository by default)
+    required: false
+    default: ""
+  github_token:
+    description: Ephemeral read-only workflow token
+    required: false
+    default: ${{ github.token }}
+  comment:
+    description: Whether to post a pull request comment
+    required: false
+    default: "false"
+runs:
+  using: docker
+  image: Dockerfile
