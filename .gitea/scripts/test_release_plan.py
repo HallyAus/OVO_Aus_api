@@ -1,14 +1,14 @@
 """Synthetic release safety checks; all Git/provider calls are mocked."""
-from contextlib import redirect_stdout
 import hashlib
 import importlib.util
 import io
 import json
-from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
 import zipfile
+from contextlib import nullcontext, redirect_stdout
+from pathlib import Path
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("release_plan", Path(__file__).with_name("release_plan.py"))
 module = importlib.util.module_from_spec(spec)
@@ -18,13 +18,18 @@ SHA = "a" * 40
 
 class ReleasePlanTests(unittest.TestCase):
     def check(self, *, gate="success", tamper=False, identity="HallyAus", enabled=False,
-              release=False, remote_sha=SHA, expected_error=None):
+              release=False, remote_sha=SHA, expected_error=None,
+              member_name="ovo_energy_au/manifest.json", member_mode=0o100644,
+              member_data=b"synthetic", forbid_decompression=False):
         calls = []
         with tempfile.TemporaryDirectory() as root:
             directory = Path(root)
             archive = directory / "ovo_energy_au.zip"
             with zipfile.ZipFile(archive, "w") as zipped:
-                zipped.writestr("ovo_energy_au/manifest.json", b"synthetic")
+                member = zipfile.ZipInfo(member_name)
+                member.create_system = 3
+                member.external_attr = member_mode << 16
+                zipped.writestr(member, member_data)
             proof = {
                 "repository": "hallyaus/OVO_Aus_api", "source_server": "http://192.168.1.130:3000",
                 "source_sha": SHA, "version": "9.9.9", "run_id": "123", "published": False,
@@ -68,7 +73,9 @@ class ReleasePlanTests(unittest.TestCase):
                     "--reviewed-hacs-sha", SHA,
                     "--notes-file", str(notes)]
             with patch("sys.argv", argv), patch.object(module, "command", side_effect=read), \
-                    patch.object(module.subprocess, "check_output", side_effect=git_bytes):
+                    patch.object(module.subprocess, "check_output", side_effect=git_bytes), \
+                    (patch.object(module.zipfile.ZipFile, "open", side_effect=AssertionError("Unsafe archive was decompressed"))
+                     if forbid_decompression else nullcontext()):
                 if expected_error:
                     with self.assertRaisesRegex(SystemExit, expected_error):
                         module.main()
@@ -103,6 +110,17 @@ class ReleasePlanTests(unittest.TestCase):
 
     def test_refuses_moved_or_missing_tag(self):
         self.check(remote_sha="b" * 40, expected_error="tags must both resolve")
+
+    def test_refuses_unexpected_archive_member_before_decompression(self):
+        self.check(member_name="../unexpected", expected_error="member set differs", forbid_decompression=True)
+
+    def test_refuses_oversized_archive_member_before_decompression(self):
+        self.check(member_data=b"synthetic" * 1024, expected_error="member size differs", forbid_decompression=True)
+
+    def test_refuses_symlink_or_executable_archive_members_before_decompression(self):
+        for mode in (0o120777, 0o100755):
+            with self.subTest(mode=mode):
+                self.check(member_mode=mode, expected_error="Unsafe candidate member", forbid_decompression=True)
 
 
 if __name__ == "__main__":

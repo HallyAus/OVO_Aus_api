@@ -101,6 +101,15 @@ sensor_mod.SensorDeviceClass = MagicMock()
 sensor_mod.SensorStateClass = MagicMock()
 sys.modules.setdefault("homeassistant.components.sensor", sensor_mod)
 
+class _BinarySensorEntity:
+    """Stub for homeassistant.components.binary_sensor.BinarySensorEntity."""
+    pass
+
+binary_sensor_mod = types.ModuleType("homeassistant.components.binary_sensor")
+binary_sensor_mod.BinarySensorEntity = _BinarySensorEntity
+binary_sensor_mod.BinarySensorDeviceClass = MagicMock()
+sys.modules.setdefault("homeassistant.components.binary_sensor", binary_sensor_mod)
+
 # Mock dt_util.now() to return a real datetime
 dt_mock = MagicMock()
 dt_mock.now = MagicMock(return_value=_dt(2026, 3, 20, 12, 0, 0, tzinfo=UTC))
@@ -110,6 +119,7 @@ sys.modules.setdefault("homeassistant.util", util_mock)
 sys.modules.setdefault("homeassistant.util.dt", dt_mock)
 sys.modules.setdefault("homeassistant.helpers.entity", ha_mock)
 sys.modules.setdefault("homeassistant.helpers.entity_platform", ha_mock)
+sys.modules.setdefault("homeassistant.helpers.event", ha_mock)
 sys.modules.setdefault("homeassistant.data_entry_flow", ha_mock)
 sys.modules.setdefault("voluptuous", ha_mock)
 

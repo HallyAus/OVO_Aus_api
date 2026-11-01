@@ -9,7 +9,6 @@ import pytest
 from custom_components.ovo_energy_au.analytics.interval import process_interval_data
 from custom_components.ovo_energy_au.api import (
     OVOEnergyAUApiClient,
-    OVOEnergyAUApiClientAuthenticationError,
     OVOEnergyAUApiClientCommunicationError,
     OVOEnergyAUApiClientError,
 )

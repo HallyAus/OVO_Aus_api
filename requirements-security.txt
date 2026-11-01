@@ -1,0 +1,4 @@
+# Run scanners in their own environment; never override Home Assistant's pins.
+bandit==1.9.4
+pip-audit==2.10.1
+pre-commit==4.7.0

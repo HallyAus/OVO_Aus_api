@@ -5,11 +5,11 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import tomllib
 import zipfile
+from pathlib import Path, PurePosixPath
 
 PREFIX = "custom_components/ovo_energy_au/"
 
@@ -21,13 +21,17 @@ def git(*args: str) -> bytes:
 def package(files: dict[str, bytes], output: Path) -> None:
     if not files:
         raise ValueError("An empty integration cannot be packaged")
+    # Validate the entire member set before creating even a partial artifact.
+    # Canonical POSIX paths also prevent multiple names extracting to one file.
+    for name in files:
+        path = PurePosixPath(name)
+        if ("\\" in name or ":" in name or path.is_absolute() or ".." in path.parts
+                or path.as_posix() != name or not name.startswith("ovo_energy_au/")
+                or any(ord(char) < 32 or ord(char) == 127 for char in name)
+                or "__pycache__" in path.parts or name.endswith((".pyc", ".pyo"))):
+            raise ValueError("Unsafe or generated archive member")
     with zipfile.ZipFile(output, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for name, data in sorted(files.items()):
-            path = PurePosixPath(name)
-            if ("\\" in name or path.is_absolute() or ".." in path.parts
-                    or not name.startswith("ovo_energy_au/")
-                    or "__pycache__" in path.parts or name.endswith((".pyc", ".pyo"))):
-                raise ValueError("Unsafe or generated archive member")
             member = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             member.create_system = 3
             member.external_attr = 0o100644 << 16
@@ -82,7 +86,10 @@ def main() -> None:
         "hacs_external_validation": "unverified; required before public release",
         "published": False,
     }
-    (args.output / "provenance.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    # Like the archive, the receipt is immutable. Exclusive creation also
+    # refuses existing symlinks instead of overwriting their targets.
+    with (args.output / "provenance.json").open("x", encoding="utf-8") as receipt_file:
+        receipt_file.write(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps(receipt))
 
 

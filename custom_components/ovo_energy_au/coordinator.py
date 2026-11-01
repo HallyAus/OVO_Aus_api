@@ -50,12 +50,14 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
         account_id: str,
         plan_config: PlanConfig | None = None,
         auto_detect_plan: bool = True,
+        consolidate_devices: bool = False,
     ) -> None:
         """Initialize the coordinator."""
         self.client = client
         self.account_id = account_id
         self.plan_config = plan_config or PlanConfig()
         self.auto_detect_plan = auto_detect_plan
+        self.consolidate_devices = consolidate_devices
         self.account_device_id: str | None = None
         self._vehicle_warning_active = False
         self._hourly_warning_active = False

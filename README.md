@@ -212,6 +212,19 @@ Free 3 (11am-2pm), Free 4 (11am-3pm), and EV overnight (midnight-6am) product wi
 
 When an account moves to another recognised OVO plan, the integration detects the new plan on refresh. A plan explicitly saved in **Configure** remains a manual override.
 
+The live tariff period, electricity price and free-window binary sensor follow
+Home Assistant's configured timezone. For a Sydney property, select
+**Australia/Sydney** in Home Assistant; daylight saving is handled automatically.
+Interstate installations use their own local timezone, preserving the correction
+for [issue #86](https://github.com/HallyAus/OVO_Aus_api/issues/86).
+
+The free-window binary sensor is on from 11:00 inclusive until 14:00 exclusive
+for Free 3, or until 15:00 exclusive for Free 4. These live tariff entities update
+at local whole-hour boundaries without waiting for an OVO API refresh. Normal
+Home Assistant scheduler latency applies. The `hours_remaining` attribute is a
+fractional snapshot refreshed with entity updates, not a continuously ticking
+countdown. OVO usage totals still arrive on the provider's normal delayed schedule.
+
 ---
 
 ## 📡 Sensors
@@ -346,7 +359,7 @@ The integration communicates with OVO Energy Australia's GraphQL API:
 - **Token refresh:** Automatic, with 401 retry and re-authentication fallback
 - **Polling interval:** 5 minutes via Home Assistant's `DataUpdateCoordinator`
 - **Data source:** Daily data is available after 6:00 AM for the previous day
-- **Timezone:** `ZoneInfo("Australia/Sydney")` -- handles AEST/AEDT transitions correctly
+- **Timezone:** Live tariff windows use Home Assistant's configured local timezone; existing API period parsing and historical aggregation use `ZoneInfo("Australia/Sydney")`. Both use timezone-aware datetimes.
 
 ### Null Safety
 
@@ -375,6 +388,40 @@ Contributions are welcome. Here is how to get started:
 3. Run tests: `pytest tests/`
 4. Run linting: `ruff check .`
 5. Submit a pull request
+
+### Home Assistant runtime and security checks
+
+The real Home Assistant tests use a clearly labelled security backport of
+HA 2026.10.4 with the already merged upstream Pillow 13 fix. The builder verifies
+the official source commit and the exact patch, updates every affected pin, and
+checks the wheel before installation. Use Python 3.14 in an isolated environment
+and a fresh output directory:
+
+```bash
+python -m pip install build==1.6.1
+python scripts/build_ha_security_runtime.py --output-dir /tmp/ovo-ha-security
+python -m pip install --find-links /tmp/ovo-ha-security -r requirements-test-ha.txt
+python -m pip check
+python -m pytest tests_ha/ -q --asyncio-mode=auto
+```
+
+Run the dependency scanner from a separate environment so it cannot alter HA's
+pins. It checks the complete installed inventory and the verified upstream base,
+rejects missing or skipped packages, and retains the reports:
+
+```bash
+python -m venv /tmp/ovo-ha-auditor
+/tmp/ovo-ha-auditor/bin/python -m pip install pip-audit==2.10.1
+/tmp/ovo-ha-auditor/bin/python scripts/audit_ha_security_runtime.py \
+  --runtime-python "$(command -v python)" \
+  --provenance /tmp/ovo-ha-security/provenance.json \
+  --output-dir /tmp/ovo-ha-audit
+```
+
+This is the repository's test runtime. Installing the OVO integration through
+HACS does not replace Home Assistant core or upgrade an existing installation's
+Pillow. See the [PR #92 review](docs/reviews/pr92-tariff-security-review.md) for
+the backport provenance, validation results and merge checks.
 
 ### Areas Where Help Is Appreciated
 

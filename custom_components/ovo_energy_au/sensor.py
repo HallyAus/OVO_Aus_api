@@ -34,13 +34,13 @@ from .sensors.definitions import (
     get_rate_value,
 )
 from .sensors.vehicle import create_vehicle_sensors
+from .tariff_entity import OVOTariffEntity
 from .tariffs import (
     detect_plan_type,
     get_current_agreement,
     get_current_product,
     get_product_rates,
     get_schedule_attributes,
-    get_tariff_details,
 )
 from .time_utils import parse_ovo_datetime
 
@@ -129,6 +129,10 @@ async def async_setup_entry(
 
     # ── Tariff period indicator ──
     sensors.append(OVOTariffPeriodSensor(coordinator))
+
+    # ── Native numeric price sensors for HA Energy Dashboard ──
+    sensors.append(OVOElectricityPriceSensor(coordinator))
+    sensors.append(OVOSolarFeedInTariffSensor(coordinator))
 
     # ── Plan comparison / recommendation ──
     sensors.append(OVORateComparisonSensor(coordinator))
@@ -544,11 +548,11 @@ class OVOHealthSensor(OVOBaseSensor):
         }
 
 
-class OVOTariffPeriodSensor(OVOBaseSensor):
+class OVOTariffPeriodSensor(OVOTariffEntity, SensorEntity):
     """Sensor showing the current tariff/rate period based on time of day."""
 
     def __init__(self, coordinator):
-        super().__init__(coordinator, "current_tariff_period", "Current Tariff Period", "Tariff")
+        super().__init__(coordinator, "current_tariff_period", "Current Tariff Period")
         self._attr_icon = "mdi:clock-time-four"
 
     @property
@@ -560,23 +564,87 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
     def extra_state_attributes(self) -> dict:
         return self._period_details()
 
+class OVOElectricityPriceSensor(OVOTariffEntity, SensorEntity):
+    """Sensor exposing current electricity rate in AUD/kWh for the HA Energy Dashboard."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_suggested_display_precision = 4
+
+    def __init__(self, coordinator):
+        super().__init__(
+            coordinator,
+            "current_electricity_price",
+            "Current Electricity Price",
+        )
+        self._attr_native_unit_of_measurement = "AUD/kWh"
+        self._attr_icon = "mdi:cash"
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return "AUD/kWh"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return current rate in AUD/kWh."""
+        details = self._period_details()
+        val = details.get("rate_aud_kwh")
+        return float(val) if isinstance(val, (int, float)) else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return self._period_details()
+
+
+class OVOSolarFeedInTariffSensor(OVOBaseSensor):
+    """Sensor exposing solar feed-in tariff in AUD/kWh for HA Energy Dashboard."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_suggested_display_precision = 4
+
+    def __init__(self, coordinator):
+        super().__init__(
+            coordinator,
+            "solar_feed_in_tariff",
+            "Solar Feed-in Tariff",
+            "Tariff",
+        )
+        self._attr_native_unit_of_measurement = "AUD/kWh"
+        self._attr_icon = "mdi:solar-power"
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return "AUD/kWh"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the solar export feed-in tariff in AUD/kWh."""
+        rates = get_product_rates(self.coordinator.data)
+        feed_in = rates.get("feedInTariff")
+        if isinstance(feed_in, (int, float)):
+            return round(float(feed_in) / 100, 4)
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        rates = get_product_rates(self.coordinator.data)
+        feed_in = rates.get("feedInTariff")
+        return {
+            "feed_in_tariff_cents_kwh": feed_in,
+            "feed_in_tariff_aud_kwh": (
+                round(feed_in / 100, 4) if feed_in is not None else None
+            ),
+        }
+
     @property
     def available(self) -> bool:
-        """Do not present expired, future or unavailable auto-detected tariffs."""
-        if (getattr(self.coordinator, "auto_detect_plan", False) is True
-                and not get_current_product(self.coordinator.data)):
+        if (
+            getattr(self.coordinator, "auto_detect_plan", False) is True
+            and not get_current_product(self.coordinator.data)
+        ):
             return False
         return bool(getattr(self.coordinator, "last_update_success", True))
-
-    def _period_details(self) -> dict:
-        """Calculate the plan-aware period and rate for the current local hour."""
-        # Tariff windows are customer wall-clock times, so follow Home
-        # Assistant's configured time zone (SA, QLD, NT and WA differ from Sydney).
-        return get_tariff_details(
-            self.coordinator.plan_config,
-            self.coordinator.data,
-            dt_util.now().hour,
-        )
 
     @property
     def device_info(self):

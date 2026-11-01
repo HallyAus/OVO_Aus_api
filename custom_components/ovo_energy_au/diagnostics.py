@@ -19,6 +19,11 @@ _TO_REDACT = {
     "username",
     "password",
     "account_id",
+    # Early releases persisted OAuth tokens in entry.data; those entries can
+    # still be loaded even though current clients only keep tokens in memory.
+    "access_token",
+    "id_token",
+    "refresh_token",
     "unique_id",
     "title",
 }

@@ -1,0 +1,3 @@
+# Unified diffs represent an empty context line with one space. Preserve it;
+# the builder validates resulting source with git apply --whitespace=error-all.
+scripts/patches/*.patch whitespace=-blank-at-eol

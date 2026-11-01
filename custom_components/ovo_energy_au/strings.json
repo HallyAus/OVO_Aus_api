@@ -43,6 +43,7 @@
           "ev_rate": "EV Off-Peak Rate ($/kWh)",
           "flat_rate": "Flat Rate ($/kWh)",
           "billing_cycle_day": "Billing Cycle Start Day (1-31)",
+          "consolidate_devices": "Consolidate into single account device",
           "peak_start_hour": "Peak Window Start Hour (0-23)",
           "peak_end_hour": "Peak Window End Hour (0-23)"
         }

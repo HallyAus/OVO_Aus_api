@@ -52,6 +52,19 @@ class OVOVehicleCommunicationError(OVOVehicleApiError):
     """A vehicle endpoint could not be reached or decoded."""
 
 
+def _token_cache_expiry(expires_in: Any) -> datetime:
+    """Validate the lifetime before caching, with room for proactive refresh."""
+    try:
+        lifetime = int(expires_in)
+        if isinstance(expires_in, bool) or lifetime <= 0:
+            raise ValueError
+        # A short-lived token must not remain cached beyond its actual expiry.
+        buffer_seconds = min(60, lifetime / 2)
+        return datetime.now(UTC) + timedelta(seconds=lifetime - buffer_seconds)
+    except (TypeError, ValueError, OverflowError):
+        raise OVOVehicleCommunicationError("Invalid vehicle token lifetime") from None
+
+
 def decode_firestore_value(value: dict[str, Any] | None) -> Any:
     """Decode one Firestore REST value into ordinary Python data."""
     if not isinstance(value, dict):
@@ -370,18 +383,14 @@ class OVOVehicleApiClient:
     ) -> str:
         """Cache one account-scoped Kaluza access token and its refresh token."""
         access_token = token_data.get("access_token")
-        if not isinstance(access_token, str):
-            raise OVOVehicleAuthenticationError(
+        if not isinstance(access_token, str) or not access_token:
+            raise OVOVehicleCommunicationError(
                 "Kaluza authorization response was incomplete"
             )
-        refresh_token = token_data.get("refresh_token", previous_refresh_token)
-        if not isinstance(refresh_token, str):
-            refresh_token = None
-        try:
-            lifetime = max(60, int(token_data.get("expires_in", 3600)))
-        except (TypeError, ValueError):
-            lifetime = 3600
-        expires = datetime.now(UTC) + timedelta(seconds=max(30, lifetime - 60))
+        refresh_token = token_data.get("refresh_token") or previous_refresh_token
+        if refresh_token is not None and not isinstance(refresh_token, str):
+            raise OVOVehicleCommunicationError("Invalid Kaluza refresh token response")
+        expires = _token_cache_expiry(token_data.get("expires_in", 3600))
         self._kaluza_tokens[account_id] = (access_token, refresh_token, expires)
         return access_token
 
@@ -396,7 +405,9 @@ class OVOVehicleApiClient:
             "refresh_token": refresh_token,
         }
         try:
-            async with self._session.post(KALUZA_TOKEN_URL, json=payload) as response:
+            async with self._session.post(KALUZA_TOKEN_URL, json=payload, allow_redirects=False) as response:
+                if 300 <= response.status < 400:
+                    raise OVOVehicleCommunicationError("Unexpected redirect from Kaluza token endpoint")
                 if response.status in (400, 401, 403):
                     raise OVOVehicleAuthenticationError(
                         "Kaluza refresh token was rejected"
@@ -405,12 +416,12 @@ class OVOVehicleApiClient:
                 token_data = await response.json()
         except OVOVehicleApiError:
             raise
-        except (aiohttp.ClientError, ValueError, TypeError) as err:
+        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError):
             raise OVOVehicleCommunicationError(
                 "Could not refresh vehicle authorization"
-            ) from err
+            ) from None
         if not isinstance(token_data, dict):
-            raise OVOVehicleAuthenticationError(
+            raise OVOVehicleCommunicationError(
                 "Kaluza refresh response was incomplete"
             )
         return self._store_kaluza_tokens(account_id, token_data, refresh_token)
@@ -467,7 +478,9 @@ class OVOVehicleApiClient:
                 "redirect_uri": KALUZA_REDIRECT_URI,
                 "code_verifier": verifier,
             }
-            async with self._session.post(KALUZA_TOKEN_URL, json=payload) as response:
+            async with self._session.post(KALUZA_TOKEN_URL, json=payload, allow_redirects=False) as response:
+                if 300 <= response.status < 400:
+                    raise OVOVehicleCommunicationError("Unexpected redirect from Kaluza token endpoint")
                 if response.status in (400, 401, 403):
                     raise OVOVehicleAuthenticationError(
                         "Kaluza authorization code was rejected"
@@ -476,23 +489,23 @@ class OVOVehicleApiClient:
                 token_data = await response.json()
         except OVOVehicleApiError:
             raise
-        except (aiohttp.ClientError, ValueError, TypeError) as err:
+        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError):
             raise OVOVehicleCommunicationError(
                 "Could not complete vehicle authorization"
-            ) from err
+            ) from None
 
         if not isinstance(token_data, dict):
-            raise OVOVehicleAuthenticationError(
+            raise OVOVehicleCommunicationError(
                 "Kaluza authorization response was incomplete"
             )
         try:
             claims = jwt.decode(
                 token_data["id_token"], options={"verify_signature": False}
             )
-        except (KeyError, jwt.PyJWTError) as err:
+        except (KeyError, jwt.PyJWTError):
             raise OVOVehicleAuthenticationError(
                 "Could not validate the Kaluza ID token nonce"
-            ) from err
+            ) from None
         token_nonce = claims.get("nonce")
         if not isinstance(token_nonce, str) or not hmac.compare_digest(
             token_nonce, nonce
@@ -528,7 +541,9 @@ class OVOVehicleApiClient:
             "referer": f"{API_BASE_URL}/EV",
         }
         try:
-            async with self._session.get(url, headers=headers) as response:
+            async with self._session.get(url, headers=headers, allow_redirects=False) as response:
+                if 300 <= response.status < 400:
+                    raise OVOVehicleCommunicationError("Unexpected redirect from vehicle API")
                 if response.status in (401, 403):
                     raise OVOVehicleAuthenticationError(
                         "Vehicle data authorization was rejected"
@@ -537,13 +552,15 @@ class OVOVehicleApiClient:
                     return {}
                 response.raise_for_status()
                 data = await response.json()
-                return data if isinstance(data, dict) else {}
+                if not isinstance(data, dict):
+                    raise OVOVehicleCommunicationError("Invalid vehicle API response")
+                return data
         except OVOVehicleApiError:
             raise
-        except (aiohttp.ClientError, ValueError, TypeError) as err:
+        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError):
             raise OVOVehicleCommunicationError(
                 "Could not retrieve vehicle data"
-            ) from err
+            ) from None
 
     async def _get_flex_token(
         self, account_id: str, kaluza_access_token: str, *, force: bool = False
@@ -559,15 +576,11 @@ class OVOVehicleApiClient:
         )
         token = payload.get("idToken")
         user_id = payload.get("userId")
-        if not isinstance(token, str) or not isinstance(user_id, str):
+        if not isinstance(token, str) or not token or not isinstance(user_id, str) or not user_id:
             raise OVOVehicleCommunicationError(
                 "Vehicle authorization response was incomplete"
             )
-        try:
-            lifetime = max(60, int(payload.get("expiresIn", 900)))
-        except (TypeError, ValueError):
-            lifetime = 900
-        expires = datetime.now(UTC) + timedelta(seconds=max(30, lifetime - 60))
+        expires = _token_cache_expiry(payload.get("expiresIn", 900))
         self._token_cache[account_id] = (token, user_id, expires)
         return token, user_id
 
@@ -638,7 +651,7 @@ class OVOVehicleApiClient:
                 return await self._fetch_with_token(
                     account_id, customer_id, force=True
                 )
-            except OVOVehicleAuthenticationError as err:
+            except OVOVehicleAuthenticationError:
                 raise OVOVehicleCommunicationError(
                     "Vehicle data authorization is unavailable"
-                ) from err
+                ) from None

@@ -1,0 +1,140 @@
+diff --git a/homeassistant/components/doods/manifest.json b/homeassistant/components/doods/manifest.json
+index 8324d6a0..a9253451 100644
+--- a/homeassistant/components/doods/manifest.json
++++ b/homeassistant/components/doods/manifest.json
+@@ -7,5 +7,5 @@
+   "iot_class": "local_polling",
+   "loggers": ["pydoods"],
+   "quality_scale": "legacy",
+-  "requirements": ["pydoods==1.0.2", "Pillow==12.3.0"]
++  "requirements": ["pydoods==1.0.2", "Pillow==13.0.0"]
+ }
+diff --git a/homeassistant/components/generic/manifest.json b/homeassistant/components/generic/manifest.json
+index db446309..55756d67 100644
+--- a/homeassistant/components/generic/manifest.json
++++ b/homeassistant/components/generic/manifest.json
+@@ -8,5 +8,5 @@
+   "documentation": "https://www.home-assistant.io/integrations/generic",
+   "integration_type": "device",
+   "iot_class": "local_push",
+-  "requirements": ["av==19.0.0", "Pillow==12.3.0"]
++  "requirements": ["av==19.0.0", "Pillow==13.0.0"]
+ }
+diff --git a/homeassistant/components/image_upload/manifest.json b/homeassistant/components/image_upload/manifest.json
+index 538db75f..0afa75ba 100644
+--- a/homeassistant/components/image_upload/manifest.json
++++ b/homeassistant/components/image_upload/manifest.json
+@@ -7,5 +7,5 @@
+   "documentation": "https://www.home-assistant.io/integrations/image_upload",
+   "integration_type": "system",
+   "quality_scale": "internal",
+-  "requirements": ["Pillow==12.3.0"]
++  "requirements": ["Pillow==13.0.0"]
+ }
+diff --git a/homeassistant/components/matrix/manifest.json b/homeassistant/components/matrix/manifest.json
+index ebc4d0b7..0eee826a 100644
+--- a/homeassistant/components/matrix/manifest.json
++++ b/homeassistant/components/matrix/manifest.json
+@@ -7,5 +7,5 @@
+   "iot_class": "cloud_push",
+   "loggers": ["matrix_client"],
+   "quality_scale": "legacy",
+-  "requirements": ["matrix-nio==0.26.0", "Pillow==12.3.0", "aiofiles==25.1.0"]
++  "requirements": ["matrix-nio==0.26.0", "Pillow==13.0.0", "aiofiles==25.1.0"]
+ }
+diff --git a/homeassistant/components/proxy/manifest.json b/homeassistant/components/proxy/manifest.json
+index 8ef797cb..62943a0c 100644
+--- a/homeassistant/components/proxy/manifest.json
++++ b/homeassistant/components/proxy/manifest.json
+@@ -5,5 +5,5 @@
+   "codeowners": [],
+   "documentation": "https://www.home-assistant.io/integrations/proxy",
+   "quality_scale": "legacy",
+-  "requirements": ["Pillow==12.3.0"]
++  "requirements": ["Pillow==13.0.0"]
+ }
+diff --git a/homeassistant/components/qrcode/manifest.json b/homeassistant/components/qrcode/manifest.json
+index 807a19b1..ea63614e 100644
+--- a/homeassistant/components/qrcode/manifest.json
++++ b/homeassistant/components/qrcode/manifest.json
+@@ -7,5 +7,5 @@
+   "iot_class": "calculated",
+   "loggers": ["pyzbar"],
+   "quality_scale": "legacy",
+-  "requirements": ["Pillow==12.3.0", "pyzbar==0.1.9"]
++  "requirements": ["Pillow==13.0.0", "pyzbar==0.1.9"]
+ }
+diff --git a/homeassistant/components/seven_segments/manifest.json b/homeassistant/components/seven_segments/manifest.json
+index 11964a4b..2e89d02a 100644
+--- a/homeassistant/components/seven_segments/manifest.json
++++ b/homeassistant/components/seven_segments/manifest.json
+@@ -6,5 +6,5 @@
+   "documentation": "https://www.home-assistant.io/integrations/seven_segments",
+   "iot_class": "local_polling",
+   "quality_scale": "legacy",
+-  "requirements": ["Pillow==12.3.0"]
++  "requirements": ["Pillow==13.0.0"]
+ }
+diff --git a/homeassistant/components/sighthound/manifest.json b/homeassistant/components/sighthound/manifest.json
+index 6033bf53..f68a3fe6 100644
+--- a/homeassistant/components/sighthound/manifest.json
++++ b/homeassistant/components/sighthound/manifest.json
+@@ -7,5 +7,5 @@
+   "iot_class": "cloud_polling",
+   "loggers": ["simplehound"],
+   "quality_scale": "legacy",
+-  "requirements": ["Pillow==12.3.0", "simplehound==0.3"]
++  "requirements": ["Pillow==13.0.0", "simplehound==0.3"]
+ }
+diff --git a/homeassistant/package_constraints.txt b/homeassistant/package_constraints.txt
+index 66e9b38c..3ddf21f3 100644
+--- a/homeassistant/package_constraints.txt
++++ b/homeassistant/package_constraints.txt
+@@ -51,7 +51,7 @@ openai==3.26.0
+ orjson==3.13.0
+ packaging>=23.1
+ paho-mqtt==2.1.0
+-Pillow==12.3.0
++Pillow==13.0.0
+ probatio==0.13.0
+ propcache==0.5.4
+ psutil-home-assistant==0.0.1
+diff --git a/pyproject.toml b/pyproject.toml
+index d9ef4b32..ea6ed010 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -58,7 +58,7 @@ dependencies = [
+   "PyJWT==2.15.1",
+   # PyJWT has loose dependency. We want the latest one.
+   "cryptography==50.0.2",
+-  "Pillow==12.3.0",
++  "Pillow==13.0.0",
+   "propcache==0.5.4",
+   "pyopenssl==26.4.0",
+   # We patch pyserial at runtime in `block_shared_serial` and need it to be available
+diff --git a/requirements.txt b/requirements.txt
+index 42bddbfc..fbc4b66f 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -37,7 +37,7 @@ lru-dict==1.4.1
+ mutagen==1.48.1
+ orjson==3.13.0
+ packaging>=23.1
+-Pillow==12.3.0
++Pillow==13.0.0
+ probatio==0.13.0
+ propcache==0.5.4
+ psutil-home-assistant==0.0.1
+diff --git a/requirements_all.txt b/requirements_all.txt
+index 8401f971..d3cc611c 100644
+--- a/requirements_all.txt
++++ b/requirements_all.txt
+@@ -41,7 +41,7 @@ PSNAWP==3.0.3
+ # homeassistant.components.qrcode
+ # homeassistant.components.seven_segments
+ # homeassistant.components.sighthound
+-Pillow==12.3.0
++Pillow==13.0.0
+ 
+ # homeassistant.components.plex
+ PlexAPI==4.18.2

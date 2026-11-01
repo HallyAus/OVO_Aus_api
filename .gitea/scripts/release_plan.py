@@ -4,10 +4,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import re
 import subprocess
 import zipfile
+from pathlib import Path
 
 REPO = "HallyAus/OVO_Aus_api"
 
@@ -60,8 +60,18 @@ def main() -> None:
         name = path.decode().removeprefix("custom_components/")
         expected[name] = subprocess.check_output(["git", "cat-file", "blob", oid])
     with zipfile.ZipFile(archive) as zipped:
-        if zipped.testzip() or sorted(zipped.namelist()) != sorted(expected):
+        if sorted(zipped.namelist()) != sorted(expected):
             raise SystemExit("Candidate member set differs from the exact source")
+        # Check metadata before decompressing attacker-controlled candidates.
+        # File sizes must match the trusted Git blobs, and archive permissions
+        # must be exactly the regular 0644 files emitted by package_release.
+        for member in zipped.infolist():
+            if member.file_size != len(expected[member.filename]):
+                raise SystemExit("Candidate member size differs from the exact source")
+            if member.create_system != 3 or member.external_attr >> 16 != 0o100644:
+                raise SystemExit("Unsafe candidate member type or permissions")
+        if zipped.testzip():
+            raise SystemExit("Candidate archive checksum verification failed")
         if any(zipped.read(name) != data for name, data in expected.items()):
             raise SystemExit("Candidate contents differ from the exact source")
     user = json.loads(command("gh", "api", "user"))

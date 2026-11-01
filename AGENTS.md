@@ -59,7 +59,7 @@ Do not treat dates, versions, entity counts or test counts in old docs/issues as
 4. **Kaluza auth is separate.** EV data uses a separate Kaluza/Firebase token chain. Do not send the normal MyOVO access token to Kaluza endpoints or gate vehicle discovery on `flex.hasOnboarded`.
 5. **Never turn auth/transport failure into unexplained empty data.** Distinguish unavailable/retryable failures from valid empty results.
 6. **Money is AUD dollars.** OVO commonly returns cents; convert deliberately. Per-kWh sensors retain four decimal places where required.
-7. **All date/time maths uses `Australia/Sydney`.** Never depend on the host's local timezone or naive datetimes.
+7. **Use timezone-aware clocks.** Live tariff windows follow Home Assistant's configured customer timezone (the deliberate #86 fix in `64c417f2`); Sydney installations use `Australia/Sydney`, including DST. Existing OVO API parsing and historical aggregation retain their `Australia/Sydney` conventions. Never depend on the host's local timezone or naive datetimes.
 8. **`CREDIT` means solar export.** Every other charge direction is grid consumption unless a source-specific rule proves otherwise.
 9. **Unclassified hourly tariff data remains `OTHER`.** Do not default unknown hourly rate data to shoulder/peak/off-peak; plan-window rebucketing depends on `OTHER`.
 10. **A source snapshot is usable only after validation.** Do not let malformed/partial upstream responses overwrite last-known-good state or resolve incidents/usage implicitly.
@@ -109,6 +109,16 @@ Before merge:
 - run the Home Assistant runtime regressions for lifecycle/entity/setup changes;
 - require Ruff, hassfest and HACS validation where CI provides them;
 - add a regression test for each meaningful bug class fixed.
+
+The temporary HA test dependency in `requirements-test-ha.txt` is an explicitly
+labelled security backport. Build it with `scripts/build_ha_security_runtime.py`
+before installation, then use the normal resolver and `pip check`. Audit the
+actual runtime with `scripts/audit_ha_security_runtime.py` from a separate scanner
+environment; both the complete actual inventory and verified upstream base must
+pass. Do not replace this with an incompatible forced Pillow install, package
+exclusions or a local-version-only audit. This test build does not upgrade users'
+Home Assistant installations. Retire the backport when an official compatible
+stable HA/harness pair includes the fix and passes these same checks.
 
 Before release:
 - CI must pass for the exact source being released;

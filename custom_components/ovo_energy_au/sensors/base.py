@@ -60,6 +60,13 @@ class OVOBaseSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self) -> dict[str, Any]:
+        if getattr(self.coordinator, "consolidate_devices", False) is True:
+            return {
+                "identifiers": {(DOMAIN, self.coordinator.account_id)},
+                "name": "OVO Energy AU",
+                "manufacturer": "OVO Energy Australia",
+                "model": "Energy Monitor",
+            }
         info = {
             "identifiers": {
                 (DOMAIN, f"{self.coordinator.account_id}_{self._device_category}")

@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Native Energy Dashboard Price Sensors**: Added `sensor.ovo_energy_au_current_electricity_price` (numeric live rate in `AUD/kWh`, `device_class: monetary`, dropping to `$0.00` during free windows) and `sensor.ovo_energy_au_solar_feed_in_tariff` (numeric export rate in `AUD/kWh`) for plug-and-play Home Assistant Energy Dashboard cost and return tracking.
+- **Free Energy Window Binary Sensor**: Added dedicated `binary_sensor` platform exposing `binary_sensor.ovo_energy_au_free_energy_window` (`on` during Free 3 / Free 4 windows, `off` otherwise) with attributes (`free_window`, `hours_remaining`, `next_period`, `next_period_change`) for native smart home automation triggers (EV charging, heat pumps, heavy appliances).
+- **Single-Device Consolidation Option**: Added `consolidate_devices` option in Options Flow (disabled by default to maintain 100% backward compatibility for existing dashboards) to allow users to optionally group all sensors directly under the primary account device rather than generating separate category devices.
+
+### Fixed
+- The free energy window binary sensor now uses Home Assistant's binary entity
+  state handling, so it publishes `on`/`off` instead of `unknown`.
+- The free window, current price and current tariff period refresh at local
+  whole-hour tariff boundaries independently of the five-minute OVO API poll.
+  Listeners are removed when entities unload. Free 3 ends at 14:00; Free 4
+  remains active until 15:00.
+- A zero ordinary electricity rate no longer falsely activates the dedicated
+  free window. `hours_remaining` includes minutes and seconds.
+- Tariff clocks retain the Home Assistant configured local timezone correction
+  from #86, including Sydney daylight saving and interstate customer timezones.
+
+### Security
+- Credential-bearing login, token, GraphQL and vehicle API requests refuse
+  redirects; authentication tickets may only be submitted to the configured
+  HTTPS issuer. Synthetic cross-origin HTTP regression tests cover disclosure.
+- Diagnostics redact OAuth tokens retained by older configuration entries, and
+  successful reauthentication removes obsolete persisted token fields.
+- Authentication errors and tracebacks omit sensitive provider context. Token
+  caches validate complete responses before replacing usable credentials;
+  malformed vehicle responses no longer appear to be valid empty data.
+- Raised standalone dependency floors to `aiohttp>=3.14.4,<4.0.0` and
+  `PyJWT>=2.15.1,<3.0.0`, without overriding Home Assistant-owned requirements.
+- Pinned CI actions/hooks to verified commits and official validator images to
+  immutable digests, disabled persisted checkout credentials, and added image
+  dependency monitoring. Fork contributions remain on hosted read-only runners.
+- Release verification now requires the latest successful main-branch CI run
+  and every named security/validation job for the exact source. Existing tags
+  must resolve to that commit; archives contain validated tracked blobs only.
+- Hardened retained offline release/recovery helpers against missing gates,
+  SSH argument interpretation, credential inheritance, unsafe ZIP metadata and
+  provenance-file replacement. Retired hosting workflows are not activated.
+- Added regression coverage ensuring tariff attributes do not expose account,
+  meter, location or authentication data and reject malformed/non-finite rates.
+- Added explicit CI gates for secret scanning, production Python security,
+  resolved package dependencies and the exact Home Assistant dependency set.
+  Runtime auditing is isolated from Home Assistant's pinned packages.
+- Corrected the remaining test-runtime dependency by reproducibly backporting
+  Home Assistant's official Pillow 13 update to its stable 2026.10.4 source.
+  The custom `2026.10.4+ovo.pillow13.1` distribution updates all affected pins
+  consistently and resolves with the unchanged official 0.13.375 test harness.
+  Source, patch and wheel provenance are verified before use; Home Assistant's
+  internal calendar-version comparisons remain intact.
+- Updated the isolated HA build backend to patched `setuptools==84.1.0` and
+  audit the separate build/scanner environments as well as runtime packages.
+- Audit every actual runtime package and additionally the verified official HA
+  base, so local package labels cannot hide upstream advisories. Added actual HA
+  image-processing and version-order regressions for the Pillow update. This
+  test build does not replace core packages in users' Home Assistant systems.
+
 ## [4.10.2] - 2026-10-20
 
 ### Fixed

@@ -1,0 +1,270 @@
+"""Audit the verified HA backport without installing or resolving packages.
+
+The actual installed versions are audited with OSV, including the explicitly
+labeled local HA build. The verified upstream HA base is also audited with
+PyPI: a local suffix can sort beyond an advisory's ``last_affected`` boundary.
+Both services must pass; no package or vulnerability is excluded.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import subprocess
+import sys
+import zipfile
+from pathlib import Path, PurePosixPath
+
+from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion, Version
+
+if __package__:
+    from . import build_ha_security_runtime as build
+else:
+    import build_ha_security_runtime as build
+
+
+class AuditError(ValueError):
+    """The runtime, its provenance, or either security audit failed validation."""
+
+
+# -I prevents the checkout/PYTHONPATH from shadowing runtime modules. Verify the
+# installed wheel payload before importing HA; installers may omit the archive
+# hash from direct_url.json, so that metadata alone is not an integrity check.
+RUNTIME_INVENTORY = """
+import hashlib
+import importlib.metadata as metadata
+import json
+import sys
+from pathlib import Path
+
+expected = json.load(sys.stdin)
+distribution = metadata.distribution("homeassistant")
+mismatches = []
+for relative, digest in expected.items():
+    path = Path(distribution.locate_file(relative))
+    if path.is_symlink() or not path.is_file():
+        mismatches.append(relative)
+        continue
+    with path.open("rb") as source:
+        actual = hashlib.file_digest(source, "sha256").hexdigest()
+    if actual != digest:
+        mismatches.append(relative)
+if mismatches:
+    print(json.dumps({"wheel_mismatches": mismatches}))
+    raise SystemExit(1)
+
+from homeassistant import const
+
+print(json.dumps({
+    "distributions": [
+        {"name": item.metadata["Name"], "version": item.version}
+        for item in metadata.distributions()
+    ],
+    "runtime_version": const.__version__,
+    "security_backport": getattr(const, "SECURITY_BACKPORT", None),
+    "verified_wheel_files": len(expected),
+}))
+"""
+
+
+def verified_provenance(path: Path) -> tuple[dict, dict[str, str]]:
+    """Bind the audit to the reviewed upstream source, patch, and built wheel."""
+    provenance = json.loads(path.read_text())
+    expected = {
+        "schema_version": 1,
+        "purpose": "OVO CI security runtime; not an official Home Assistant release",
+        "upstream_repository": "https://github.com/home-assistant/core",
+        "base_version": build.BASE_VERSION,
+        "base_commit": build.BASE_COMMIT,
+        "source_url": build.SOURCE_URL,
+        "source_sha256": build.SOURCE_SHA256,
+        "source_date_epoch": build.SOURCE_DATE_EPOCH,
+        "upstream_pillow13_commit": build.UPSTREAM_PILLOW_COMMIT,
+        "upstream_patch_sha256": build.UPSTREAM_PATCH_SHA256,
+        "backport_patch_sha256": build.BACKPORT_PATCH_SHA256,
+        "local_version": build.LOCAL_VERSION,
+        "runtime_version": build.BASE_VERSION,
+        "security_backport": build.SECURITY_BACKPORT,
+        "pillow_version": build.PILLOW_VERSION,
+        "pin_files": list(build.PIN_FILES),
+        "identity_files": list(build.IDENTITY_FILES),
+        "build_frontend": build.BUILD_FRONTEND,
+        "upstream_build_backend": build.UPSTREAM_BUILD_BACKEND,
+        "build_backend": build.BUILD_BACKEND,
+        "build_backend_advisory": build.BUILD_BACKEND_ADVISORY,
+        "build_backend_fix_commit": build.BUILD_BACKEND_FIX_COMMIT,
+    }
+    if not isinstance(provenance, dict) or any(provenance.get(key) != value for key, value in expected.items()):
+        raise AuditError("Runtime provenance does not match the reviewed backport")
+    wheel_name = f"homeassistant-{build.LOCAL_VERSION}-py3-none-any.whl"
+    if provenance.get("wheel_filename") != wheel_name:
+        raise AuditError("Unexpected provenance wheel filename")
+    wheel = path.parent / wheel_name
+    if wheel.is_symlink() or not wheel.is_file():
+        raise AuditError("The verified wheel must accompany its provenance")
+    artifact = build.verify_wheel(wheel, {})
+    if any(provenance.get(key) != value for key, value in artifact.items()):
+        raise AuditError("Provenance wheel hash or size does not match the artifact")
+
+    manifest = {}
+    with zipfile.ZipFile(wheel) as archive:
+        for member in archive.infolist():
+            if member.is_dir():
+                continue
+            name = member.filename
+            relative = PurePosixPath(name)
+            if (relative.is_absolute() or "\\" in name
+                    or any(part in {"", ".", ".."} for part in name.split("/"))
+                    or relative.parts[0] not in {"homeassistant", f"homeassistant-{build.LOCAL_VERSION}.dist-info"}):
+                raise AuditError("Unsafe wheel member path")
+            # Installers rewrite RECORD to include generated bytecode and their
+            # own metadata. Every original code/data/metadata file is checked.
+            if name == f"homeassistant-{build.LOCAL_VERSION}.dist-info/RECORD":
+                continue
+            manifest[name] = hashlib.sha256(archive.read(member)).hexdigest()
+    if not manifest:
+        raise AuditError("Empty wheel payload")
+    return provenance, manifest
+
+
+def dependency_inventory(rows: list[dict]) -> dict[str, str]:
+    """Reject ambiguous metadata or unexpected downstream package identities."""
+    if not isinstance(rows, list) or not rows:
+        raise AuditError("Missing installed-distribution inventory")
+    result = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            raise AuditError("Invalid installed distribution metadata")
+        name, version = row.get("name"), row.get("version")
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", name):
+            raise AuditError("Invalid installed distribution name")
+        if not isinstance(version, str):
+            raise AuditError("Missing installed distribution version")
+        try:
+            parsed_version = Version(version)
+        except InvalidVersion:
+            raise AuditError("Invalid installed distribution version") from None
+        canonical_name = canonicalize_name(name)
+        if canonical_name in result:
+            raise AuditError("Duplicate installed distribution name")
+        if parsed_version.local and (canonical_name, version) != ("homeassistant", build.LOCAL_VERSION):
+            raise AuditError("Unexpected local distribution; no upstream mapping is permitted")
+        result[canonical_name] = version
+    if result.get("homeassistant") != build.LOCAL_VERSION:
+        raise AuditError("Runtime is not the reviewed, explicitly labeled HA backport")
+    if result.get("pillow") != build.PILLOW_VERSION:
+        raise AuditError("Runtime Pillow does not match the patched requirement")
+    return dict(sorted(result.items()))
+
+
+def collect_runtime(runtime_python: str, manifest: dict[str, str]) -> tuple[dict, dict[str, str]]:
+    """Read the actual runtime and verify every wheel file without modifying it."""
+    completed = subprocess.run(
+        [runtime_python, "-I", "-c", RUNTIME_INVENTORY],
+        input=json.dumps(manifest), capture_output=True, text=True, check=False, timeout=120,
+    )
+    if completed.returncode != 0:
+        raise AuditError("Runtime inventory or installed-wheel verification failed")
+    runtime = json.loads(completed.stdout)
+    if (not isinstance(runtime, dict)
+            or runtime.get("runtime_version") != build.BASE_VERSION
+            or runtime.get("security_backport") != build.SECURITY_BACKPORT
+            or runtime.get("verified_wheel_files") != len(manifest)):
+        raise AuditError("Installed HA runtime identity or wheel coverage does not match provenance")
+    return runtime, dependency_inventory(runtime.get("distributions"))
+
+
+def verify_audit_report(report: dict, expected: dict[str, str], returncode: int) -> dict:
+    """A scanner's success exit alone cannot conceal skips or incomplete output."""
+    if not isinstance(report, dict):
+        raise AuditError("Invalid audit report")
+    rows = report.get("dependencies")
+    if not isinstance(rows, list):
+        raise AuditError("Audit report has no dependency results")
+    found = {}
+    for row in rows:
+        if not isinstance(row, dict) or "skip_reason" in row:
+            raise AuditError("The audit skipped a distribution")
+        if not isinstance(row.get("name"), str) or not isinstance(row.get("version"), str):
+            raise AuditError("Audit report has invalid package identity")
+        name = canonicalize_name(row["name"])
+        if name in found:
+            raise AuditError("Audit report contains duplicate distributions")
+        if not isinstance(row.get("vulns"), list):
+            raise AuditError("Audit report is missing vulnerability results")
+        if row["vulns"]:
+            raise AuditError("Known vulnerabilities were reported")
+        found[name] = row["version"]
+    if found != expected:
+        raise AuditError("Audit coverage does not exactly match the required inventory")
+    if returncode != 0:
+        raise AuditError("The vulnerability service did not complete successfully")
+    return {"packages": len(found), "vulnerabilities": 0, "skipped": 0}
+
+
+def run_service(auditor_python: str, service: str, inventory: dict[str, str], output_dir: Path, label: str) -> dict:
+    """Query a fixed public service for exact versions; never run pip resolution."""
+    requirements = output_dir / f"{label}-inventory.txt"
+    requirements.write_text("".join(f"{name}=={version}\n" for name, version in inventory.items()))
+    report_path = output_dir / f"{label}-audit.json"
+    report_path.unlink(missing_ok=True)
+    completed = subprocess.run(
+        [auditor_python, "-I", "-m", "pip_audit", "--strict", "--no-deps", "--disable-pip",
+         "--vulnerability-service", service, "-r", str(requirements),
+         "--cache-dir", str(output_dir / "cache"), "-f", "json", "-o", str(report_path)],
+        capture_output=True, text=True, check=False, timeout=600,
+    )
+    (output_dir / f"{label}-scanner.log").write_text(completed.stdout + completed.stderr)
+    if not report_path.is_file():
+        raise AuditError(f"{service} did not produce an audit report")
+    return verify_audit_report(json.loads(report_path.read_text()), inventory, completed.returncode)
+
+
+def audit_runtime(runtime_python: str, auditor_python: str, provenance_path: Path, output_dir: Path) -> dict:
+    """Require full actual-version coverage and conservative public-base coverage."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = output_dir / "summary.json"
+    summary = {"schema_version": 1, "status": "failed"}
+    summary_path.write_text(json.dumps(summary) + "\n")
+    try:
+        provenance, manifest = verified_provenance(provenance_path)
+        runtime, installed = collect_runtime(runtime_python, manifest)
+        (output_dir / "runtime-inventory.json").write_text(json.dumps(runtime, indent=2) + "\n")
+        summary["provenance"] = provenance
+        summary["verified_wheel_files"] = len(manifest)
+        # This mapping is fixed to one reviewed artifact. Never strip arbitrary
+        # local suffixes or silently normalize packages into published releases.
+        upstream = {"homeassistant": build.BASE_VERSION}
+        summary["actual_osv"] = run_service(auditor_python, "osv", installed, output_dir, "actual-osv")
+        summary["upstream_pypi"] = run_service(auditor_python, "pypi", upstream, output_dir, "upstream-pypi")
+        summary["status"] = "passed"
+    except (ValueError, OSError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
+        summary["error"] = str(error)
+        raise AuditError(str(error)) from None
+    finally:
+        summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+    return summary
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--runtime-python", required=True)
+    parser.add_argument("--auditor-python", default=sys.executable)
+    parser.add_argument("--provenance", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    arguments = parser.parse_args()
+    try:
+        result = audit_runtime(
+            arguments.runtime_python, arguments.auditor_python,
+            arguments.provenance, arguments.output_dir,
+        )
+    except AuditError as error:
+        parser.exit(1, f"Security runtime audit failed: {error}\n")
+    print(f"Verified {result['actual_osv']['packages']} actual distributions and the upstream HA base; no known vulnerabilities or skips")
+
+
+if __name__ == "__main__":
+    main()
