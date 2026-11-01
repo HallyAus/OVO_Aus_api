@@ -412,9 +412,24 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_CONSOLIDATE_DEVICES: bool(
                     user_input.get(CONF_CONSOLIDATE_DEVICES, False)
                 ),
-                CONF_BILLING_CYCLE_DAY: int(user_input.get(CONF_BILLING_CYCLE_DAY, 1)),
-                CONF_PEAK_START_HOUR: int(user_input.get(CONF_PEAK_START_HOUR, 0)),
-                CONF_PEAK_END_HOUR: int(user_input.get(CONF_PEAK_END_HOUR, 0)),
+                CONF_BILLING_CYCLE_DAY: int(
+                    user_input.get(
+                        CONF_BILLING_CYCLE_DAY,
+                        current.get(CONF_BILLING_CYCLE_DAY, 1),
+                    )
+                ),
+                CONF_PEAK_START_HOUR: int(
+                    user_input.get(
+                        CONF_PEAK_START_HOUR,
+                        current.get(CONF_PEAK_START_HOUR, 0),
+                    )
+                ),
+                CONF_PEAK_END_HOUR: int(
+                    user_input.get(
+                        CONF_PEAK_END_HOUR,
+                        current.get(CONF_PEAK_END_HOUR, 0),
+                    )
+                ),
                 CONF_MANUAL_OVERRIDE: bool(user_input.get(CONF_MANUAL_OVERRIDE, False)),
             }
             if user_input.get(CONF_MANUAL_OVERRIDE):
@@ -425,24 +440,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         has_manual_override = bool(
             self.config_entry.options.get(CONF_MANUAL_OVERRIDE, False)
         )
-        current_billing_cycle_day = current.get(CONF_BILLING_CYCLE_DAY, 1)
-        current_peak_start = current.get(CONF_PEAK_START_HOUR, 0)
-        current_peak_end = current.get(CONF_PEAK_END_HOUR, 0)
 
         schema_fields = {
             vol.Required(
                 CONF_CONSOLIDATE_DEVICES,
                 default=current.get(CONF_CONSOLIDATE_DEVICES, False),
             ): bool,
-            vol.Required(
-                CONF_BILLING_CYCLE_DAY, default=current_billing_cycle_day
-            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=31)),
-            vol.Required(
-                CONF_PEAK_START_HOUR, default=current_peak_start
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
-            vol.Required(
-                CONF_PEAK_END_HOUR, default=current_peak_end
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
             vol.Required(
                 CONF_MANUAL_OVERRIDE, default=has_manual_override
             ): bool,
@@ -454,11 +457,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         )
 
     async def async_step_manual_rates(self, user_input=None):
-        """Manage manual plan and tariff overrides."""
+        """Manage manual plan, billing cycle, peak hours and tariff overrides."""
         current = {**self.config_entry.data, **self.config_entry.options}
         if user_input is not None:
             return self._create_manual_entry({**self._options, **user_input})
 
+        current_billing_cycle_day = current.get(CONF_BILLING_CYCLE_DAY, 1)
+        current_peak_start = current.get(CONF_PEAK_START_HOUR, 0)
+        current_peak_end = current.get(CONF_PEAK_END_HOUR, 0)
         current_plan = current.get(CONF_PLAN_TYPE, PLAN_BASIC)
         runtime_data = getattr(self.config_entry, "runtime_data", None)
         if runtime_data is not None and CONF_PLAN_TYPE not in self.config_entry.options:
@@ -470,6 +476,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         current_flat = current.get(CONF_FLAT_RATE, 0.28)
 
         schema_fields = {
+            vol.Required(
+                CONF_BILLING_CYCLE_DAY, default=current_billing_cycle_day
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=31)),
+            vol.Required(
+                CONF_PEAK_START_HOUR, default=current_peak_start
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
+            vol.Required(
+                CONF_PEAK_END_HOUR, default=current_peak_end
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
             vol.Required(CONF_PLAN_TYPE, default=current_plan): vol.In({
                 PLAN_FREE_3: PLAN_NAMES[PLAN_FREE_3],
                 PLAN_FREE_4: PLAN_NAMES[PLAN_FREE_4],

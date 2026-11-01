@@ -34,19 +34,19 @@
     "step": {
       "init": {
         "title": "OVO Energy Settings",
-        "description": "Configure device grouping, billing cycle, and optional distributor peak schedules. Plan and tariff rates are automatically detected from OVO's API unless manual override is selected.\n\n**Billing cycle:** Set to the day your billing cycle begins (1-31). Leave at 1 to follow calendar months or auto-detect from your latest bill.\n\n**Peak schedule:** Free and EV windows are automatic. Set peak start and end hours only if your network distributor uses Time-of-Use peak boundaries not reported by OVO.",
+        "description": "Manage device grouping and options. Your energy plan, tariff rates, and billing cycle start day are automatically detected from OVO Energy.",
         "data": {
           "consolidate_devices": "Consolidate into single account device",
-          "billing_cycle_day": "Billing Cycle Start Day (1-31)",
-          "peak_start_hour": "Peak Window Start Hour (0-23)",
-          "peak_end_hour": "Peak Window End Hour (0-23)",
-          "manual_override": "Advanced: Manually override plan and tariff rates"
+          "manual_override": "Advanced: Configure billing cycle, peak hours, or manual tariffs"
         }
       },
       "manual_rates": {
-        "title": "Manual Plan & Tariff Overrides",
-        "description": "Manually specify your energy plan and tariff rates. These will override the values automatically detected from OVO's API.",
+        "title": "Advanced Settings & Overrides",
+        "description": "Customize your billing cycle, distributor-specific peak windows, or manually override tariff rates. Leave rate fields at their defaults to continue using rates detected from OVO's API.",
         "data": {
+          "billing_cycle_day": "Billing Cycle Start Day (1-31)",
+          "peak_start_hour": "Peak Window Start Hour (0-23)",
+          "peak_end_hour": "Peak Window End Hour (0-23)",
           "plan_type": "Energy Plan",
           "peak_rate": "Peak Rate ($/kWh)",
           "shoulder_rate": "Shoulder Rate ($/kWh)",
