@@ -70,6 +70,25 @@ class TestSensorStatePrecision:
         assert sensor.device_info["via_device_id"] == "account-device-id"
         assert "via_device" not in sensor.device_info
 
+    def test_consolidate_devices_groups_sensor_under_account_device(self):
+        coordinator = MagicMock()
+        coordinator.account_id = "12345"
+        coordinator.consolidate_devices = True
+        sensor = OVOEnergySensor(
+            coordinator,
+            "yesterday_grid_consumption",
+            "Yesterday Grid Consumption",
+            "kWh",
+            None,
+            None,
+            "mdi:flash",
+            lambda data: 1,
+            "Yesterday",
+        )
+        assert sensor.device_info["identifiers"] == {("ovo_energy_au", "12345")}
+        assert sensor.device_info["name"] == "OVO Energy AU"
+        assert "via_device_id" not in sensor.device_info
+
     def test_hourly_sensor_is_unavailable_until_real_data_exists(self):
         coordinator = SimpleNamespace(
             account_id="12345",
@@ -369,6 +388,43 @@ class TestSpecializedSensorSafety:
         assert OVOTariffPeriodSensor(self._coord("free_3")).native_value == "Super Off-Peak (FREE)"
         assert OVOTariffPeriodSensor(self._coord("ev", {"superOffPeak": 0})).native_value == "Super Off-Peak (FREE)"
 
+    @patch("custom_components.ovo_energy_au.sensor.dt_util")
+    def test_current_electricity_price_sensor(self, mock_datetime):
+        from custom_components.ovo_energy_au.sensor import OVOElectricityPriceSensor
+
+        # Flat plan: 28 cents = 0.28 AUD/kWh
+        mock_datetime.now.return_value = datetime(2026, 3, 20, 1, 0, tzinfo=AU_TIMEZONE)
+        sensor = OVOElectricityPriceSensor(self._coord("one", {"standard": 28}))
+        assert sensor.native_value == 0.28
+        assert sensor.native_unit_of_measurement == "AUD/kWh"
+        assert sensor._attr_suggested_display_precision == 4
+        assert sensor.extra_state_attributes["rate_cents_kwh"] == 28
+
+        # Free 3 plan outside free window (standard hour): peak rate 35 cents = 0.35 AUD/kWh
+        mock_datetime.now.return_value = datetime(2026, 3, 20, 8, 0, tzinfo=AU_TIMEZONE)
+        sensor_free3 = OVOElectricityPriceSensor(self._coord("free_3", {"peak": 35}))
+        assert sensor_free3.native_value == 0.35
+
+        # Free 3 plan inside free window (12:00): drops to 0.00 AUD/kWh
+        mock_datetime.now.return_value = datetime(2026, 3, 20, 12, 0, tzinfo=AU_TIMEZONE)
+        assert sensor_free3.native_value == 0.0
+        assert sensor_free3.extra_state_attributes["rate_cents_kwh"] == 0
+
+    def test_solar_feed_in_tariff_sensor(self):
+        from custom_components.ovo_energy_au.sensor import OVOSolarFeedInTariffSensor
+
+        coordinator = self._coord("one", {"standard": 28, "feedInTariff": 3.3})
+        sensor = OVOSolarFeedInTariffSensor(coordinator)
+        assert sensor.native_value == 0.033
+        assert sensor.native_unit_of_measurement == "AUD/kWh"
+        assert sensor.extra_state_attributes["feed_in_tariff_cents_kwh"] == 3.3
+        assert sensor.extra_state_attributes["feed_in_tariff_aud_kwh"] == 0.033
+
+        # Unavailable / missing feedInTariff returns None
+        coordinator_no_fit = self._coord("one", {"standard": 28})
+        sensor_no_fit = OVOSolarFeedInTariffSensor(coordinator_no_fit)
+        assert sensor_no_fit.native_value is None
+
     def test_plan_attributes_exclude_account_and_meter_ids(self):
         from custom_components.ovo_energy_au.sensor import OVOPlanSensor
 
@@ -549,7 +605,8 @@ async def test_setup_does_not_register_rotating_day_or_hourly_day_entities():
         and key.endswith("d_ago")
         for key in keys
     )
-    expected = len(ENERGY_SENSORS) + len(ANALYTICS_SENSORS) + 18 + 4 + 9 + 3
+    # 18 rate sensors + 4 counterfactuals + 11 specialized + 3 energy dashboard
+    expected = len(ENERGY_SENSORS) + len(ANALYTICS_SENSORS) + 18 + 4 + 11 + 3
     assert len(entities) == expected
 
 

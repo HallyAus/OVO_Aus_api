@@ -20,6 +20,7 @@ from .api import (
 from .const import (
     CONF_ACCOUNT_ID,
     CONF_BILLING_CYCLE_DAY,
+    CONF_CONSOLIDATE_DEVICES,
     CONF_EV_RATE,
     CONF_FLAT_RATE,
     CONF_OFF_PEAK_RATE,
@@ -327,6 +328,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             options[CONF_BILLING_CYCLE_DAY] = int(
                 user_input.get(CONF_BILLING_CYCLE_DAY, 1)
             )
+            if CONF_CONSOLIDATE_DEVICES in user_input:
+                options[CONF_CONSOLIDATE_DEVICES] = bool(
+                    user_input[CONF_CONSOLIDATE_DEVICES]
+                )
 
             # Update rates based on plan type
             plan_type = user_input[CONF_PLAN_TYPE]
@@ -392,6 +397,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 PLAN_BASIC: PLAN_NAMES[PLAN_BASIC],
                 PLAN_ONE: PLAN_NAMES[PLAN_ONE],
             }),
+            vol.Optional(
+                CONF_CONSOLIDATE_DEVICES,
+                default=current.get(CONF_CONSOLIDATE_DEVICES, False),
+            ): bool,
             vol.Optional(CONF_PEAK_RATE, default=current_peak): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
             vol.Optional(CONF_SHOULDER_RATE, default=current_shoulder): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
             vol.Optional(CONF_OFF_PEAK_RATE, default=current_off_peak): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),

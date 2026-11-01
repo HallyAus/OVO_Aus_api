@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Native Energy Dashboard Price Sensors**: Added `sensor.ovo_energy_au_current_electricity_price` (numeric live rate in `AUD/kWh`, `device_class: monetary`, dropping to `$0.00` during free windows) and `sensor.ovo_energy_au_solar_feed_in_tariff` (numeric export rate in `AUD/kWh`) for plug-and-play Home Assistant Energy Dashboard cost and return tracking.
+- **Free Energy Window Binary Sensor**: Added dedicated `binary_sensor` platform exposing `binary_sensor.ovo_energy_au_free_energy_window` (`on` during Free 3 / Free 4 windows, `off` otherwise) with attributes (`free_window`, `hours_remaining`, `next_period`, `next_period_change`) for native smart home automation triggers (EV charging, heat pumps, heavy appliances).
+- **Single-Device Consolidation Option**: Added `consolidate_devices` option in Options Flow (disabled by default to maintain 100% backward compatibility for existing dashboards) to allow users to optionally group all sensors directly under the primary account device rather than generating separate category devices.
+
 ## [4.10.2] - 2026-10-20
 
 ### Fixed

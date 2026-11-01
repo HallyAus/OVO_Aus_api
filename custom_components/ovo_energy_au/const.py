@@ -23,6 +23,8 @@ CONF_PEAK_START_HOUR = "peak_start_hour"
 CONF_PEAK_END_HOUR = "peak_end_hour"
 # Day of the month the OVO billing cycle starts (1-31). 1 = calendar month.
 CONF_BILLING_CYCLE_DAY = "billing_cycle_day"
+# Consolidate category devices into single account device
+CONF_CONSOLIDATE_DEVICES = "consolidate_devices"
 
 # Plan types
 PLAN_FREE_3 = "free_3"

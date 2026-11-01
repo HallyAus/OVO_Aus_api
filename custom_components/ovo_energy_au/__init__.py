@@ -15,6 +15,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import OVOEnergyAUApiClient, OVOEnergyAUApiClientAuthenticationError, OVOEnergyAUApiClientError
 from .const import (
     CONF_ACCOUNT_ID,
+    CONF_CONSOLIDATE_DEVICES,
     CONF_PEAK_END_HOUR,
     CONF_PEAK_START_HOUR,
     CONF_PLAN_TYPE,
@@ -28,7 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -91,6 +92,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         account_id=account_id,
         plan_config=plan_config,
         auto_detect_plan=CONF_PLAN_TYPE not in entry.options,
+        consolidate_devices=bool(entry.options.get(CONF_CONSOLIDATE_DEVICES, False)),
     )
     await coordinator.async_config_entry_first_refresh()
 

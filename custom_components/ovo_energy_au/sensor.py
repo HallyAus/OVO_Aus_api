@@ -130,6 +130,10 @@ async def async_setup_entry(
     # ── Tariff period indicator ──
     sensors.append(OVOTariffPeriodSensor(coordinator))
 
+    # ── Native numeric price sensors for HA Energy Dashboard ──
+    sensors.append(OVOElectricityPriceSensor(coordinator))
+    sensors.append(OVOSolarFeedInTariffSensor(coordinator))
+
     # ── Plan comparison / recommendation ──
     sensors.append(OVORateComparisonSensor(coordinator))
 
@@ -577,6 +581,124 @@ class OVOTariffPeriodSensor(OVOBaseSensor):
             self.coordinator.data,
             dt_util.now().hour,
         )
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self.coordinator.account_id)},
+            "name": "OVO Energy AU",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+        }
+
+
+class OVOElectricityPriceSensor(OVOBaseSensor):
+    """Sensor exposing current electricity rate in AUD/kWh for the HA Energy Dashboard."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_suggested_display_precision = 4
+
+    def __init__(self, coordinator):
+        super().__init__(
+            coordinator,
+            "current_electricity_price",
+            "Current Electricity Price",
+            "Tariff",
+        )
+        self._attr_native_unit_of_measurement = "AUD/kWh"
+        self._attr_icon = "mdi:cash"
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return "AUD/kWh"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return current rate in AUD/kWh."""
+        details = self._period_details()
+        val = details.get("rate_aud_kwh")
+        return float(val) if isinstance(val, (int, float)) else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return self._period_details()
+
+    @property
+    def available(self) -> bool:
+        if (
+            getattr(self.coordinator, "auto_detect_plan", False) is True
+            and not get_current_product(self.coordinator.data)
+        ):
+            return False
+        return bool(getattr(self.coordinator, "last_update_success", True))
+
+    def _period_details(self) -> dict:
+        return get_tariff_details(
+            self.coordinator.plan_config,
+            self.coordinator.data,
+            dt_util.now().hour,
+        )
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self.coordinator.account_id)},
+            "name": "OVO Energy AU",
+            "manufacturer": "OVO Energy Australia",
+            "model": "Energy Monitor",
+        }
+
+
+class OVOSolarFeedInTariffSensor(OVOBaseSensor):
+    """Sensor exposing solar feed-in tariff in AUD/kWh for HA Energy Dashboard."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_suggested_display_precision = 4
+
+    def __init__(self, coordinator):
+        super().__init__(
+            coordinator,
+            "solar_feed_in_tariff",
+            "Solar Feed-in Tariff",
+            "Tariff",
+        )
+        self._attr_native_unit_of_measurement = "AUD/kWh"
+        self._attr_icon = "mdi:solar-power"
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return "AUD/kWh"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the solar export feed-in tariff in AUD/kWh."""
+        rates = get_product_rates(self.coordinator.data)
+        feed_in = rates.get("feedInTariff")
+        if isinstance(feed_in, (int, float)):
+            return round(float(feed_in) / 100, 4)
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        rates = get_product_rates(self.coordinator.data)
+        feed_in = rates.get("feedInTariff")
+        return {
+            "feed_in_tariff_cents_kwh": feed_in,
+            "feed_in_tariff_aud_kwh": (
+                round(feed_in / 100, 4) if feed_in is not None else None
+            ),
+        }
+
+    @property
+    def available(self) -> bool:
+        if (
+            getattr(self.coordinator, "auto_detect_plan", False) is True
+            and not get_current_product(self.coordinator.data)
+        ):
+            return False
+        return bool(getattr(self.coordinator, "last_update_success", True))
 
     @property
     def device_info(self):

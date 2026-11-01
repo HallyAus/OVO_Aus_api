@@ -9,6 +9,7 @@ import pytest
 from custom_components.ovo_energy_au.config_flow import ConfigFlow, OptionsFlowHandler
 from custom_components.ovo_energy_au.const import (
     CONF_BILLING_CYCLE_DAY,
+    CONF_CONSOLIDATE_DEVICES,
     CONF_EV_RATE,
     CONF_FLAT_RATE,
     CONF_OFF_PEAK_RATE,
@@ -17,6 +18,7 @@ from custom_components.ovo_energy_au.const import (
     CONF_PEAK_START_HOUR,
     CONF_PLAN_TYPE,
     CONF_SHOULDER_RATE,
+    PLAN_BASIC,
     PLAN_EV,
     PLAN_FREE_4,
     PLAN_ONE,
@@ -129,3 +131,20 @@ async def test_free_4_options_store_its_plan_and_peak_window():
     assert result["data"][CONF_PLAN_TYPE] == PLAN_FREE_4
     assert result["data"][CONF_PEAK_START_HOUR] == 15
     assert result["data"][CONF_PEAK_END_HOUR] == 21
+
+
+@pytest.mark.asyncio
+async def test_options_stores_consolidate_devices():
+    flow = OptionsFlowHandler()
+    flow.config_entry = SimpleNamespace(data={}, options={})
+
+    result = await flow.async_step_init(
+        {
+            CONF_PLAN_TYPE: PLAN_BASIC,
+            CONF_BILLING_CYCLE_DAY: 1,
+            CONF_CONSOLIDATE_DEVICES: True,
+        }
+    )
+
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_CONSOLIDATE_DEVICES] is True
