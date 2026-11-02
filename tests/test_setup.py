@@ -113,7 +113,7 @@ async def test_setup_entry_consolidate_devices_removes_orphaned_devices():
     entry = SimpleNamespace(
         data={
             "username": "person@example.com",
-            "password": "test-password",
+            "password": "test-password",  # pragma: allowlist secret
             "account_id": "12345",
         },
         options={"consolidate_devices": True},
