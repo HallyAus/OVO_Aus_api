@@ -42,7 +42,7 @@
       },
       "manual_rates": {
         "title": "Advanced Settings & Overrides",
-        "description": "Customize your billing cycle, distributor-specific peak windows, or manually override tariff rates. Leave rate fields at their defaults to continue using rates detected from OVO's API.",
+        "description": "Customize your billing cycle, distributor-specific peak schedules, or manual tariff rates:\n\n**Billing cycle:** Set to the day your billing cycle begins (1-31). Leave at 1 to follow calendar months or auto-detect from your latest statement.\n\n**Peak schedule:** Free and EV windows are automatic. Set peak start and end hours only if your network distributor uses Time-of-Use peak boundaries not reported by OVO.\n\n**Tariff rates:** Leave rate fields unchanged to continue using rates automatically detected from OVO's API.",
         "data": {
           "billing_cycle_day": "Billing Cycle Start Day (1-31)",
           "peak_start_hour": "Peak Window Start Hour (0-23)",
