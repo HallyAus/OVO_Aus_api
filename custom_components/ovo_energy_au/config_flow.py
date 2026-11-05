@@ -23,6 +23,7 @@ from .const import (
     CONF_CONSOLIDATE_DEVICES,
     CONF_EV_RATE,
     CONF_FLAT_RATE,
+    CONF_MANUAL_OVERRIDE,
     CONF_OFF_PEAK_RATE,
     CONF_PEAK_END_HOUR,
     CONF_PEAK_RATE,
@@ -325,62 +326,135 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class OptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options flow for OVO Energy Australia."""
 
-    async def async_step_init(self, user_input=None):
-        """Manage the options."""
-        if user_input is not None:
-            options = {CONF_PLAN_TYPE: user_input[CONF_PLAN_TYPE]}
+    def __init__(self) -> None:
+        """Initialize options flow."""
+        self._options: dict[str, Any] = {}
 
-            # Billing cycle start day applies to every plan type.
-            options[CONF_BILLING_CYCLE_DAY] = int(
-                user_input.get(CONF_BILLING_CYCLE_DAY, 1)
+    def _create_manual_entry(self, user_input: dict[str, Any]) -> FlowResult:
+        """Create entry with manual plan and rates."""
+        plan_type = user_input[CONF_PLAN_TYPE]
+        default_rates = DEFAULT_RATES.get(plan_type, {})
+        options: dict[str, Any] = {
+            CONF_PLAN_TYPE: plan_type,
+            CONF_BILLING_CYCLE_DAY: int(user_input.get(CONF_BILLING_CYCLE_DAY, 1)),
+        }
+        if CONF_MANUAL_OVERRIDE in user_input:
+            options[CONF_MANUAL_OVERRIDE] = bool(user_input[CONF_MANUAL_OVERRIDE])
+        if CONF_CONSOLIDATE_DEVICES in user_input:
+            options[CONF_CONSOLIDATE_DEVICES] = bool(
+                user_input[CONF_CONSOLIDATE_DEVICES]
             )
-            if CONF_CONSOLIDATE_DEVICES in user_input:
-                options[CONF_CONSOLIDATE_DEVICES] = bool(
-                    user_input[CONF_CONSOLIDATE_DEVICES]
-                )
 
-            # Update rates based on plan type
-            plan_type = user_input[CONF_PLAN_TYPE]
-            default_rates = DEFAULT_RATES.get(plan_type, {})
+        peak_start = int(user_input.get(CONF_PEAK_START_HOUR, 0))
+        peak_end = int(user_input.get(CONF_PEAK_END_HOUR, 0))
+        has_peak_window = peak_start != peak_end
 
-            peak_start = int(user_input.get(CONF_PEAK_START_HOUR, 0))
-            peak_end = int(user_input.get(CONF_PEAK_END_HOUR, 0))
-            has_peak_window = peak_start != peak_end
-
-            if plan_type in (PLAN_FREE_3, PLAN_FREE_4):
-                options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
-                options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
-                options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
+        if plan_type in (PLAN_FREE_3, PLAN_FREE_4):
+            options[CONF_PEAK_RATE] = user_input.get(
+                CONF_PEAK_RATE, default_rates.get("peak", 0.35)
+            )
+            options[CONF_SHOULDER_RATE] = user_input.get(
+                CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25)
+            )
+            options[CONF_OFF_PEAK_RATE] = user_input.get(
+                CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18)
+            )
+            options[CONF_PEAK_START_HOUR] = peak_start
+            options[CONF_PEAK_END_HOUR] = peak_end
+        elif plan_type == PLAN_EV:
+            options[CONF_PEAK_RATE] = user_input.get(
+                CONF_PEAK_RATE, default_rates.get("peak", 0.35)
+            )
+            options[CONF_SHOULDER_RATE] = user_input.get(
+                CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25)
+            )
+            options[CONF_OFF_PEAK_RATE] = user_input.get(
+                CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18)
+            )
+            options[CONF_EV_RATE] = user_input.get(
+                CONF_EV_RATE, default_rates.get("ev", 0.06)
+            )
+            options[CONF_PEAK_START_HOUR] = peak_start
+            options[CONF_PEAK_END_HOUR] = peak_end
+        elif plan_type == PLAN_BASIC:
+            options[CONF_PEAK_RATE] = user_input.get(
+                CONF_PEAK_RATE, default_rates.get("peak", 0.35)
+            )
+            options[CONF_SHOULDER_RATE] = user_input.get(
+                CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25)
+            )
+            options[CONF_OFF_PEAK_RATE] = user_input.get(
+                CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18)
+            )
+            options[CONF_PEAK_START_HOUR] = peak_start
+            options[CONF_PEAK_END_HOUR] = peak_end
+        elif plan_type == PLAN_ONE:
+            options[CONF_FLAT_RATE] = user_input.get(
+                CONF_FLAT_RATE, default_rates.get("flat", 0.28)
+            )
+            if has_peak_window:
+                options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, 0.35)
+                options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, 0.25)
+                options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, 0.18)
                 options[CONF_PEAK_START_HOUR] = peak_start
                 options[CONF_PEAK_END_HOUR] = peak_end
-            elif plan_type == PLAN_EV:
-                options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
-                options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
-                options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
-                options[CONF_EV_RATE] = user_input.get(CONF_EV_RATE, default_rates.get("ev", 0.06))
-                options[CONF_PEAK_START_HOUR] = peak_start
-                options[CONF_PEAK_END_HOUR] = peak_end
-            elif plan_type == PLAN_BASIC:
-                options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, default_rates.get("peak", 0.35))
-                options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, default_rates.get("shoulder", 0.25))
-                options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, default_rates.get("off_peak", 0.18))
-                options[CONF_PEAK_START_HOUR] = peak_start
-                options[CONF_PEAK_END_HOUR] = peak_end
-            elif plan_type == PLAN_ONE:
-                options[CONF_FLAT_RATE] = user_input.get(CONF_FLAT_RATE, default_rates.get("flat", 0.28))
-                # The One Plan may be flat or TOU depending on distributor.
-                # Keep the flat-plan surface clean unless a TOU window is set.
-                if has_peak_window:
-                    options[CONF_PEAK_RATE] = user_input.get(CONF_PEAK_RATE, 0.35)
-                    options[CONF_SHOULDER_RATE] = user_input.get(CONF_SHOULDER_RATE, 0.25)
-                    options[CONF_OFF_PEAK_RATE] = user_input.get(CONF_OFF_PEAK_RATE, 0.18)
-                    options[CONF_PEAK_START_HOUR] = peak_start
-                    options[CONF_PEAK_END_HOUR] = peak_end
 
-            return self.async_create_entry(title="", data=options)
+        return self.async_create_entry(title="", data=options)
 
-        # Get current plan settings or use defaults
+    async def async_step_init(self, user_input=None):
+        """Manage general options."""
         current = {**self.config_entry.data, **self.config_entry.options}
+        if user_input is not None:
+            if CONF_PLAN_TYPE in user_input:
+                return self._create_manual_entry(user_input)
+
+            manual_override = bool(user_input.get(CONF_MANUAL_OVERRIDE, False))
+            # This screen only sets device grouping and the manual-plan switch.
+            # Billing day and peak hours belong to the manual step. Writing a
+            # fallback billing_cycle_day here would pin the cycle, and
+            # auto-detect runs only while that key is absent from options.
+            self._options = {
+                CONF_CONSOLIDATE_DEVICES: bool(
+                    user_input.get(CONF_CONSOLIDATE_DEVICES, False)
+                ),
+                CONF_MANUAL_OVERRIDE: manual_override,
+            }
+            if manual_override:
+                return await self.async_step_manual_rates()
+            return self.async_create_entry(title="", data=self._options)
+
+        saved = self.config_entry.options
+        # Installs that saved a plan before manual_override existed have no
+        # such key. Default the box on when that plan is present so Submit
+        # does not wipe it. An explicit False stays off.
+        has_manual_override = bool(
+            saved.get(CONF_MANUAL_OVERRIDE, CONF_PLAN_TYPE in saved)
+        )
+
+        schema_fields = {
+            vol.Required(
+                CONF_CONSOLIDATE_DEVICES,
+                default=current.get(CONF_CONSOLIDATE_DEVICES, False),
+            ): bool,
+            vol.Required(
+                CONF_MANUAL_OVERRIDE, default=has_manual_override
+            ): bool,
+        }
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(schema_fields),
+        )
+
+    async def async_step_manual_rates(self, user_input=None):
+        """Manage manual plan, billing cycle, peak hours and tariff overrides."""
+        current = {**self.config_entry.data, **self.config_entry.options}
+        if user_input is not None:
+            return self._create_manual_entry({**self._options, **user_input})
+
+        current_billing_cycle_day = current.get(CONF_BILLING_CYCLE_DAY, 1)
+        current_peak_start = current.get(CONF_PEAK_START_HOUR, 0)
+        current_peak_end = current.get(CONF_PEAK_END_HOUR, 0)
         current_plan = current.get(CONF_PLAN_TYPE, PLAN_BASIC)
         runtime_data = getattr(self.config_entry, "runtime_data", None)
         if runtime_data is not None and CONF_PLAN_TYPE not in self.config_entry.options:
@@ -390,12 +464,17 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         current_off_peak = current.get(CONF_OFF_PEAK_RATE, 0.18)
         current_ev = current.get(CONF_EV_RATE, 0.06)
         current_flat = current.get(CONF_FLAT_RATE, 0.28)
-        current_peak_start = current.get(CONF_PEAK_START_HOUR, 0)
-        current_peak_end = current.get(CONF_PEAK_END_HOUR, 0)
-        current_billing_cycle_day = current.get(CONF_BILLING_CYCLE_DAY, 1)
 
-        # Build options schema
         schema_fields = {
+            vol.Required(
+                CONF_BILLING_CYCLE_DAY, default=current_billing_cycle_day
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=31)),
+            vol.Required(
+                CONF_PEAK_START_HOUR, default=current_peak_start
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
+            vol.Required(
+                CONF_PEAK_END_HOUR, default=current_peak_end
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
             vol.Required(CONF_PLAN_TYPE, default=current_plan): vol.In({
                 PLAN_FREE_3: PLAN_NAMES[PLAN_FREE_3],
                 PLAN_FREE_4: PLAN_NAMES[PLAN_FREE_4],
@@ -403,34 +482,25 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 PLAN_BASIC: PLAN_NAMES[PLAN_BASIC],
                 PLAN_ONE: PLAN_NAMES[PLAN_ONE],
             }),
-            vol.Optional(
-                CONF_CONSOLIDATE_DEVICES,
-                default=current.get(CONF_CONSOLIDATE_DEVICES, False),
-            ): bool,
-            vol.Optional(CONF_PEAK_RATE, default=current_peak): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_SHOULDER_RATE, default=current_shoulder): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_OFF_PEAK_RATE, default=current_off_peak): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_EV_RATE, default=current_ev): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            vol.Optional(CONF_FLAT_RATE, default=current_flat): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
-            # Billing cycle start day (1-31). 1 keeps the calendar-month behaviour.
-            vol.Optional(CONF_BILLING_CYCLE_DAY, default=current_billing_cycle_day): vol.All(
-                vol.Coerce(int), vol.Range(min=1, max=31)
+            vol.Optional(CONF_PEAK_RATE, default=current_peak): vol.All(
+                vol.Coerce(float), vol.Range(min=0.0, max=2.0)
+            ),
+            vol.Optional(CONF_SHOULDER_RATE, default=current_shoulder): vol.All(
+                vol.Coerce(float), vol.Range(min=0.0, max=2.0)
+            ),
+            vol.Optional(CONF_OFF_PEAK_RATE, default=current_off_peak): vol.All(
+                vol.Coerce(float), vol.Range(min=0.0, max=2.0)
+            ),
+            vol.Optional(CONF_EV_RATE, default=current_ev): vol.All(
+                vol.Coerce(float), vol.Range(min=0.0, max=2.0)
+            ),
+            vol.Optional(CONF_FLAT_RATE, default=current_flat): vol.All(
+                vol.Coerce(float), vol.Range(min=0.0, max=2.0)
             ),
         }
-        # OVO does not expose distributor-specific schedule boundaries. The
-        # same optional window drives both Current Tariff Period and recovery
-        # of hourly entries that the API reports only as OTHER.
-        schema_fields[vol.Optional(CONF_PEAK_START_HOUR, default=current_peak_start)] = vol.All(
-            vol.Coerce(int), vol.Range(min=0, max=23)
-        )
-        schema_fields[vol.Optional(CONF_PEAK_END_HOUR, default=current_peak_end)] = vol.All(
-            vol.Coerce(int), vol.Range(min=0, max=23)
-        )
-        options_schema = vol.Schema(schema_fields)
-
         return self.async_show_form(
-            step_id="init",
-            data_schema=options_schema,
+            step_id="manual_rates",
+            data_schema=vol.Schema(schema_fields),
         )
 
 

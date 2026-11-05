@@ -56,6 +56,18 @@ class OVOBaseSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def name(self) -> str:
+        if (
+            getattr(self.coordinator, "consolidate_devices", False) is True
+            and self._device_category
+            and self._device_category not in {"General", "Tariff", "Energy Dashboard"}
+        ):
+            prefix = self._device_category.removeprefix("Rate Breakdown - ").strip()
+            if (
+                prefix
+                and not self._sensor_name.startswith(prefix)
+                and prefix not in self._sensor_name
+            ):
+                return f"{self._sensor_name} ({prefix})"
         return self._sensor_name
 
     @property
