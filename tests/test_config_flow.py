@@ -14,6 +14,7 @@ from custom_components.ovo_energy_au.const import (
     CONF_CONSOLIDATE_DEVICES,
     CONF_EV_RATE,
     CONF_FLAT_RATE,
+    CONF_MANUAL_OVERRIDE,
     CONF_OFF_PEAK_RATE,
     CONF_PEAK_END_HOUR,
     CONF_PEAK_RATE,
@@ -150,6 +151,133 @@ async def test_options_stores_consolidate_devices():
 
     assert result["type"] == "create_entry"
     assert result["data"][CONF_CONSOLIDATE_DEVICES] is True
+
+
+@pytest.mark.asyncio
+async def test_options_default_automatic_flow_creates_clean_entry():
+    flow = OptionsFlowHandler()
+    flow.config_entry = SimpleNamespace(data={}, options={})
+
+    result = await flow.async_step_init(
+        {
+            CONF_CONSOLIDATE_DEVICES: True,
+            CONF_MANUAL_OVERRIDE: False,
+        }
+    )
+
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_CONSOLIDATE_DEVICES] is True
+    assert result["data"][CONF_MANUAL_OVERRIDE] is False
+    assert CONF_PLAN_TYPE not in result["data"]
+
+
+@pytest.mark.asyncio
+async def test_options_manual_override_routes_to_manual_rates_step():
+    flow = OptionsFlowHandler()
+    flow.config_entry = SimpleNamespace(data={}, options={})
+
+    # Step 1: select manual override
+    result = await flow.async_step_init(
+        {
+            CONF_CONSOLIDATE_DEVICES: True,
+            CONF_MANUAL_OVERRIDE: True,
+        }
+    )
+
+    assert result["type"] == "form"
+    assert result["step_id"] == "manual_rates"
+
+    # Step 2: submit manual rates
+    rates_result = await flow.async_step_manual_rates(
+        {
+            CONF_PLAN_TYPE: PLAN_EV,
+            CONF_BILLING_CYCLE_DAY: 12,
+            CONF_PEAK_RATE: 0.45,
+            CONF_EV_RATE: 0.08,
+        }
+    )
+
+    assert rates_result["type"] == "create_entry"
+    assert rates_result["data"][CONF_CONSOLIDATE_DEVICES] is True
+    assert rates_result["data"][CONF_MANUAL_OVERRIDE] is True
+    assert rates_result["data"][CONF_PLAN_TYPE] == PLAN_EV
+    assert rates_result["data"][CONF_BILLING_CYCLE_DAY] == 12
+    assert rates_result["data"][CONF_EV_RATE] == 0.08
+
+
+class _SchemaField:
+    """Stand-in for a voluptuous marker so tests can read form defaults."""
+
+    def __init__(self, key, default=None, **_kwargs):
+        self.key = key
+        self.default = default
+
+    def __hash__(self):
+        return hash(self.key)
+
+    def __eq__(self, other):
+        return isinstance(other, _SchemaField) and self.key == other.key
+
+
+def _install_form_schema(monkeypatch):
+    """Record field defaults. The test harness replaces voluptuous with a mock."""
+    monkeypatch.setattr(flow_module.vol, "Required", _SchemaField)
+    monkeypatch.setattr(flow_module.vol, "Optional", _SchemaField)
+    monkeypatch.setattr(flow_module.vol, "Schema", lambda fields: fields)
+
+
+def _form_defaults(data_schema):
+    return {field.key: field.default for field in data_schema}
+
+
+@pytest.mark.asyncio
+async def test_legacy_manual_plan_survives_default_options_submit(monkeypatch):
+    """A saved plan with no manual_override key must survive Submit on the defaults."""
+    _install_form_schema(monkeypatch)
+    flow = OptionsFlowHandler()
+    flow.config_entry = SimpleNamespace(
+        data={},
+        options={
+            CONF_PLAN_TYPE: PLAN_EV,
+            CONF_PEAK_RATE: 0.4,
+            CONF_SHOULDER_RATE: 0.3,
+            CONF_OFF_PEAK_RATE: 0.2,
+            CONF_EV_RATE: 0.08,
+            CONF_BILLING_CYCLE_DAY: 24,
+        },
+        runtime_data=None,
+    )
+
+    shown = await flow.async_step_init()
+    assert shown["step_id"] == "init"
+    defaults = _form_defaults(shown["data_schema"])
+    assert defaults[CONF_MANUAL_OVERRIDE] is True
+
+    manual = await flow.async_step_init(defaults)
+    assert manual["step_id"] == "manual_rates"
+    saved = await flow.async_step_manual_rates(_form_defaults(manual["data_schema"]))
+
+    assert saved["type"] == "create_entry"
+    assert saved["data"][CONF_PLAN_TYPE] == PLAN_EV
+    assert saved["data"][CONF_PEAK_RATE] == 0.4
+    assert saved["data"][CONF_SHOULDER_RATE] == 0.3
+    assert saved["data"][CONF_OFF_PEAK_RATE] == 0.2
+    assert saved["data"][CONF_EV_RATE] == 0.08
+    assert saved["data"][CONF_BILLING_CYCLE_DAY] == 24
+
+
+@pytest.mark.asyncio
+async def test_simple_options_save_does_not_pin_billing_cycle_day():
+    """An automatic save must not write billing_cycle_day and disable auto-detect."""
+    flow = OptionsFlowHandler()
+    flow.config_entry = SimpleNamespace(data={}, options={})
+
+    result = await flow.async_step_init({CONF_CONSOLIDATE_DEVICES: True})
+
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_CONSOLIDATE_DEVICES] is True
+    # Setup treats a missing billing_cycle_day as auto-detect still enabled.
+    assert CONF_BILLING_CYCLE_DAY not in result["data"]
 
 
 @pytest.mark.asyncio
