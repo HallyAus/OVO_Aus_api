@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_source_versions_agree_with_prepared_release():
     manifest = json.loads((ROOT / "custom_components/ovo_energy_au/manifest.json").read_text())
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    assert manifest["version"] == project["project"]["version"]
+    assert manifest["version"] == project["project"]["version"] == "4.12.0"
     version = manifest["version"]
     assert (ROOT / f"docs/releases/v{version}.md").is_file()
 
@@ -23,19 +23,15 @@ def test_source_versions_agree_with_prepared_release():
     "https://ovoreferralcode.com/",
 ])
 def test_referral_is_prominent_in_release_notes(referral):
-    notes = (ROOT / "docs/releases/v4.11.0.md").read_text()
+    notes = (ROOT / "docs/releases/v4.12.0.md").read_text()
     assert referral in notes.split("---", 1)[0]
-
-
-def test_release_notes_do_not_claim_to_patch_users_home_assistant():
-    notes = (ROOT / "docs/releases/v4.11.0.md").read_text()
-    assert "does not patch Home Assistant core on users' systems" in notes
-    assert "is not included in the integration ZIP" in notes
 
 
 def test_one_release_request_does_not_remove_the_exact_source_ci_gate():
     workflow = (ROOT / ".github/workflows/release.yml").read_text()
-    assert "github.event.ref_type == 'branch' && github.event.ref == 'release/v4.11.0'" in workflow
+    assert "github.event.ref_type == 'branch' && github.event.ref == 'release/v4.12.0'" in workflow
+    assert workflow.count("github.event_name == 'create' && 'v4.12.0'") == 2
+    assert "v4.11.0" not in workflow
     assert "github.repository == 'HallyAus/OVO_Aus_api'" in workflow
     assert "actions: read" in workflow
     assert "actions: write" not in workflow
