@@ -1,3 +1,11 @@
+## Support this project for free
+
+Support this project for free by using any of these referral codes:
+
+- **Tesla** — You’ll get $350 off the purchase of a Tesla product: https://www.tesla.com/referral/daniel25061
+- **OVO Energy** — www.ovoenergy.com.au/refer/daniel16485
+- **Starlink** — Get $220 when you sign up with my link: https://starlink.com/?referral=RC-2455784-77014-69&app_source=share
+
 # OVO Energy Australia for Home Assistant
 
 > ### 🎁 New to OVO? Get **$180 credit**
