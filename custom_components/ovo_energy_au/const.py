@@ -25,6 +25,8 @@ CONF_PEAK_END_HOUR = "peak_end_hour"
 CONF_BILLING_CYCLE_DAY = "billing_cycle_day"
 # Consolidate category devices into single account device
 CONF_CONSOLIDATE_DEVICES = "consolidate_devices"
+# Advanced manual override for plan and tariff rates
+CONF_MANUAL_OVERRIDE = "manual_override"
 
 # Plan types
 PLAN_FREE_3 = "free_3"

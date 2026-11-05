@@ -94,39 +94,39 @@ ENERGY_SENSORS = [
      SensorDeviceClass.MONETARY, SensorStateClass.TOTAL, "mdi:currency-usd",
      lambda d: d.get("last_7_days", {}).get("grid_charge"), "Last Week"),
 
-    # ── Last Month ──
+    # ── Last Billing Month ──
     ("last_month_solar_consumption", "Solar Consumption", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:solar-power",
-     lambda d: d.get("last_month", {}).get("solar_consumption"), "Last Month"),
+     lambda d: d.get("last_month", {}).get("solar_consumption"), "Last Billing Month"),
 
     ("last_month_grid_consumption", "Grid Consumption", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:transmission-tower",
-     lambda d: d.get("last_month", {}).get("grid_consumption"), "Last Month"),
+     lambda d: d.get("last_month", {}).get("grid_consumption"), "Last Billing Month"),
 
     ("last_month_solar_charge", "Solar Feed-in Credit", "AUD",
      SensorDeviceClass.MONETARY, SensorStateClass.TOTAL, "mdi:cash-plus",
-     lambda d: d.get("last_month", {}).get("solar_charge"), "Last Month"),
+     lambda d: d.get("last_month", {}).get("solar_charge"), "Last Billing Month"),
 
     ("last_month_grid_charge", "Grid Charge", "AUD",
      SensorDeviceClass.MONETARY, SensorStateClass.TOTAL, "mdi:currency-usd",
-     lambda d: d.get("last_month", {}).get("grid_charge"), "Last Month"),
+     lambda d: d.get("last_month", {}).get("grid_charge"), "Last Billing Month"),
 
-    # ── Month to Date ──
+    # ── Billing Month to Date ──
     ("month_to_date_solar_consumption", "Solar Consumption", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:solar-power",
-     lambda d: d.get("month_to_date", {}).get("solar_consumption"), "Month to Date"),
+     lambda d: d.get("month_to_date", {}).get("solar_consumption"), "Billing Month to Date"),
 
     ("month_to_date_grid_consumption", "Grid Consumption", UnitOfEnergy.KILO_WATT_HOUR,
      SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, "mdi:transmission-tower",
-     lambda d: d.get("month_to_date", {}).get("grid_consumption"), "Month to Date"),
+     lambda d: d.get("month_to_date", {}).get("grid_consumption"), "Billing Month to Date"),
 
     ("month_to_date_solar_charge", "Solar Feed-in Credit", "AUD",
      SensorDeviceClass.MONETARY, SensorStateClass.TOTAL, "mdi:cash-plus",
-     lambda d: d.get("month_to_date", {}).get("solar_charge"), "Month to Date"),
+     lambda d: d.get("month_to_date", {}).get("solar_charge"), "Billing Month to Date"),
 
     ("month_to_date_grid_charge", "Grid Charge", "AUD",
      SensorDeviceClass.MONETARY, SensorStateClass.TOTAL, "mdi:currency-usd",
-     lambda d: d.get("month_to_date", {}).get("grid_charge"), "Month to Date"),
+     lambda d: d.get("month_to_date", {}).get("grid_charge"), "Billing Month to Date"),
 ]
 
 ANALYTICS_SENSORS = [

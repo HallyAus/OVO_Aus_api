@@ -62,6 +62,21 @@ _RETIRED_SENSOR_KEYS = {
     "monthly_projection_total",
     "monthly_projection_remaining",
     "monthly_daily_average",
+    "hourly_solar_consumption",
+    "hourly_grid_consumption",
+    "hourly_return_to_grid",
+    "tou_shoulder_consumption",
+    "super_off_peak_consumption",
+    "super_off_peak_cost_saved",
+    "ev_off_peak_weekly_consumption",
+    "ev_off_peak_weekly_cost",
+    "ev_off_peak_weekly_savings",
+    "ev_off_peak_monthly_consumption",
+    "ev_off_peak_monthly_cost",
+    "ev_off_peak_monthly_savings",
+    "ev_off_peak_yearly_consumption",
+    "ev_off_peak_yearly_cost",
+    "ev_off_peak_yearly_savings",
 }
 _RETIRED_ROTATING_SENSOR_KEYS = {
     *(
@@ -91,6 +106,32 @@ _RETIRED_ROTATING_SENSOR_KEYS = {
         for day in range(1, 8)
     ),
 }
+_EV_SENSOR_KEYS = {
+    "monthly_ev_charging_kwh",
+    "monthly_ev_charging_cost",
+    "yearly_ev_charging_kwh",
+    "yearly_ev_charging_cost",
+    "daily_ev_offpeak_consumption",
+    "daily_ev_offpeak_cost",
+    "monthly_ev_offpeak_consumption",
+    "monthly_ev_offpeak_cost",
+    "yearly_ev_offpeak_consumption",
+    "yearly_ev_offpeak_cost",
+}
+
+
+def _is_ev_supported(coordinator) -> bool:
+    """Return True if EV sensors should be registered for this account."""
+    if getattr(coordinator.plan_config, "plan_type", None) == PLAN_EV:
+        return True
+    data = getattr(coordinator, "data", {}) or {}
+    if data.get("vehicles"):
+        return True
+    for period in ("daily", "monthly", "yearly"):
+        rate_breakdown = (data.get(period) or {}).get("rate_breakdown") or {}
+        if "EV_OFFPEAK" in rate_breakdown or "EV" in rate_breakdown:
+            return True
+    return False
 
 
 async def async_setup_entry(
@@ -100,19 +141,24 @@ async def async_setup_entry(
 ) -> None:
     """Set up OVO Energy Australia sensor platform."""
     coordinator = entry.runtime_data
-    _remove_retired_registry_entities(hass, entry, coordinator.account_id)
+    has_ev = _is_ev_supported(coordinator)
+    _remove_retired_registry_entities(
+        hass, entry, coordinator.account_id, has_ev=has_ev
+    )
     sensors: list[SensorEntity] = []
 
     # ── Data-driven sensors from definitions ──
     for defn in ENERGY_SENSORS + ANALYTICS_SENSORS:
         key, name, unit, device_class, state_class, icon, value_fn, category = defn
+        if not has_ev and category == "EV Charging":
+            continue
         sensors.append(OVOEnergySensor(
             coordinator, key, name, unit, device_class, state_class, icon, value_fn, category
         ))
 
     # ── Rate breakdown sensors (per period) ──
     for period, label in [("daily", "Yesterday"), ("monthly", "This Month"), ("yearly", "This Year")]:
-        _add_rate_sensors(sensors, coordinator, period, label)
+        _add_rate_sensors(sensors, coordinator, period, label, include_ev=has_ev)
 
     # ── Rate breakdown with counterfactuals ──
     for period, label in [("daily", "Yesterday"), ("monthly", "This Month"),
@@ -185,8 +231,10 @@ async def async_setup_entry(
 # ─── Sensor factory helpers ──────────────────────────────────────────
 
 
-def _remove_retired_registry_entities(hass, entry, account_id: str) -> None:
-    """Remove only known obsolete entities belonging to this config entry."""
+def _remove_retired_registry_entities(
+    hass, entry, account_id: str, has_ev: bool = True
+) -> None:
+    """Remove known obsolete or non-applicable entities belonging to this config entry."""
     registry = er.async_get(hass)
     unique_id_prefix = f"{account_id}_"
     for registry_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
@@ -197,17 +245,21 @@ def _remove_retired_registry_entities(hass, entry, account_id: str) -> None:
         if (
             sensor_key in _RETIRED_SENSOR_KEYS
             or sensor_key in _RETIRED_ROTATING_SENSOR_KEYS
+            or (not has_ev and sensor_key in _EV_SENSOR_KEYS)
         ):
             registry.async_remove(registry_entry.entity_id)
 
 
-def _add_rate_sensors(sensors: list, coordinator, period: str, label: str) -> None:
+def _add_rate_sensors(
+    sensors: list, coordinator, period: str, label: str, include_ev: bool = True
+) -> None:
     """Add EV/Free/Other rate breakdown sensors for a period."""
     rate_configs = [
-        ("ev_offpeak", "EV Off-Peak", "EV_OFFPEAK", "mdi:ev-station"),
         ("free_3", "Free Period", "FREE_3", "mdi:gift"),
         ("other", "Other Rates", "OTHER", "mdi:chart-bar"),
     ]
+    if include_ev:
+        rate_configs.insert(0, ("ev_offpeak", "EV Off-Peak", "EV_OFFPEAK", "mdi:ev-station"))
     for suffix, name, rate_type, icon in rate_configs:
         sensors.append(OVOEnergySensor(
             coordinator,
