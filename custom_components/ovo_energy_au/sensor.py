@@ -131,7 +131,8 @@ def _is_ev_supported(coordinator) -> bool:
         rate_breakdown = (data.get(period) or {}).get("rate_breakdown") or {}
         if "EV_OFFPEAK" in rate_breakdown or "EV" in rate_breakdown:
             return True
-    return False
+    # A failed (or not yet completed) discovery cannot establish absence.
+    return data.get("vehicle_status") != "none_found"
 
 
 async def async_setup_entry(
@@ -215,7 +216,18 @@ async def async_setup_entry(
 
     @callback
     def _async_add_new_vehicles() -> None:
+        nonlocal has_ev
         new_entities: list[SensorEntity] = []
+        if not has_ev and _is_ev_supported(coordinator):
+            has_ev = True
+            for defn in ENERGY_SENSORS + ANALYTICS_SENSORS:
+                key, name, unit, device_class, state_class, icon, value_fn, category = defn
+                if category == "EV Charging":
+                    new_entities.append(OVOEnergySensor(
+                        coordinator, key, name, unit, device_class, state_class, icon, value_fn, category
+                    ))
+            for period, label in [("daily", "Yesterday"), ("monthly", "This Month"), ("yearly", "This Year")]:
+                _add_ev_rate_sensors(new_entities, coordinator, period, label)
         for vehicle in (coordinator.data or {}).get("vehicles") or []:
             vehicle_id = vehicle.get("id")
             if not vehicle_id or vehicle_id in known_vehicle_ids:
@@ -259,7 +271,18 @@ def _add_rate_sensors(
         ("other", "Other Rates", "OTHER", "mdi:chart-bar"),
     ]
     if include_ev:
-        rate_configs.insert(0, ("ev_offpeak", "EV Off-Peak", "EV_OFFPEAK", "mdi:ev-station"))
+        _add_ev_rate_sensors(sensors, coordinator, period, label)
+    _add_rate_sensor_configs(sensors, coordinator, period, label, rate_configs)
+
+
+def _add_ev_rate_sensors(sensors: list, coordinator, period: str, label: str) -> None:
+    """Add the EV rate sensors without duplicating other rate entities."""
+    _add_rate_sensor_configs(sensors, coordinator, period, label, [
+        ("ev_offpeak", "EV Off-Peak", "EV_OFFPEAK", "mdi:ev-station"),
+    ])
+
+
+def _add_rate_sensor_configs(sensors, coordinator, period, label, rate_configs) -> None:
     for suffix, name, rate_type, icon in rate_configs:
         sensors.append(OVOEnergySensor(
             coordinator,
