@@ -8,16 +8,6 @@ Support this project for free by using any of these referral codes:
 
 # OVO Energy Australia for Home Assistant
 
-> ### 🎁 New to OVO? Get **$180 credit**
->
-> - **Referral code:** `daniel16485`
-> - **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
-> - **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
->
-> Get **$180 off your bills**, paid as **$15/month for 12 months**. You get $180, I get $180 — and referrals help fund this project. 💚
->
-> **Already an OVO customer?** [Support me on Buy Me a Coffee](https://buymeacoffee.com/hallyaus).
-
 <div align="center">
 
 <img src="images/logo.png" alt="OVO Energy Australia" width="280"/>
@@ -35,7 +25,6 @@ Support this project for free by using any of these referral codes:
 ![GitHub Stars](https://img.shields.io/github/stars/HallyAus/OVO_Aus_api?style=social)
 ![GitHub Forks](https://img.shields.io/github/forks/HallyAus/OVO_Aus_api?style=social)
 ![GitHub Issues](https://img.shields.io/github/issues/HallyAus/OVO_Aus_api)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange.svg?logo=buy-me-a-coffee)](https://buymeacoffee.com/hallyaus)
 
 **Comprehensive Home Assistant integration for OVO Energy Australia**
 
@@ -51,47 +40,6 @@ tariffs, plan savings, and connected vehicles from Home Assistant.
 > [!NOTE]
 > The download badge counts attached GitHub release ZIPs. GitHub does not count
 > HACS installs or source-code archives there, so it is not a total-user count.
-
----
-
-## 💚 Support this project — it's my only income from it
-
-If this integration saves you money or time, please use one of the referrals
-below or support the project directly. This project is maintained in my spare
-time, and community support funds ongoing development.
-
-### ⭐ Star this repo
-[**⭐ Star on GitHub**](https://github.com/HallyAus/OVO_Aus_api) — takes two seconds and genuinely helps. Stars surface the project to other OVO customers.
-
-### 🎁 OVO Energy referral — $180 credit
-Not an OVO customer yet? Sign up through my referral site (the code `daniel16485` attaches automatically):
-
-- **Referral code:** `daniel16485`
-- **Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)
-- **Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)
-
-- ✅ **$180 credit** (incl. GST), paid as $15/month over 12 months
-- ✅ Available on **all eligible plans** — including The EV Plan (no EV required)
-- ✅ Both you and I receive the full $180 — win-win
-- ✅ NSW, VIC, QLD & SA · must be your first OVO energy market contract
-
-### ☕ Already an OVO customer? Support me here
-
-If you cannot use the referral, you can support continued development directly:
-
-<a href="https://buymeacoffee.com/hallyaus">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" alt="Buy Me a Coffee — support HallyAus">
-</a>
-
-**[buymeacoffee.com/hallyaus](https://buymeacoffee.com/hallyaus)**
-
-### 🛰️ Starlink referral — 1 month free
-Running Home Assistant somewhere rural or need a reliable backup link?
-
-**👉 [starlink.com/residential?referral=RC-2455784-77014-69](https://starlink.com/residential?referral=RC-2455784-77014-69&app_source=share)**
-
-- ✅ One free month of Starlink service
-- ✅ Works anywhere with a clear view of sky
 
 ---
 
@@ -445,7 +393,6 @@ See [`CHANGELOG.md`](CHANGELOG.md) for version history and [`CLAUDE.md`](CLAUDE.
 ## 💬 Support
 
 - **Issues:** [GitHub Issues](https://github.com/HallyAus/OVO_Aus_api/issues)
-- **Buy Me a Coffee:** [buymeacoffee.com/hallyaus](https://buymeacoffee.com/hallyaus)
 
 ---
 
