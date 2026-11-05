@@ -333,3 +333,42 @@ async def test_auto_detect_billing_cycle_disabled_preserves_configured_day():
 
     assert coordinator.plan_config.billing_cycle_day == 1
 
+
+@pytest.mark.asyncio
+async def test_auto_detect_billing_cycle_rebuilds_bill_estimate_for_new_bounds():
+    client = _client_with_hourly_results([_GOOD_HOURLY_DATA])
+    client.get_interval_data.return_value = {
+        "daily": {
+            "export": [
+                {
+                    "periodFrom": "2026-03-10T00:00:00Z",
+                    "consumption": 1,
+                    "charge": {"value": 10, "type": "DEBIT"},
+                },
+                {
+                    "periodFrom": "2026-03-18T00:00:00Z",
+                    "consumption": 1,
+                    "charge": {"value": 4, "type": "DEBIT"},
+                },
+            ]
+        }
+    }
+    client.get_statements.return_value = {
+        "statements": [
+            {"periodFrom": "2026-02-17T00:00:00Z", "issueDate": "2026-03-18"}
+        ]
+    }
+    plan_config = PlanConfig(billing_cycle_day=1)
+    coordinator = OVOEnergyAUDataUpdateCoordinator(
+        MagicMock(), client, "account", plan_config, auto_detect_billing_cycle=True
+    )
+
+    result = await coordinator._async_update_data()
+
+    assert coordinator.plan_config.billing_cycle_day == 17
+    # 10 March is before the detected 17 March cycle, so only 18 March remains.
+    assert result["month_to_date"]["days"] == 1
+    assert result["bill_estimate"]["mtd_days"] == 1
+    assert result["bill_estimate"]["mtd_grid_cost"] == 4
+    assert result["bill_estimate"]["mtd_bill"] == 4
+

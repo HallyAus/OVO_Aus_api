@@ -408,37 +408,27 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             if CONF_PLAN_TYPE in user_input:
                 return self._create_manual_entry(user_input)
 
+            manual_override = bool(user_input.get(CONF_MANUAL_OVERRIDE, False))
+            # This screen only sets device grouping and the manual-plan switch.
+            # Billing day and peak hours belong to the manual step. Writing a
+            # fallback billing_cycle_day here would pin the cycle, and
+            # auto-detect runs only while that key is absent from options.
             self._options = {
                 CONF_CONSOLIDATE_DEVICES: bool(
                     user_input.get(CONF_CONSOLIDATE_DEVICES, False)
                 ),
-                CONF_BILLING_CYCLE_DAY: int(
-                    user_input.get(
-                        CONF_BILLING_CYCLE_DAY,
-                        current.get(CONF_BILLING_CYCLE_DAY, 1),
-                    )
-                ),
-                CONF_PEAK_START_HOUR: int(
-                    user_input.get(
-                        CONF_PEAK_START_HOUR,
-                        current.get(CONF_PEAK_START_HOUR, 0),
-                    )
-                ),
-                CONF_PEAK_END_HOUR: int(
-                    user_input.get(
-                        CONF_PEAK_END_HOUR,
-                        current.get(CONF_PEAK_END_HOUR, 0),
-                    )
-                ),
-                CONF_MANUAL_OVERRIDE: bool(user_input.get(CONF_MANUAL_OVERRIDE, False)),
+                CONF_MANUAL_OVERRIDE: manual_override,
             }
-            if user_input.get(CONF_MANUAL_OVERRIDE):
+            if manual_override:
                 return await self.async_step_manual_rates()
-            # Automatic mode: return base options without plan/rate overrides
             return self.async_create_entry(title="", data=self._options)
 
+        saved = self.config_entry.options
+        # Installs that saved a plan before manual_override existed have no
+        # such key. Default the box on when that plan is present so Submit
+        # does not wipe it. An explicit False stays off.
         has_manual_override = bool(
-            self.config_entry.options.get(CONF_MANUAL_OVERRIDE, False)
+            saved.get(CONF_MANUAL_OVERRIDE, CONF_PLAN_TYPE in saved)
         )
 
         schema_fields = {

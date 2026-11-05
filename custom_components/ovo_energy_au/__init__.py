@@ -133,5 +133,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_remove_config_entry_device(
     hass: HomeAssistant, config_entry: ConfigEntry, device_entry: dr.DeviceEntry
 ) -> bool:
-    """Remove a config entry from a device."""
-    return True
+    """Remove a stale device, but never the live account device."""
+    runtime_data = getattr(config_entry, "runtime_data", None)
+    account_device_id = getattr(runtime_data, "account_device_id", None)
+    return account_device_id is None or device_entry.id != account_device_id

@@ -166,54 +166,8 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             # 4. Analytics insights
             compute_insights(processed)
 
-            # 4b. Calculate bill estimate
-            try:
-                # Get standing charge from product agreements
-                standing_daily = 0
-                if product := get_current_product(processed):
-                    standing_cents = product.get("standingChargeCentsPerDay", 0) or 0
-                    standing_daily = standing_cents / 100  # Convert to AUD
-
-                # Month-to-date bill
-                mtd = processed.get("month_to_date", {})
-                mtd_days = mtd.get("days", 0) or 0
-                mtd_grid = mtd.get("grid_charge", 0) or 0
-                # Export credits reduce the bill. Solar generation is a
-                # separate measurement and is not itself a bill credit.
-                mtd_export_credit = abs(mtd.get("return_to_grid_charge", 0) or 0)
-                mtd_standing = standing_daily * mtd_days
-                mtd_bill = mtd_grid + mtd_standing - mtd_export_credit
-
-                # Project the full billing cycle (calendar month when the
-                # billing cycle day is 1)
-                if mtd_days > 0:
-                    now_au = dt_util.now(AU_TIMEZONE)
-                    cycle_start, cycle_next = current_cycle_bounds(
-                        now_au.date(), self.plan_config.billing_cycle_day
-                    )
-                    days_in_month = (cycle_next - cycle_start).days
-                    daily_avg_net = mtd_bill / mtd_days
-                    projected_bill = daily_avg_net * days_in_month
-                    remaining_bill = daily_avg_net * (days_in_month - mtd_days)
-
-                    processed["bill_estimate"] = {
-                        "mtd_bill": round(mtd_bill, 2),
-                        "mtd_grid_cost": round(mtd_grid, 2),
-                        "mtd_export_credit": round(mtd_export_credit, 2),
-                        "mtd_standing_charge": round(mtd_standing, 2),
-                        "mtd_days": mtd_days,
-                        "standing_charge_daily": round(standing_daily, 2),
-                        "projected_bill": round(projected_bill, 2),
-                        "remaining_estimate": round(remaining_bill, 2),
-                        "daily_average_net": round(daily_avg_net, 2),
-                        "days_in_month": days_in_month,
-                        "days_remaining": days_in_month - mtd_days,
-                    }
-                else:
-                    processed["bill_estimate"] = {}
-            except Exception as err:
-                _LOGGER.debug("Failed to calculate bill estimate: %s", type(err).__name__)
-                processed["bill_estimate"] = {}
+            # 4b. Calculate bill estimate (rebuilt if auto-detect moves the cycle)
+            self._apply_bill_estimate(processed)
 
             # 4c. Billing statements (real bills with PDF links)
             try:
@@ -245,6 +199,8 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                                     interval_data, self.plan_config.billing_cycle_day
                                 )
                                 processed.update(reprocessed)
+                                # The estimate above used the previous cycle bounds.
+                                self._apply_bill_estimate(processed)
                     charges_total = ((latest.get("charges") or {}).get("total") or {})
                     processed["latest_bill"] = {
                         "total": charges_total.get("value"),
@@ -395,6 +351,56 @@ class OVOEnergyAUDataUpdateCoordinator(TimestampDataUpdateCoordinator):
     def _hourly_payload_is_usable(hourly: dict) -> bool:
         """Return whether processing yielded at least one real hourly entry."""
         return any(hourly.get(key) for key in _HOURLY_ENTRY_KEYS)
+
+    def _apply_bill_estimate(self, processed: dict) -> None:
+        """Project the current billing cycle from month-to-date usage."""
+        try:
+            # Get standing charge from product agreements
+            standing_daily = 0
+            if product := get_current_product(processed):
+                standing_cents = product.get("standingChargeCentsPerDay", 0) or 0
+                standing_daily = standing_cents / 100  # Convert to AUD
+
+            # Month-to-date bill
+            mtd = processed.get("month_to_date", {})
+            mtd_days = mtd.get("days", 0) or 0
+            mtd_grid = mtd.get("grid_charge", 0) or 0
+            # Export credits reduce the bill. Solar generation is a
+            # separate measurement and is not itself a bill credit.
+            mtd_export_credit = abs(mtd.get("return_to_grid_charge", 0) or 0)
+            mtd_standing = standing_daily * mtd_days
+            mtd_bill = mtd_grid + mtd_standing - mtd_export_credit
+
+            # Project the full billing cycle (calendar month when the
+            # billing cycle day is 1)
+            if mtd_days > 0:
+                now_au = dt_util.now(AU_TIMEZONE)
+                cycle_start, cycle_next = current_cycle_bounds(
+                    now_au.date(), self.plan_config.billing_cycle_day
+                )
+                days_in_month = (cycle_next - cycle_start).days
+                daily_avg_net = mtd_bill / mtd_days
+                projected_bill = daily_avg_net * days_in_month
+                remaining_bill = daily_avg_net * (days_in_month - mtd_days)
+
+                processed["bill_estimate"] = {
+                    "mtd_bill": round(mtd_bill, 2),
+                    "mtd_grid_cost": round(mtd_grid, 2),
+                    "mtd_export_credit": round(mtd_export_credit, 2),
+                    "mtd_standing_charge": round(mtd_standing, 2),
+                    "mtd_days": mtd_days,
+                    "standing_charge_daily": round(standing_daily, 2),
+                    "projected_bill": round(projected_bill, 2),
+                    "remaining_estimate": round(remaining_bill, 2),
+                    "daily_average_net": round(daily_avg_net, 2),
+                    "days_in_month": days_in_month,
+                    "days_remaining": days_in_month - mtd_days,
+                }
+            else:
+                processed["bill_estimate"] = {}
+        except Exception as err:
+            _LOGGER.debug("Failed to calculate bill estimate: %s", type(err).__name__)
+            processed["bill_estimate"] = {}
 
     def _use_hourly_fallback(self, processed: dict, issue: str) -> None:
         """Keep prior hourly data stale, or leave it unavailable on cold start."""

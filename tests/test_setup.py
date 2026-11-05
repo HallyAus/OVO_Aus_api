@@ -178,6 +178,19 @@ async def test_async_remove_config_entry_device():
     assert await async_remove_config_entry_device(hass, entry, device_entry) is True
 
 
+@pytest.mark.asyncio
+async def test_async_remove_config_entry_device_keeps_live_account_device():
+    hass = MagicMock()
+    entry = SimpleNamespace(
+        runtime_data=SimpleNamespace(account_device_id="account-device-id"),
+    )
+    account_device = SimpleNamespace(id="account-device-id")
+    stale_device = SimpleNamespace(id="stale-category-device")
+
+    assert await async_remove_config_entry_device(hass, entry, account_device) is False
+    assert await async_remove_config_entry_device(hass, entry, stale_device) is True
+
+
 def test_retired_sensor_keys_include_legacy_orphans():
     from custom_components.ovo_energy_au.sensor import (
         _RETIRED_SENSOR_KEYS,
