@@ -654,7 +654,7 @@ async def test_setup_omits_ev_sensors_when_plan_is_not_ev():
 
     coordinator = MagicMock()
     coordinator.account_id = "account-id"
-    coordinator.data = {}
+    coordinator.data = {"vehicle_status": "none_found"}
     coordinator.plan_config = PlanConfig(plan_type="free_3")
     coordinator.async_add_listener.return_value = lambda: None
     entry = MagicMock()
