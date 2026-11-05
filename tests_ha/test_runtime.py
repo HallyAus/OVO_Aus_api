@@ -97,7 +97,7 @@ async def test_old_billing_devices_are_reused(hass, entry, client):
         entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"fixture-account_{prefix}grid_consumption")
         assert registry.async_get(entity_id).device_id == old_devices[old].id
     assert not any((DOMAIN, "fixture-account_Last Billing Month") in device.identifiers
-                   for device in devices.devices.values())
+                   for device in dr.async_entries_for_config_entry(devices, entry.entry_id))
     await hass.config_entries.async_unload(entry.entry_id)
 
 
