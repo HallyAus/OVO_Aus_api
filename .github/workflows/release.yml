@@ -6,21 +6,31 @@ on:
   push:
     tags:
       - 'v*'
-  # Cloud/agent sessions can push branches but not tags — dispatching with a
-  # tag input lets the release run from main and create the tag itself
-  # (action-gh-release tags the commit the run is on when the tag is missing).
+  # One explicitly authorised release request. Creating this exact branch at
+  # the tested main SHA runs the normal release gate; other creates do not.
+  create:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v4.7.1); created at the run's commit if it does not exist"
+        description: "Release tag (e.g. v4.11.0); created at the run's commit if it does not exist"
         required: true
+
+concurrency:
+  group: release-${{ github.event_name == 'create' && 'v4.11.0' || inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   release:
+    if: >-
+      ${{ github.repository == 'HallyAus/OVO_Aus_api' &&
+          (github.event_name != 'create' ||
+           (github.event.ref_type == 'branch' && github.event.ref == 'release/v4.11.0')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       actions: read
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'create' && 'v4.11.0' || inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -30,55 +40,92 @@ jobs:
       - name: Verify release version and successful CI for this commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: python scripts/verify_github_release.py
 
       - name: Create release zip
         run: python scripts/package_github_release.py
 
-      - name: Build release notes (referrals + auto-generated changelog)
+      - name: Build release notes with the maintainer referral
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          tag="${INPUT_TAG:-${GITHUB_REF#refs/tags/}}"
-          prev="$(gh api repos/${{ github.repository }}/releases/latest --jq .tag_name 2>/dev/null || echo '')"
-          if [ -n "$prev" ] && [ "$prev" != "$tag" ]; then
-            auto=$(gh api -X POST repos/${{ github.repository }}/releases/generate-notes \
-              -f tag_name="$tag" -f target_commitish="$GITHUB_SHA" -f previous_tag_name="$prev" --jq .body)
+          if [ -f "docs/releases/${RELEASE_TAG}.md" ]; then
+            cp "docs/releases/${RELEASE_TAG}.md" release-notes.md
           else
-            auto=$(gh api -X POST repos/${{ github.repository }}/releases/generate-notes \
-              -f tag_name="$tag" -f target_commitish="$GITHUB_SHA" --jq .body)
+            prev="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name 2>/dev/null || echo '')"
+            if [ -n "$prev" ] && [ "$prev" != "$RELEASE_TAG" ]; then
+              auto=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+                -f tag_name="$RELEASE_TAG" -f target_commitish="$GITHUB_SHA" -f previous_tag_name="$prev" --jq .body)
+            else
+              auto=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+                -f tag_name="$RELEASE_TAG" -f target_commitish="$GITHUB_SHA" --jq .body)
+            fi
+            {
+              echo '## Support this project with an OVO referral'
+              echo ''
+              echo '**Referral code:** `daniel16485`'
+              echo '**Direct OVO signup:** https://www.ovoenergy.com.au/refer/daniel16485'
+              echo '**Friendly link:** https://ovoreferralcode.com/'
+              echo ''
+              echo 'Eligible referrals support this integration. Credit depends on the plan and current OVO terms: https://www.ovoenergy.com.au/terms/refer-a-friend/'
+              echo ''
+              echo '---'
+              echo ''
+              printf '%s\n' "$auto"
+            } > release-notes.md
           fi
-          {
-            echo '## 💚 Support this project — it'"'"'s my only income from it'
-            echo ''
-            echo 'Referrals below are the only thing funding ongoing development. Both you and I get credit.'
-            echo ''
-            echo '### ⭐ [Star on GitHub](https://github.com/HallyAus/OVO_Aus_api) — takes two seconds'
-            echo ''
-            echo '### 🎁 OVO Energy — $180 credit'
-            echo '**Referral code:** `daniel16485`  '
-            echo '**Direct OVO signup:** [https://www.ovoenergy.com.au/refer/daniel16485](https://www.ovoenergy.com.au/refer/daniel16485)  '
-            echo '**Friendly link:** [https://ovoreferralcode.com/](https://ovoreferralcode.com/)'
-            echo ''
-            echo '- ✅ $180 credit (incl. GST) on all eligible plans — including The EV Plan (no EV required)'
-            echo '- ✅ Paid as $15/month over 12 months — both you and I get credit'
-            echo ''
-            echo '### 🛰️ Starlink — 1 month free'
-            echo '👉 **[starlink.com/residential?referral=RC-2455784-77014-69](https://starlink.com/residential?referral=RC-2455784-77014-69&app_source=share)**'
-            echo ''
-            echo '---'
-            echo ''
-            printf '%s\n' "$auto"
-          } > release-notes.md
-          cat release-notes.md
+          grep -Fq 'daniel16485' release-notes.md
+          grep -Fq 'https://www.ovoenergy.com.au/refer/daniel16485' release-notes.md
+          grep -Fq 'https://ovoreferralcode.com/' release-notes.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          tag_name: ${{ inputs.tag || github.ref_name }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: OVO Energy Australia ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
           make_latest: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
           files: ovo_energy_au.zip
           body_path: release-notes.md
+
+      - name: Verify the published tag, referral and downloaded release ZIP
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > "$RUNNER_TEMP/ovo-release.json"
+          gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" > "$RUNNER_TEMP/ovo-tag.json"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern ovo_energy_au.zip --dir "$RUNNER_TEMP/ovo-published"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import zipfile
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP'])
+          release = json.loads((root / 'ovo-release.json').read_text())
+          tag = json.loads((root / 'ovo-tag.json').read_text())
+          expected_tag = os.environ['RELEASE_TAG']
+          if release['tag_name'] != expected_tag or release['draft'] or release['prerelease']:
+              raise SystemExit('Unexpected published release state')
+          if tag['object']['type'] != 'commit' or tag['object']['sha'] != os.environ['GITHUB_SHA']:
+              raise SystemExit('Published tag does not point to the validated source')
+          if release['body'].replace('\r\n', '\n').strip() != Path('release-notes.md').read_text().strip():
+              raise SystemExit('Published release notes differ from the approved referral notes')
+          downloaded = root / 'ovo-published/ovo_energy_au.zip'
+          digest = hashlib.sha256(downloaded.read_bytes()).hexdigest()
+          if digest != hashlib.sha256(Path('ovo_energy_au.zip').read_bytes()).hexdigest():
+              raise SystemExit('Downloaded release ZIP differs from the validated artifact')
+          with zipfile.ZipFile(downloaded) as archive:
+              if archive.testzip() is not None:
+                  raise SystemExit('Published release ZIP failed its integrity check')
+              if json.loads(archive.read('ovo_energy_au/manifest.json'))['version'] != expected_tag[1:]:
+                  raise SystemExit('Published integration version does not match its tag')
+              if any(not name.startswith('ovo_energy_au/') or '\\' in name or '..' in name.split('/') for name in archive.namelist()):
+                  raise SystemExit('Published archive contains an unexpected path')
+              count = len(archive.namelist())
+          print(f'Published {expected_tag}: tag matches source, referral notes verified, {count} ZIP members, SHA-256 {digest}')
+          PY
