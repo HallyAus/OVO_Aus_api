@@ -77,3 +77,49 @@ async def test_rejected_credentials_request_reauth(hass, entry, client):
     with patch("custom_components.ovo_energy_au.OVOEnergyAUApiClient", return_value=client):
         assert not await hass.config_entries.async_setup(entry.entry_id)
     assert entry.state == ConfigEntryState.SETUP_ERROR
+
+async def test_old_billing_devices_are_reused(hass, entry, client):
+    """Category labels may change, but the device registry identity must not."""
+    from homeassistant.helpers import device_registry as dr
+
+    devices = dr.async_get(hass)
+    registry = er.async_get(hass)
+    old_devices = {
+        old: devices.async_get_or_create(
+            config_entry_id=entry.entry_id, identifiers={(DOMAIN, f"fixture-account_{old}")}
+        )
+        for old in ("Last Month", "Month to Date")
+    }
+    with patch("custom_components.ovo_energy_au.OVOEnergyAUApiClient", return_value=client):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    for prefix, old in (("last_month_", "Last Month"), ("month_to_date_", "Month to Date")):
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"fixture-account_{prefix}grid_consumption")
+        assert registry.async_get(entity_id).device_id == old_devices[old].id
+    assert not any((DOMAIN, "fixture-account_Last Billing Month") in device.identifiers
+                   for device in dr.async_entries_for_config_entry(devices, entry.entry_id))
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_ev_entries_survive_discovery_failure_and_recover(hass, entry, client):
+    from custom_components.ovo_energy_au.sensor import _EV_SENSOR_KEYS
+
+    registry = er.async_get(hass)
+    for key in _EV_SENSOR_KEYS:
+        registry.async_get_or_create("sensor", DOMAIN, f"fixture-account_{key}", config_entry=entry)
+    client.get_vehicle_data.side_effect = RuntimeError("discovery unavailable")
+    with patch("custom_components.ovo_energy_au.OVOEnergyAUApiClient", return_value=client):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        for key in _EV_SENSOR_KEYS:
+            entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"fixture-account_{key}")
+            assert entity_id is not None
+            assert hass.states.get(entity_id) is not None
+        client.get_vehicle_data.side_effect = None
+        client.get_vehicle_data.return_value = [{"id": "test-vehicle"}]
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+        for key in _EV_SENSOR_KEYS:
+            entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"fixture-account_{key}")
+            assert hass.states.get(entity_id) is not None
+        await hass.config_entries.async_unload(entry.entry_id)

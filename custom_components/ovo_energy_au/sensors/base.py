@@ -14,6 +14,13 @@ from ..time_utils import parse_ovo_datetime
 
 _LOGGER = logging.getLogger(__name__)
 
+# These category labels are displayed to users; their old values are persistent
+# device registry identifiers and must remain stable across upgrades.
+_DEVICE_CATEGORY_IDENTIFIERS = {
+    "Last Billing Month": "Last Month",
+    "Billing Month to Date": "Month to Date",
+}
+
 _DEFAULT_DISABLED_CATEGORIES = {
     "Daily History",
     "Hourly Data",
@@ -81,7 +88,8 @@ class OVOBaseSensor(CoordinatorEntity, SensorEntity):
             }
         info = {
             "identifiers": {
-                (DOMAIN, f"{self.coordinator.account_id}_{self._device_category}")
+                (DOMAIN, f"{self.coordinator.account_id}_"
+                 f"{_DEVICE_CATEGORY_IDENTIFIERS.get(self._device_category, self._device_category)}")
             },
             "name": f"OVO Energy AU - {self._device_category}",
             "manufacturer": "OVO Energy Australia",
