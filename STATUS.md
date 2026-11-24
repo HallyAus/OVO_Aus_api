@@ -94,6 +94,12 @@ validator images. Release verification refuses publication unless every named
 job succeeded in the latest main-push run for the exact source SHA. Local checks
 do not substitute for missing hosted CI or HACS results.
 
+Dependabot auto-merge enables a merge commit only for semver-patch updates.
+Minor and major updates stay open for review. `dependabot/fetch-metadata` is
+pinned to v3.1.0 (`25dd0e34f4fe68f24cc83900b1fe3fe149efef98`). Workflows that
+use secrets keep a top-level permissions block, and non-`actions/*` actions in
+those workflows stay pinned to a full commit.
+
 Treat exact test counts as volatile; inspect the current run rather than copying old counts from README/docs.
 
 ## Current product state
